@@ -20,7 +20,7 @@ from github import Github
 from github.Rate import Rate
 from github.RateLimit import RateLimit
 
-from src.living_doc_utilities.github.rate_limiter import GithubRateLimiter
+from living_doc_utilities.github.rate_limiter import GithubRateLimiter
 
 
 @pytest.fixture

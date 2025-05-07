@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-from src.living_doc_utilities.model.issue import Issue
-from src.living_doc_utilities.model.issues import Issues
+from living_doc_utilities.model.issue import Issue
+from living_doc_utilities.model.issues import Issues
 
 
 def test_issues_initialization():

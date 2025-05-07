@@ -186,6 +186,8 @@ open htmlcov/index.html
 
 Ensure your pyproject.toml includes this structure:
 
+TODO - update to latest version
+
 ```toml
 [build-system]
 requires = ["setuptools>=61.0"]

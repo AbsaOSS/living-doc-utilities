@@ -20,7 +20,7 @@ This module contains the Issue class, which represents the data of an issue.
 
 from typing import Any, Optional
 
-from src.living_doc_utilities.model.project_status import ProjectStatus
+from living_doc_utilities.model.project_status import ProjectStatus
 
 
 # pylint: disable=too-many-instance-attributes

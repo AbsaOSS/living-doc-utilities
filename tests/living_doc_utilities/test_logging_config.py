@@ -19,7 +19,7 @@ import os
 import sys
 from logging import StreamHandler
 
-from src.living_doc_utilities.logging_config import setup_logging
+from living_doc_utilities.logging_config import setup_logging
 
 
 def validate_logging_config(mock_logging_setup, caplog, expected_level, expected_message):

@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from src.living_doc_utilities.model.issue import Issue
+from living_doc_utilities.model.issue import Issue
 
 
 class Issues:

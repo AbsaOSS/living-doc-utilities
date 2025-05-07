@@ -21,8 +21,8 @@ which are essential for running the GH action.
 import logging
 from abc import ABC, abstractmethod
 
-from src.living_doc_utilities.constants import GITHUB_TOKEN
-from src.living_doc_utilities.github.utils import get_action_input
+from living_doc_utilities.constants import GITHUB_TOKEN
+from living_doc_utilities.github.utils import get_action_input
 
 logger = logging.getLogger(__name__)
 

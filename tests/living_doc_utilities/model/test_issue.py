@@ -15,8 +15,8 @@
 #
 
 
-from src.living_doc_utilities.model.issue import Issue
-from src.living_doc_utilities.model.project_status import ProjectStatus
+from living_doc_utilities.model.issue import Issue
+from living_doc_utilities.model.project_status import ProjectStatus
 
 
 def test_issue_initialization():

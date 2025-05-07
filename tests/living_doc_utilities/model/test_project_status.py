@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from src.living_doc_utilities.constants import NO_PROJECT_DATA
-from src.living_doc_utilities.model.project_status import ProjectStatus
+from living_doc_utilities import NO_PROJECT_DATA
+from living_doc_utilities.model.project_status import ProjectStatus
 
 
 def test_project_status_initialization():
