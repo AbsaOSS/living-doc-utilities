@@ -41,11 +41,11 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Set PROJECT_ROOT and update PYTHONPATH
-        run: |
-          ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
-        shell: bash
+#      - name: Set PROJECT_ROOT and update PYTHONPATH
+#        run: |
+#          ACTION_ROOT="${{ github.workspace }}"
+#          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-utilities"
+#        shell: bash
 
       - name: Analyze code with Pylint
         id: analyze-code
@@ -81,11 +81,11 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Set PROJECT_ROOT and update PYTHONPATH
-        run: |
-          ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
-        shell: bash
+#      - name: Set PROJECT_ROOT and update PYTHONPATH
+#        run: |
+#          ACTION_ROOT="${{ github.workspace }}"
+#          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
+#        shell: bash
 
       - name: Check code format with Black
         id: check-format
@@ -111,11 +111,11 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Set PROJECT_ROOT and update PYTHONPATH
-        run: |
-          ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
-        shell: bash
+#      - name: Set PROJECT_ROOT and update PYTHONPATH
+#        run: |
+#          ACTION_ROOT="${{ github.workspace }}"
+#          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
+#        shell: bash
 
       - name: Check types with Mypy
         id: check-types
@@ -143,12 +143,12 @@ jobs:
           pip install -r requirements.txt
           echo "${{ github.workspace }}"
 
-      - name: Set PROJECT_ROOT and update PYTHONPATH
-        run: |
-          ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
-          echo "${PYTHONPATH}"
-        shell: bash
+#      - name: Set PROJECT_ROOT and update PYTHONPATH
+#        run: |
+#          ACTION_ROOT="${{ github.workspace }}"
+#          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
+#          echo "${PYTHONPATH}"
+#        shell: bash
 
       - name: Check code coverage with Pytest
         run: pytest --cov=. -v tests/ --cov-fail-under=80
