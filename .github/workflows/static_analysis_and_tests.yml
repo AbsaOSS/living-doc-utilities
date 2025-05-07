@@ -123,9 +123,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          echo "${{ github.workspace }}"
 
       - name: Check code coverage with Pytest
         run: |
-          export PYTHONPATH="${{ github.workspace }}"
+          echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
           pytest --cov=. -v tests/ --cov-fail-under=80
