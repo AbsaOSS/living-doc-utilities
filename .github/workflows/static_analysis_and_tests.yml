@@ -44,7 +44,7 @@ jobs:
       - name: Set PROJECT_ROOT and update PYTHONPATH
         run: |
           ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-utilities"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
         shell: bash
 
       - name: Analyze code with Pylint
@@ -84,7 +84,7 @@ jobs:
       - name: Set PROJECT_ROOT and update PYTHONPATH
         run: |
           ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-utilities"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
         shell: bash
 
       - name: Check code format with Black
@@ -145,7 +145,7 @@ jobs:
       - name: Set PROJECT_ROOT and update PYTHONPATH
         run: |
           ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-utilities"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}"
         shell: bash
 
       - name: Check code coverage with Pytest
