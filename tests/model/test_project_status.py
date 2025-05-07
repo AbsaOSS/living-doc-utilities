@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from living_doc_utilities import NO_PROJECT_DATA
+from living_doc_utilities.constants import NO_PROJECT_DATA
 from living_doc_utilities.model.project_status import ProjectStatus
 
 

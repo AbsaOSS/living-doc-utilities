@@ -17,7 +17,7 @@
 from github import GithubException
 from requests import RequestException
 
-from living_doc_utilities import debug_log_decorator, safe_call_decorator
+from living_doc_utilities.decorators import debug_log_decorator, safe_call_decorator
 
 
 # sample function to be decorated

@@ -16,7 +16,7 @@
 
 import pytest
 
-from living_doc_utilities import BaseActionInputs
+from living_doc_utilities.inputs.action_inputs import BaseActionInputs
 
 
 class TestActionInputs(BaseActionInputs):
