@@ -126,7 +126,7 @@ jobs:
 
       - name: Check code coverage with Pytest
         run: |
-          echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          export PYTHONPATH="${{ github.workspace }}"
           export
           pytest --cov=. -v tests/ --cov-fail-under=80
         shell: bash
