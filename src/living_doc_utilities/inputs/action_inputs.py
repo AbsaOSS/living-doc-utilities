@@ -19,7 +19,7 @@ This module contains an Action Inputs class methods,
 which are essential for running the GH action.
 """
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from src.living_doc_utilities.constants import GITHUB_TOKEN
 from src.living_doc_utilities.github.utils import get_action_input
@@ -55,6 +55,7 @@ class BaseActionInputs(ABC):
         logger.debug("User configuration validation successfully completed.")
         return True
 
+    @abstractmethod
     def _validate(self) -> int: ...
 
     def print_effective_configuration(self) -> None:
@@ -65,4 +66,5 @@ class BaseActionInputs(ABC):
         logger.debug("GitHub token: %s", self.get_github_token())
         self._print_effective_configuration()
 
+    @abstractmethod
     def _print_effective_configuration(self) -> None: ...
