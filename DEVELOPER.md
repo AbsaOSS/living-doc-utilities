@@ -1,7 +1,6 @@
 # Living Documentation Utilities - for Developers
 
 - [Project Setup](#project-setup)
-- [Run Scripts Locally](#run-scripts-locally)
 - [Run Pylint Check Locally](#run-pylint-check-locally)
 - [Run Black Tool Locally](#run-black-tool-locally)
 - [Run mypy Tool Locally](#run-mypy-tool-locally)
@@ -26,64 +25,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
-
----
-## Run Scripts Locally
-
-If you need to run the scripts locally, follow these steps:
-
-### Create the Shell Script
-
-Create the shell file in the root directory. We will use `run_script.sh`.
-```shell
-touch run_script.sh
-```
-Add the shebang line at the top of the sh script file.
-```
-#!/bin/sh
-```
-
-### Set the Environment Variables
-
-Set the configuration environment variables in the shell script following the structure below.
-The generator supports mining in multiple modes, so you can use just the environment variables you need.
-Also make sure that the INPUT_GITHUB_TOKEN is configured in your environment variables.
-```
-# Essential environment variables for GitHub Action functionality
-export INPUT_GITHUB_TOKEN=$(printenv GITHUB_TOKEN)
-export INPUT_VERBOSE_LOGGING=true
-```
-
-### Running the script locally
-
-For running the GitHub action locally, incorporate these commands into the shell script and save it.
-```
-python3 main.py
-```
-The whole script should look like this example:
-```
-#!/bin/sh
-
-# Essential environment variables for GitHub Action functionality
-export INPUT_GITHUB_TOKEN=$(printenv GITHUB_TOKEN)
-export INPUT_VERBOSE_LOGGING=true
-
-python3 main.py
-```
-
-### Make the Script Executable
-
-From the terminal, at the root of this project, make the script executable:
-```shell
-chmod +x run_script.sh
-```
-
-### Run the Script
-
-```shell
-./run_script.sh
-```
-
 ---
 ## Run Pylint Check Locally
 
@@ -110,7 +51,7 @@ To run Pylint on a specific file, follow the pattern `pylint <path_to_file>/<nam
 
 Example:
 ```shell
-pylint serde/TODO.py
+pylint src/living_doc_utilities/inputs/action_inptuts.py
 ``` 
 
 ### Expected Output
@@ -150,7 +91,7 @@ To run Black on a specific file, follow the pattern `black <path_to_file>/<name_
 
 Example:
 ```shell
-black serde/TODO.py 
+black ./src/living_doc_utilities/inputs/action_inputs.py 
 ``` 
 
 ### Expected Output
@@ -235,6 +176,8 @@ open htmlcov/index.html
 ## Releasing
 
 This project uses GitHub Actions for deployment draft creation. The deployment process is semi-automated by a workflow defined in `.github/workflows/release_draft.yml`.
+
+TODO 
 
 - **Trigger the workflow**: The `release_draft.yml` workflow is triggered on workflow_dispatch.
 - **Create a new draft release**: The workflow creates a new draft release in the repository.

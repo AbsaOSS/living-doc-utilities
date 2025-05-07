@@ -55,8 +55,7 @@ class BaseActionInputs(ABC):
         logger.debug("User configuration validation successfully completed.")
         return True
 
-    def _validate(self) -> int:
-        ...
+    def _validate(self) -> int: ...
 
     def print_effective_configuration(self) -> None:
         """
@@ -66,5 +65,4 @@ class BaseActionInputs(ABC):
         logger.debug("GitHub token: %s", self.get_github_token())
         self._print_effective_configuration()
 
-    def _print_effective_configuration(self) -> None:
-        ...
+    def _print_effective_configuration(self) -> None: ...
