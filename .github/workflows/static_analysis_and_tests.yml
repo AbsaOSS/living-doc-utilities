@@ -146,7 +146,7 @@ jobs:
       - name: Set PROJECT_ROOT and update PYTHONPATH
         run: |
           ACTION_ROOT="${{ github.workspace }}"
-          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-utilities"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/.."
           echo "${PYTHONPATH}"
         shell: bash
 
