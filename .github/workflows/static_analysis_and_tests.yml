@@ -131,6 +131,5 @@ jobs:
           ls -l
           export PYTHONPATH="${{ github.workspace }}"
           export
-          ls -l ./${ PYTHONPATH }
           pytest --cov=. -v tests/ --cov-fail-under=80
         shell: bash
