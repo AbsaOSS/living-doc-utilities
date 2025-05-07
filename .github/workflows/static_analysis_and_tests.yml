@@ -34,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5.1.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
@@ -74,7 +74,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5.1.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
@@ -104,7 +104,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5.1.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
@@ -114,7 +114,9 @@ jobs:
       - name: Set PROJECT_ROOT and update PYTHONPATH
         run: |
           ACTION_ROOT="${{ github.workspace }}"
+          echo "${{ github.workspace }}"
           export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-utilities"
+          echo "${PYTHONPATH}"
         shell: bash
 
       - name: Check types with Mypy
@@ -135,7 +137,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5.1.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
