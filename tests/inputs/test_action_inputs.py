@@ -34,7 +34,7 @@ def action_inputs():
 
 def test_get_github_token(mocker, action_inputs):
     mock_get_action_input = mocker.patch(
-        "src.living_doc_utilities.inputs.action_inputs.get_action_input",
+        "living_doc_utilities.inputs.action_inputs.get_action_input",
         return_value="mock_token",
     )
     token = action_inputs.get_github_token()
@@ -54,7 +54,7 @@ def test_validate_user_configuration_failure(mocker, action_inputs):
 
 def test_print_effective_configuration(mocker, action_inputs):
     mock_get_action_input = mocker.patch(
-        "src.living_doc_utilities.inputs.action_inputs.get_action_input",
+        "living_doc_utilities.inputs.action_inputs.get_action_input",
         return_value="mock_token",
     )
     mock_print_config = mocker.patch.object(TestActionInputs, "_print_effective_configuration")
