@@ -41,6 +41,12 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Set PROJECT_ROOT and update PYTHONPATH
+        run: |
+          ACTION_ROOT="${{ github.action_path }}"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-generator"
+        shell: bash
+
       - name: Analyze code with Pylint
         id: analyze-code
         run: |
@@ -75,6 +81,12 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Set PROJECT_ROOT and update PYTHONPATH
+        run: |
+          ACTION_ROOT="${{ github.action_path }}"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-generator"
+        shell: bash
+
       - name: Check code format with Black
         id: check-format
         run: |
@@ -98,6 +110,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+
+      - name: Set PROJECT_ROOT and update PYTHONPATH
+        run: |
+          ACTION_ROOT="${{ github.action_path }}"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-generator"
+        shell: bash
 
       - name: Check types with Mypy
         id: check-types
@@ -123,6 +141,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+
+      - name: Set PROJECT_ROOT and update PYTHONPATH
+        run: |
+          ACTION_ROOT="${{ github.action_path }}"
+          export PYTHONPATH="${PYTHONPATH}:${ACTION_ROOT}/living-doc-generator"
+        shell: bash
 
       - name: Check code coverage with Pytest
         run: pytest --ignore=tests/integration --cov=. -v tests/ --cov-fail-under=80
