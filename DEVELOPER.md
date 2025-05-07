@@ -175,11 +175,76 @@ open htmlcov/index.html
 ---
 ## Releasing
 
-This project uses GitHub Actions for deployment draft creation. The deployment process is semi-automated by a workflow defined in `.github/workflows/release_draft.yml`.
+### 1. One-Time Setup
 
-TODO 
+#### Register on PyPI
 
-- **Trigger the workflow**: The `release_draft.yml` workflow is triggered on workflow_dispatch.
-- **Create a new draft release**: The workflow creates a new draft release in the repository.
-- **Finalize the release draft**: Edit the draft release to add a title, description, and any other necessary details related to the GitHub Action.
-- **Publish the release**: Once the draft is ready, publish the release to make it publicly available.
+- Create an account on https://pypi.org
+- (Optional) Also register on TestPyPI for safe dry runs
+
+#### Prepare Project for Build
+
+Ensure your pyproject.toml includes this structure:
+
+```toml
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "living-doc-utilities"
+version = "0.1.0"
+description = "Shared utility functions and data models for the Living Documentation ecosystem."
+authors = [{ name = "Miroslav Pojer", email = "miroslav.pojer@absa.africa" }]
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+```
+### 2. Build the Package
+Install the required tools:
+
+```bash
+pip install build twine
+```
+
+Then build the package:
+
+```bash
+python -m build
+```
+
+This creates a dist/ folder with .whl and .tar.gz artifacts.
+
+### 3. Upload to PyPI
+
+Use twine to securely upload the package:
+
+```bash
+twine upload dist/*
+```
+
+You’ll be prompted for your PyPI username and password (or use an API token as the password).
+
+To test the process before pushing live, use TestPyPI:
+
+```bash
+twine upload --repository testpypi dist/*
+```
+
+### 4. Test Installation (optional)
+
+Test from PyPI:
+
+```bash
+Test from PyPI:
+```
+
+Or from TestPyPI:
+
+```bash
+pip install --index-url https://test.pypi.org/simple/ living-doc-utilities
+```
