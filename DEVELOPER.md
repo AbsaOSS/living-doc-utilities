@@ -145,7 +145,7 @@ Success: no issues found in 1 source file
 
 Unit tests are written using the Pytest framework. To run all the tests, use the following command:
 ```shell
-pytest --ignore=tests/integration tests/
+pytest tests/
 ```
 
 You can modify the directory to control the level of detail or granularity as per your needs.
@@ -163,7 +163,7 @@ The objective of the project is to achieve a minimum score of 80 %. We do exclud
 
 To generate the coverage report, run the following command:
 ```shell
-pytest --ignore=tests/integration --cov=. tests/ --cov-fail-under=80 --cov-report=html
+pytest --cov=. tests/ --cov-fail-under=80 --cov-report=html
 ```
 
 See the coverage report on the path:
