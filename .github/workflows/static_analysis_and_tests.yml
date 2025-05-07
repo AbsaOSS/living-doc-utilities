@@ -125,6 +125,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Check code coverage with Pytest
+        working-directory: ${{ github.workspace }}
         run: |
           export PYTHONPATH="${{ github.workspace }}"
           export
