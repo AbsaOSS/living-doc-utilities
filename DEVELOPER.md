@@ -10,7 +10,7 @@
 
 ## Project Setup
 
-If you need to build the action locally, follow these steps for project setup:
+If you need to set up the project locally, follow these steps:
 
 ### Prepare the Environment
 
@@ -51,7 +51,7 @@ To run Pylint on a specific file, follow the pattern `pylint <path_to_file>/<nam
 
 Example:
 ```shell
-pylint src/living_doc_utilities/inputs/action_inptuts.py
+pylint src/living_doc_utilities/inputs/action_inputs.py
 ``` 
 
 ### Expected Output
@@ -106,16 +106,15 @@ All done! ✨ 🍰 ✨
 
 ## Run mypy Tool Locally
 
-This project uses the [my[py]](https://mypy.readthedocs.io/en/stable/) 
+This project uses the [mypy](https://mypy.readthedocs.io/en/stable/) 
 tool which is a static type checker for Python.
 
 > Type checkers help ensure that you’re using variables and functions in your code correctly.
 > With mypy, add type hints (PEP 484) to your Python programs, 
 > and mypy will warn you when you use those types incorrectly.
 
-my[py] configuration is in `pyproject.toml` file.
-
-Follow these steps to format your code with my[py] locally:
+The my[py] configuration is in the `pyproject.toml` file.
+Follow these steps to run my[py] locally:
 
 ### Run my[py]
 

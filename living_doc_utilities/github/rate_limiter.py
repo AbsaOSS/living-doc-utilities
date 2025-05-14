@@ -62,10 +62,11 @@ class GithubRateLimiter:
             if remaining_calls < 5:
                 logger.info("Rate limit almost reached. Sleeping until reset time.")
                 sleep_time = reset_time - (now := time.time())
-                max_iterations = 24  # Limit to 24 iterations (24 hours) to prevent infinite loops
+                max_iterations = 48  # Limit to 48 iterations (48 hours) to prevent infinite loops
                 iteration = 0
                 while sleep_time <= 0:
-                    # Note: received values can be in the past, so the time shift to 1st positive value is needed
+                    # If sleep_time is negative, it means the reset_time is in the past.
+                    # To ensure a positive sleep duration, increment reset_time by 1 hour until sleep_time is positive.
                     reset_time += 3600  # Add 1 hour in seconds
                     sleep_time = reset_time - now
                     iteration += 1

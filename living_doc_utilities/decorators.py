@@ -76,7 +76,13 @@ def safe_call_decorator(rate_limiter: GithubRateLimiter) -> Callable:
                 return None
             # pylint: disable=broad-exception-caught
             except Exception as e:
-                logger.error("%s by calling %s: %s.", type(e).__name__, method.__name__, e, exc_info=True)
+                logger.error(
+                    "Unexpected error of type %s occurred in %s: %s.",
+                    type(e).__name__,
+                    method.__name__,
+                    e,
+                    exc_info=True,
+                )
                 return None
 
         return wrapped
