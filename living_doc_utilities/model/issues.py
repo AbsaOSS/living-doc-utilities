@@ -27,6 +27,7 @@ from living_doc_utilities.model.issue import Issue
 
 logger = logging.getLogger(__name__)
 
+
 class Issues:
     """
     This class represents a collection of issues in a GitHub repository ecosystem.
@@ -46,6 +47,7 @@ class Issues:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
 
+    # pylint: disable=broad-exception-caught
     @classmethod
     def load_from_json(cls, file_path: str | Path) -> "Issues":
         """

@@ -53,4 +53,4 @@ def set_action_output(name: str, value: str, default_output_path: str = "default
         with open(output_file, "a", encoding="utf-8") as f:
             f.write(f"{name}={value}\n")
     except IOError as e:
-        logger.error(f"Failed to write output to {output_file}: {e}")
+        logger.error("Failed to write output to %s: %s", output_file, e)
