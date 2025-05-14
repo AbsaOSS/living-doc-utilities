@@ -2,7 +2,7 @@
 name = "living-doc-utilities"
 version = "0.1.0"
 description = "Core utility functions and data models shared across the living-doc ecosystem."
-authors = [{ name="Mirosva Pojer", email="miroslav.pojer@absa.africa" }]
+authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
 license = {text = "Apache 2.0"}
 requires-python = ">=3.12"

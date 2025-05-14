@@ -113,7 +113,7 @@ tool which is a static type checker for Python.
 > With mypy, add type hints (PEP 484) to your Python programs, 
 > and mypy will warn you when you use those types incorrectly.
 
-my[py] configuration is in `pyptoject.toml` file.
+my[py] configuration is in `pyproject.toml` file.
 
 Follow these steps to format your code with my[py] locally:
 
@@ -128,7 +128,7 @@ To run my[py] check on a specific file, follow the pattern `mypy <path_to_file>/
 
 Example:
 ```shell
-   mypy serde/TODO.py
+   mypy living_doc_utilities/decorators.py
 ``` 
 
 ### Expected Output
@@ -186,7 +186,7 @@ open htmlcov/index.html
 
 Ensure your pyproject.toml includes this structure:
 
-TODO - update to latest version
+TODO - update in following issue
 
 ```toml
 [build-system]

@@ -96,14 +96,26 @@ class Issue:
     def organization_name(self) -> str:
         """
         Extracts the organization name from the repository ID.
+
+        @return: Organization name.
+        @raises ValueError: If the repository ID is not in the expected format.
         """
-        return self.repository_id.split("/")[0]
+        parts = self.repository_id.split("/")
+        if len(parts) < 2:
+            raise ValueError(f"Invalid repository_id format: {self.repository_id}. Expected format: 'org/repo'")
+        return parts[0]
 
     def repository_name(self) -> str:
         """
         Extracts the repository name from the repository ID.
+
+        @return: Repository name.
+        @raises ValueError: If the repository ID is not in the expected format.
         """
-        return self.repository_id.split("/")[1]
+        parts = self.repository_id.split("/")
+        if len(parts) < 2:
+            raise ValueError(f"Invalid repository_id format: {self.repository_id}. Expected format: 'org/repo'")
+        return parts[1]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Issue":

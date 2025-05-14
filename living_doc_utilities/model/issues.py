@@ -19,11 +19,13 @@ This module contains the Issues class, which is used to manage issues in the Git
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
 from living_doc_utilities.model.issue import Issue
 
+logger = logging.getLogger(__name__)
 
 class Issues:
     """
@@ -52,17 +54,30 @@ class Issues:
         @param file_path: Path to the JSON file.
         @return: Issues object.
         """
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
 
-        issues = {key: Issue.from_dict(value) for key, value in data.items()}
-        return cls(issues)
+            issues = {key: Issue.from_dict(value) for key, value in data.items()}
+            return cls(issues)
+        except FileNotFoundError:
+            logger.warning("Issues file not found at %s. Returning empty Issues object.", file_path)
+            return cls()
+        except json.JSONDecodeError:
+            logger.error("Failed to parse JSON from %s. Returning empty Issues object.", file_path)
+            return cls()
+        except Exception as e:
+            logger.error("Unexpected error loading issues from %s: %s", file_path, str(e))
+            return cls()
 
     def add_issue(self, key: str, issue: Issue) -> None:
         self.issues[key] = issue
 
     def get_issue(self, key: str) -> Issue:
-        return self.issues[key]
+        try:
+            return self.issues[key]
+        except KeyError:
+            raise KeyError(f"Issue with key '{key}' not found") from None
 
     def all_issues(self) -> dict[str, Issue]:
         return self.issues

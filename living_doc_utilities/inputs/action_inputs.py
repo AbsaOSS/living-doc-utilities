@@ -56,15 +56,17 @@ class BaseActionInputs(ABC):
         return True
 
     @abstractmethod
-    def _validate(self) -> int: ...
+    def _validate(self) -> int:
+        raise NotImplementedError
 
     def print_effective_configuration(self) -> None:
         """
         Prints the effective configuration of the action inputs.
         """
-        logger.debug("Effective configuration:")
-        logger.debug("GitHub token: %s", self.get_github_token())
+        logger.info("Effective configuration:")
+        logger.info("GitHub token: %s", self.get_github_token())
         self._print_effective_configuration()
 
     @abstractmethod
-    def _print_effective_configuration(self) -> None: ...
+    def _print_effective_configuration(self) -> None:
+        raise NotImplementedError

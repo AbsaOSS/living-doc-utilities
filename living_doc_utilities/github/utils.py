@@ -44,9 +44,13 @@ def set_action_output(name: str, value: str, default_output_path: str = "default
 
     @param name: The name of the output parameter.
     @param value: The value of the output parameter.
-    @param default_output_path: The default file path to which the output is written if the
+    @param default_output_path: The default file path to which the output is written if the GITHUB_OUTPUT
+    environment variable is not set.
     @return: None
     """
     output_file = os.getenv("GITHUB_OUTPUT", default_output_path)
-    with open(output_file, "a", encoding="utf-8") as f:
-        f.write(f"{name}={value}\n")
+    try:
+        with open(output_file, "a", encoding="utf-8") as f:
+            f.write(f"{name}={value}\n")
+    except IOError as e:
+        logger.error(f"Failed to write output to {output_file}: {e}")
