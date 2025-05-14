@@ -57,7 +57,7 @@ pylint src/living_doc_utilities/inputs/action_inputs.py
 ### Expected Output
 
 This is an example of the expected console output after running the tool:
-```
+```bash
 ************* Module main
 main.py:30:0: C0116: Missing function or method docstring (missing-function-docstring)
 
@@ -241,11 +241,5 @@ twine upload --repository testpypi dist/*
 Test from PyPI:
 
 ```bash
-Test from PyPI:
-```
-
-Or from TestPyPI:
-
-```bash
-pip install --index-url https://test.pypi.org/simple/ living-doc-utilities
+pip install living-doc-utilities
 ```
