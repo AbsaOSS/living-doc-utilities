@@ -185,7 +185,7 @@ open htmlcov/index.html
 
 Ensure your pyproject.toml includes this structure:
 
-TODO - update in following issue
+TODO - this doc part will be updated in Issue: https://github.com/AbsaOSS/living-doc-utilities/issues/3
 
 ```toml
 [build-system]
