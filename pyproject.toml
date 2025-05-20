@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Core utility functions and data models shared across the living-doc ecosystem."
 authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
-license = {text = "Apache 2.0"}
+license = "Apache-2.0"
 requires-python = ">=3.12"
 
 [project.urls]
@@ -21,3 +21,7 @@ omit = ["tests/*"]
 [tool.mypy]
 check_untyped_defs = true
 exclude = "tests"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
