@@ -6,7 +6,7 @@
 - [Run mypy Tool Locally](#run-mypy-tool-locally)
 - [Run Unit Test](#run-unit-test)
 - [Code Coverage](#code-coverage)
-- [Releasing](#releasing)
+- [How to Release](#how-to-release)
 
 ## Project Setup
 
@@ -172,74 +172,47 @@ open htmlcov/index.html
 ```
 
 ---
-## Releasing
 
-### 1. One-Time Setup
+## How to Release
 
-#### Register on PyPI
+All releases are handled entirely through GitHub Actions via a manual dispatch — no local tagging or manual PyPI upload is required.
 
-- Create an account on https://pypi.org
-- (Optional) Also register on TestPyPI for safe dry runs
+### 🔁 Steps to Release
 
-#### Prepare Project for Build
-
-Ensure your pyproject.toml includes this structure:
-
-TODO - this doc part will be updated in Issue: https://github.com/AbsaOSS/living-doc-utilities/issues/3
+1. Update the version in `pyproject.toml`:
 
 ```toml
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "living-doc-utilities"
-version = "0.1.0"
-description = "Shared utility functions and data models for the Living Documentation ecosystem."
-authors = [{ name = "Miroslav Pojer", email = "miroslav.pojer@absa.africa" }]
-readme = "README.md"
-license = { text = "Apache-2.0" }
-requires-python = ">=3.12"
-dependencies = []
-
-[tool.setuptools.packages.find]
-where = ["src"]
+version = "0.1.1"
 ```
-### 2. Build the Package
-Install the required tools:
+
+2. Commit the change (use IDE or command line):
 
 ```bash
-pip install build twine
+git commit -am "Release v0.1.1"
+git push origin main
 ```
 
-Then build the package:
+3. Trigger the release workflow:
+   - Go to your repository **→ Actions**
+   - Select **"Release - Build & Publish"**
+   - Click **"Run workflow"**
+   - Fill in the inputs:
+     - `tag-name`: `v0.1.1` ← this must match the version in pyproject.toml
+     - `from-tag-name` (optional): a previous tag like `v0.1.0`
+       - This is used to generate changelog entries **only for changes** since that tag. If omitted, the most recent existing tag will be used automatically.
 
-```bash
-python -m build
-```
 
-This creates a dist/ folder with .whl and .tar.gz artifacts.
+4. The workflow will:
+   - Validate the version tag format
+   - Generate structured release notes
+   - Create and push a Git tag for the current commit
+   - Build the Python package
+   - Upload the package to PyPI
+   - Create a draft GitHub release using the generated changelog
 
-### 3. Upload to PyPI
 
-Use twine to securely upload the package:
-
-```bash
-twine upload dist/*
-```
-
-You’ll be prompted for your PyPI username and password (or use an API token as the password).
-
-To test the process before pushing live, use TestPyPI:
-
-```bash
-twine upload --repository testpypi dist/*
-```
-
-### 4. Test Installation (optional)
-
-Test from PyPI:
-
-```bash
-pip install living-doc-utilities
-```
+5. Review and publish the draft release:
+   - Go to your repository **→ Releases**
+   - Click the newly created Draft release for v0.1.1
+   - Make any final edits (if needed)
+   - Click **“Publish release”** to make it public
