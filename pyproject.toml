@@ -1,6 +1,6 @@
 [project]
 name = "living-doc-utilities"
-version = "0.1.1"
+version = "0.1.2"
 description = "Core utility functions and data models shared across the living-doc ecosystem."
 authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 Repository = "https://github.com/AbsaOSS/living-doc-utilities"
 
 [tool.setuptools]
+include-package-data = true
 packages = ["living_doc_utilities"]
 
 [tool.setuptools.package-data]
