@@ -11,11 +11,7 @@ requires-python = ">=3.12"
 Repository = "https://github.com/AbsaOSS/living-doc-utilities"
 
 [tool.setuptools]
-include-package-data = true
 packages = ["living_doc_utilities"]
-
-[tool.setuptools.package-data]
-living_doc_utilities = ["py.typed"]
 
 [tool.black]
 line-length = 120
