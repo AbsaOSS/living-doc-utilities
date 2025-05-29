@@ -23,7 +23,10 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from living_doc_utilities.model.feature_issue import FeatureIssue
+from living_doc_utilities.model.functionality_issue import FunctionalityIssue
 from living_doc_utilities.model.issue import Issue
+from living_doc_utilities.model.user_story_issue import UserStoryIssue
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +36,9 @@ class Issues:
     This class represents a collection of issues in a GitHub repository ecosystem.
     """
 
-    def __init__(self, issues: Optional[dict[str, Issue]] = None) -> None:
+    def __init__(self, issues: Optional[dict[str, Issue]] = None, project_states_included: bool = False ) -> None:
         self.issues: dict[str, Issue] = issues or {}
+        self.project_state_included: bool = project_states_included
 
     def save_to_json(self, file_path: str | Path) -> None:
         """
@@ -60,7 +64,21 @@ class Issues:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            issues = {key: Issue.from_dict(value) for key, value in data.items()}
+            CLASS_MAP = {
+                "UserStoryIssue": UserStoryIssue,
+                "FeatureIssue": FeatureIssue,
+                "FunctionalityIssue": FunctionalityIssue,
+            }
+
+            def get_issue_instance(value: dict) -> Issue:
+                issue_type = value.get("type")
+                issue_cls = CLASS_MAP.get(issue_type, Issue)
+                return issue_cls.from_dict(value)
+
+            issues: dict[str, Issue] = {
+                key: get_issue_instance(value) for key, value in data.items()
+            }
+
             return cls(issues)
         except FileNotFoundError:
             logger.warning("Issues file not found at %s. Returning empty Issues object.", file_path)
@@ -75,7 +93,7 @@ class Issues:
     def add_issue(self, key: str, issue: Issue) -> None:
         self.issues[key] = issue
 
-    def get_issue(self, key: str) -> Issue:
+    def get_issue(self, key: str) -> Issue | UserStoryIssue | FeatureIssue | FunctionalityIssue:
         try:
             return self.issues[key]
         except KeyError:

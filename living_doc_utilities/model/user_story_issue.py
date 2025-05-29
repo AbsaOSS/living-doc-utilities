@@ -1,0 +1,31 @@
+#
+# Copyright 2025 ABSA Group Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+"""
+This module contains the Issue class, which represents the data of an issue.
+"""
+
+from living_doc_utilities.model.issue import Issue
+
+
+class UserStoryIssue(Issue):
+    """
+    Represents a User Story Issue in the GitHub repository ecosystem.
+    It extends the Issue class to include specific methods valid for user story-type issues.
+    """
+
+    def __init__(self):
+        super().__init__()

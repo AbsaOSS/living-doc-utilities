@@ -43,7 +43,7 @@ class BaseActionInputs(ABC):
 
     def validate_user_configuration(self) -> bool:
         """
-        Checks that all the user configurations defined are correct.
+        Verifies that all user configurations are defined correctly.
         @return: True if the configuration is correct, False otherwise.
         """
         logger.debug("User configuration validation started")
@@ -64,7 +64,7 @@ class BaseActionInputs(ABC):
         Prints the effective configuration of the action inputs.
         """
         logger.info("Effective configuration:")
-        logger.info("GitHub token: %s", self.get_github_token())
+        logger.info("GitHub token: %s", "is-defined" if self.get_github_token() else "not defined")
         self._print_effective_configuration()
 
     @abstractmethod

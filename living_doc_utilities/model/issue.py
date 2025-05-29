@@ -17,18 +17,20 @@
 """
 This module contains the Issue class, which represents the data of an issue.
 """
-
+import re
+from abc import ABC
 from typing import Any, Optional
 
 from living_doc_utilities.model.project_status import ProjectStatus
 
 
 # pylint: disable=too-many-instance-attributes
-class Issue:
+class Issue(ABC):
     """
     Represents an issue in the GitHub repository ecosystem.
     """
 
+    TYPE = "type"
     STATE = "state"
     REPOSITORY_ID = "repository_id"
     TITLE = "title"
@@ -42,10 +44,11 @@ class Issue:
     LINKED_TO_PROJECT = "linked_to_project"
     PROJECT_STATUS = "project_status"
 
-    def __init__(self, repository_id: str, title: str, number: int):
-        self.repository_id: str = repository_id
-        self.title: str = title
-        self.issue_number: int = number
+    def __init__(self):
+        # issue's properties - required for all issues
+        self.repository_id: Optional[str] = None
+        self.title: Optional[str] = None
+        self.issue_number: Optional[int] = None
 
         # issue's properties
         self.state: Optional[str] = None
@@ -54,23 +57,30 @@ class Issue:
         self.closed_at: Optional[str] = None
         self.html_url: Optional[str] = None
         self.body: Optional[str] = None
-        self.labels: Optional[list[str]] = None
+        self.labels: list[str] = []
 
         # GitHub Projects related properties
-        self.linked_to_project: Optional[bool] = None
-        self.project_statuses: Optional[list[ProjectStatus]] = None
+        self.linked_to_project: bool = False
+        self.project_statuses: list[ProjectStatus] = []
+
+        # support properties
+        self.__errors: dict[str, str] = {}
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Converts the issue an object to a dictionary representation.
+        Converts the issue into a dictionary representation.
 
         @return: Dictionary representation of the issue.
         """
-        res: dict[str, Any] = {
-            "repository_id": self.repository_id,
-            "title": self.title,
-            "number": self.issue_number,
-        }
+        res: dict[str, Any] = {}
+        res[self.TYPE] = self.__class__.__name__
+
+        if self.repository_id:
+            res[self.REPOSITORY_ID] = self.repository_id
+        if self.title:
+            res[self.TITLE] = self.title
+        if self.issue_number:
+            res[self.NUMBER] = self.issue_number
 
         if self.state:
             res[self.STATE] = self.state
@@ -93,6 +103,23 @@ class Issue:
 
         return res
 
+    @property
+    def errors(self) -> dict[str, str]:
+        """Getter of the errors that occurred during the issue processing."""
+        return self.__errors
+
+    def add_errors(self, errors: dict[str, str]) -> None:
+        """
+        Setter for the errors that occurred during the issue processing.
+
+        @param value: Dictionary of errors.
+        """
+        if not isinstance(errors, dict):
+            raise TypeError("Errors must be a dictionary.")
+
+        self.__errors.update(errors)
+
+    @property
     def organization_name(self) -> str:
         """
         Extracts the organization name from the repository ID.
@@ -105,6 +132,7 @@ class Issue:
             raise ValueError(f"Invalid repository_id format: {self.repository_id}. Expected format: 'org/repo'")
         return parts[0]
 
+    @property
     def repository_name(self) -> str:
         """
         Extracts the repository name from the repository ID.
@@ -125,11 +153,11 @@ class Issue:
         @param data: Dictionary representation of the issue.
         @return: Issue object.
         """
-        issue: Issue = cls(
-            repository_id=data[cls.REPOSITORY_ID],
-            title=data[cls.TITLE],
-            number=data[cls.NUMBER],
-        )
+        issue: Issue = cls()
+
+        issue.repository_id = data.get(cls.REPOSITORY_ID, None)
+        issue.title = data.get(cls.TITLE, None)
+        issue.issue_number = data.get(cls.NUMBER, None)
 
         issue.state = data.get(cls.STATE, None)
         issue.created_at = data.get(cls.CREATED_AT, None)
@@ -137,13 +165,42 @@ class Issue:
         issue.closed_at = data.get(cls.CLOSED_AT, None)
         issue.html_url = data.get(cls.HTML_URL, None)
         issue.body = data.get(cls.BODY, None)
-        issue.labels = data.get(cls.LABELS, None)
-        issue.linked_to_project = data.get(cls.LINKED_TO_PROJECT, None)
+        issue.labels = data.get(cls.LABELS, [])
+        issue.linked_to_project = data.get(cls.LINKED_TO_PROJECT, False)
 
         project_statuses_data = data.get(cls.PROJECT_STATUS, None)
         if project_statuses_data and isinstance(project_statuses_data, list):
             issue.project_statuses = [ProjectStatus.from_dict(status_data) for status_data in project_statuses_data]
         else:
-            issue.project_statuses = None
+            issue.project_statuses = []
 
         return issue
+
+    # TODO - add this check to collector
+    def is_valid_issue(self) -> bool:
+        """
+        Validates the issue data.
+
+        @return: True if the issue is valid, False otherwise.
+        """
+        return all([
+            self.repository_id is not None,
+            self.title is not None,
+            self.issue_number is not None
+        ])
+
+    def get_feature_ids(self) -> list[int]:
+        """
+        Get the feature IDs from the issue body.
+        Expected format:
+            - `### Associated Features` is a part of the issue body and have bullet point with the feature ID (feature issue number).
+
+        @return: The feature ID if found, otherwise None.
+        """
+        if self.body:
+            match = re.search(r"(?<=### Associated Features\n- #)\d+", self.body)
+            if match:
+                # TODO - return a list of feature IDs not only one
+                # return [match.group(0)]
+                return []
+        return []
