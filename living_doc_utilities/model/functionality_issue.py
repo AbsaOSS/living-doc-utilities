@@ -31,7 +31,7 @@ class FunctionalityIssue(Issue):
     def __init__(self):
         super().__init__()
 
-    def get_feature_ids(self) -> list[int]:
+    def get_related_feature_ids(self) -> list[int]:
         """
         Get the feature IDs from the issue body.
 

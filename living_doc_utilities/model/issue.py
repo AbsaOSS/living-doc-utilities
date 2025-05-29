@@ -176,7 +176,6 @@ class Issue(ABC):
 
         return issue
 
-    # TODO - add this check to collector
     def is_valid_issue(self) -> bool:
         """
         Validates the issue data.
@@ -188,19 +187,3 @@ class Issue(ABC):
             self.title is not None,
             self.issue_number is not None
         ])
-
-    def get_feature_ids(self) -> list[int]:
-        """
-        Get the feature IDs from the issue body.
-        Expected format:
-            - `### Associated Features` is a part of the issue body and have bullet point with the feature ID (feature issue number).
-
-        @return: The feature ID if found, otherwise None.
-        """
-        if self.body:
-            match = re.search(r"(?<=### Associated Features\n- #)\d+", self.body)
-            if match:
-                # TODO - return a list of feature IDs not only one
-                # return [match.group(0)]
-                return []
-        return []
