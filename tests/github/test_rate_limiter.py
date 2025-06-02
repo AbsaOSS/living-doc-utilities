@@ -34,7 +34,7 @@ def test_exceeds_max_iterations1(rate_limiter, mock_rate_limiter, mocker):
 
     @rate_limiter
     def dummy_func():
-            return "ok"
+        return "ok"
 
     result = dummy_func()
 
