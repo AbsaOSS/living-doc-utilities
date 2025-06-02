@@ -13,16 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
 
-"""
-This module contains the Issue class, which represents the data of an issue.
-"""
-
-from living_doc_utilities.model.issue import Issue
+from living_doc_utilities.exporter.exporter import Exporter
 
 
-class FeatureIssue(Issue):
-    """
-    Represents a Feature Issue in the GitHub repository ecosystem.
-    It extends the Issue class to include specific methods valid for feature-type issues.
-    """
+def test_exporter_export_not_implemented():
+    exporter = Exporter()
+    with pytest.raises(NotImplementedError) as exc_info:
+        exporter.export()
+    assert "Subclasses should implement this method" in str(exc_info.value)

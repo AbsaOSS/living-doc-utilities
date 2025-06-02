@@ -13,9 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
 
+from living_doc_utilities.model.feature_issue import FeatureIssue
+from living_doc_utilities.model.functionality_issue import FunctionalityIssue
 from living_doc_utilities.model.issue import Issue
 from living_doc_utilities.model.issues import Issues
+from living_doc_utilities.model.user_story_issue import UserStoryIssue
 
 
 def test_issues_initialization():
@@ -29,7 +33,10 @@ def test_issues_initialization():
 def test_add_issue_with_key():
     # Arrange
     issues = Issues()
-    issue = Issue(repository_id="org/repo", title="Test Issue", number=1)
+    issue = Issue()
+    issue.repository_id = "org/repo"
+    issue.title = "Test Issue"
+    issue.issue_number = 1
     key = "org/repo/1"
 
     # Act
@@ -43,7 +50,10 @@ def test_add_issue_with_key():
 def test_get_issue():
     # Arrange
     issues = Issues()
-    issue = Issue(repository_id="org/repo", title="Test Issue", number=1)
+    issue = Issue()
+    issue.repository_id = "org/repo"
+    issue.title = "Test Issue"
+    issue.issue_number = 1
     key = "org/repo/1"
     issues.add_issue(key, issue)
 
@@ -54,11 +64,25 @@ def test_get_issue():
     assert retrieved_issue == issue
 
 
+def test_get_issue_key_error():
+    issues = Issues()
+    missing_key = "org/repo/999"
+    with pytest.raises(KeyError) as e:
+        issues.get_issue(missing_key)
+    assert e.value.args[0] == f"Issue with key '{missing_key}' not found."
+
+
 def test_all_issues():
     # Arrange
     issues = Issues()
-    issue1 = Issue(repository_id="org/repo1", title="Issue 1", number=1)
-    issue2 = Issue(repository_id="org/repo2", title="Issue 2", number=2)
+    issue1 = Issue()
+    issue1.repository_id = "org/repo"
+    issue1.title = "Issue 1"
+    issue1.issue_number = 1
+    issue2 = Issue()
+    issue2.repository_id = "org/repo"
+    issue2.title = "Issue 2"
+    issue2.issue_number = 2
     issues.add_issue("org/repo1/1", issue1)
     issues.add_issue("org/repo2/2", issue2)
 
@@ -76,8 +100,14 @@ def test_all_issues():
 def test_count():
     # Arrange
     issues = Issues()
-    issue1 = Issue(repository_id="org/repo1", title="Issue 1", number=1)
-    issue2 = Issue(repository_id="org/repo2", title="Issue 2", number=2)
+    issue1 = Issue()
+    issue1.repository_id = "org/repo1"
+    issue1.title = "Issue 1"
+    issue1.issue_number = 1
+    issue2 = Issue()
+    issue2.repository_id = "org/repo2"
+    issue2.title = "Issue 2"
+    issue2.issue_number = 2
     issues.add_issue("org/repo1/1", issue1)
     issues.add_issue("org/repo2/2", issue2)
 
@@ -104,7 +134,10 @@ def test_make_issue_key():
 def test_save_to_json(tmp_path):
     # Arrange
     issues = Issues()
-    issue = Issue(repository_id="org/repo", title="Test Issue", number=1)
+    issue = Issue()
+    issue.repository_id = "org/repo"
+    issue.title = "Test Issue"
+    issue.issue_number = 1
     key = "org/repo/1"
     issues.add_issue(key, issue)
     file_path = tmp_path / "issues.json"
@@ -119,7 +152,7 @@ def test_save_to_json(tmp_path):
     assert '"Test Issue"' in data
 
 
-def test_load_from_json(tmp_path):
+def test_load_from_json_no_type(tmp_path):
     # Arrange
     file_path = tmp_path / "issues.json"
     data = {
@@ -144,6 +177,7 @@ def test_load_from_json(tmp_path):
     # Assert
     assert len(issues.issues) == 1
     issue = issues.issues["org/repo/1"]
+    assert isinstance(issue, Issue)
     assert issue.repository_id == "org/repo"
     assert issue.title == "Test Issue"
     assert issue.issue_number == 1
@@ -153,3 +187,186 @@ def test_load_from_json(tmp_path):
     assert issue.linked_to_project is True
     assert len(issue.project_statuses) == 1
     assert issue.project_statuses[0].project_title == "Test Project"
+
+
+def test_load_from_json_issue_type(tmp_path):
+    # Arrange
+    file_path = tmp_path / "issues.json"
+    data = {
+        "org/repo/1": {
+            "repository_id": "org/repo",
+            "title": "Test Issue",
+            "number": 1,
+            "state": "open",
+            "created_at": "2025-01-01T00:00:00Z",
+            "labels": ["bug"],
+            "linked_to_project": True,
+            "project_status": [{"project_title": "Test Project"}],
+            "type": "Issue",  # Explicitly set the type
+        }
+    }
+    with open(file_path, "w", encoding="utf-8") as f:
+        import json
+        json.dump(data, f)
+
+    # Act
+    issues = Issues.load_from_json(file_path)
+
+    # Assert
+    assert len(issues.issues) == 1
+    issue = issues.issues["org/repo/1"]
+    assert isinstance(issue, Issue)
+    assert issue.repository_id == "org/repo"
+    assert issue.title == "Test Issue"
+    assert issue.issue_number == 1
+    assert issue.state == "open"
+    assert issue.created_at == "2025-01-01T00:00:00Z"
+    assert issue.labels == ["bug"]
+    assert issue.linked_to_project is True
+    assert len(issue.project_statuses) == 1
+    assert issue.project_statuses[0].project_title == "Test Project"
+
+
+def test_load_from_json_user_story_issue_type(tmp_path):
+    # Arrange
+    file_path = tmp_path / "issues.json"
+    data = {
+        "org/repo/1": {
+            "repository_id": "org/repo",
+            "title": "Test Issue",
+            "number": 1,
+            "state": "open",
+            "created_at": "2025-01-01T00:00:00Z",
+            "labels": ["bug"],
+            "linked_to_project": True,
+            "project_status": [{"project_title": "Test Project"}],
+            "type": "UserStoryIssue",  # Explicitly set the type
+        }
+    }
+    with open(file_path, "w", encoding="utf-8") as f:
+        import json
+        json.dump(data, f)
+
+    # Act
+    issues = Issues.load_from_json(file_path)
+
+    # Assert
+    assert len(issues.issues) == 1
+    issue = issues.issues["org/repo/1"]
+    assert isinstance(issue, UserStoryIssue)
+    assert issue.repository_id == "org/repo"
+    assert issue.title == "Test Issue"
+    assert issue.issue_number == 1
+    assert issue.state == "open"
+    assert issue.created_at == "2025-01-01T00:00:00Z"
+    assert issue.labels == ["bug"]
+    assert issue.linked_to_project is True
+    assert len(issue.project_statuses) == 1
+    assert issue.project_statuses[0].project_title == "Test Project"
+
+
+def test_load_from_json_feature_issue_type(tmp_path):
+    # Arrange
+    file_path = tmp_path / "issues.json"
+    data = {
+        "org/repo/1": {
+            "repository_id": "org/repo",
+            "title": "Test Issue",
+            "number": 1,
+            "state": "open",
+            "created_at": "2025-01-01T00:00:00Z",
+            "labels": ["bug"],
+            "linked_to_project": True,
+            "project_status": [{"project_title": "Test Project"}],
+            "type": "FeatureIssue",  # Explicitly set the type
+        }
+    }
+    with open(file_path, "w", encoding="utf-8") as f:
+        import json
+        json.dump(data, f)
+
+    # Act
+    issues = Issues.load_from_json(file_path)
+
+    # Assert
+    assert len(issues.issues) == 1
+    issue = issues.issues["org/repo/1"]
+    assert isinstance(issue, FeatureIssue)
+    assert issue.repository_id == "org/repo"
+    assert issue.title == "Test Issue"
+    assert issue.issue_number == 1
+    assert issue.state == "open"
+    assert issue.created_at == "2025-01-01T00:00:00Z"
+    assert issue.labels == ["bug"]
+    assert issue.linked_to_project is True
+    assert len(issue.project_statuses) == 1
+    assert issue.project_statuses[0].project_title == "Test Project"
+
+
+def test_load_from_json_functionality_issue_type(tmp_path):
+    # Arrange
+    file_path = tmp_path / "issues.json"
+    data = {
+        "org/repo/1": {
+            "repository_id": "org/repo",
+            "title": "Test Issue",
+            "number": 1,
+            "state": "open",
+            "created_at": "2025-01-01T00:00:00Z",
+            "labels": ["bug"],
+            "linked_to_project": True,
+            "project_status": [{"project_title": "Test Project"}],
+            "type": "FunctionalityIssue",  # Explicitly set the type
+        }
+    }
+    with open(file_path, "w", encoding="utf-8") as f:
+        import json
+        json.dump(data, f)
+
+    # Act
+    issues = Issues.load_from_json(file_path)
+
+    # Assert
+    assert len(issues.issues) == 1
+    issue = issues.issues["org/repo/1"]
+    assert isinstance(issue, FunctionalityIssue)
+    assert issue.repository_id == "org/repo"
+    assert issue.title == "Test Issue"
+    assert issue.issue_number == 1
+    assert issue.state == "open"
+    assert issue.created_at == "2025-01-01T00:00:00Z"
+    assert issue.labels == ["bug"]
+    assert issue.linked_to_project is True
+    assert len(issue.project_statuses) == 1
+    assert issue.project_statuses[0].project_title == "Test Project"
+
+
+def test_load_from_json_file_not_found(mocker):
+    mock_logger = mocker.patch("living_doc_utilities.model.issues.logger.warning")
+    result = Issues.load_from_json("nonexistent.json")
+    assert isinstance(result, Issues)
+    assert result.count() == 0
+    mock_logger.assert_called_once()
+    assert "Issues file not found" in mock_logger.call_args[0][0]
+
+
+def test_load_from_json_json_decode_error(tmp_path, mocker):
+    file_path = tmp_path / "bad.json"
+    file_path.write_text("{invalid json")
+    mock_logger = mocker.patch("living_doc_utilities.model.issues.logger.error")
+    result = Issues.load_from_json(str(file_path))
+    assert isinstance(result, Issues)
+    assert result.count() == 0
+    mock_logger.assert_called_once()
+    assert "Failed to parse JSON" in mock_logger.call_args[0][0]
+
+
+def test_load_from_json_unexpected_exception(mocker):
+    mock_open = mocker.patch("builtins.open", mocker.mock_open())
+    mock_json_load = mocker.patch("json.load", side_effect=RuntimeError("boom"))
+    mock_logger = mocker.patch("living_doc_utilities.model.issues.logger.error")
+    result = Issues.load_from_json("anyfile.json")
+    assert isinstance(result, Issues)
+    assert result.count() == 0
+    mock_logger.assert_called_once()
+    assert "Unexpected error loading issues" in mock_logger.call_args[0][0]

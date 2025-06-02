@@ -23,6 +23,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from living_doc_utilities.factory.issue_factory import IssueFactory
 from living_doc_utilities.model.feature_issue import FeatureIssue
 from living_doc_utilities.model.functionality_issue import FunctionalityIssue
 from living_doc_utilities.model.issue import Issue
@@ -36,7 +37,7 @@ class Issues:
     This class represents a collection of issues in a GitHub repository ecosystem.
     """
 
-    def __init__(self, issues: Optional[dict[str, Issue]] = None, project_states_included: bool = False ) -> None:
+    def __init__(self, issues: Optional[dict[str, Issue]] = None, project_states_included: bool = False) -> None:
         self.issues: dict[str, Issue] = issues or {}
         self.project_state_included: bool = project_states_included
 
@@ -64,20 +65,7 @@ class Issues:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            CLASS_MAP = {
-                "UserStoryIssue": UserStoryIssue,
-                "FeatureIssue": FeatureIssue,
-                "FunctionalityIssue": FunctionalityIssue,
-            }
-
-            def get_issue_instance(value: dict) -> Issue:
-                issue_type = value.get("type")
-                issue_cls = CLASS_MAP.get(issue_type, Issue)
-                return issue_cls.from_dict(value)
-
-            issues: dict[str, Issue] = {
-                key: get_issue_instance(value) for key, value in data.items()
-            }
+            issues: dict[str, Issue] = {key: IssueFactory.get(value.get("type"), value) for key, value in data.items()}
 
             return cls(issues)
         except FileNotFoundError:
@@ -94,10 +82,23 @@ class Issues:
         self.issues[key] = issue
 
     def get_issue(self, key: str) -> Issue | UserStoryIssue | FeatureIssue | FunctionalityIssue:
+        """
+        Get an issue by its unique key.
+
+        Parameters:
+            key (str): The unique key of the issue.
+
+        Returns:
+            Issue: The issue object associated with the key.
+
+        Raises:
+            KeyError: If the issue with the specified key does not exist.
+        """
         try:
             return self.issues[key]
-        except KeyError:
-            raise KeyError(f"Issue with key '{key}' not found") from None
+        except KeyError as e:
+            logger.error("Issue with key '%s' not found.", key)
+            raise KeyError(f"Issue with key '{key}' not found.") from e
 
     def all_issues(self) -> dict[str, Issue]:
         return self.issues

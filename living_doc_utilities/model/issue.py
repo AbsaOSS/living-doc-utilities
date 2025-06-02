@@ -17,7 +17,6 @@
 """
 This module contains the Issue class, which represents the data of an issue.
 """
-import re
 from abc import ABC
 from typing import Any, Optional
 
@@ -127,9 +126,11 @@ class Issue(ABC):
         @return: Organization name.
         @raises ValueError: If the repository ID is not in the expected format.
         """
-        parts = self.repository_id.split("/")
-        if len(parts) < 2:
+        if self.repository_id is None or "/" not in self.repository_id:
             raise ValueError(f"Invalid repository_id format: {self.repository_id}. Expected format: 'org/repo'")
+
+        parts = self.repository_id.split("/")
+
         return parts[0]
 
     @property
@@ -140,9 +141,11 @@ class Issue(ABC):
         @return: Repository name.
         @raises ValueError: If the repository ID is not in the expected format.
         """
-        parts = self.repository_id.split("/")
-        if len(parts) < 2:
+        if self.repository_id is None or "/" not in self.repository_id:
             raise ValueError(f"Invalid repository_id format: {self.repository_id}. Expected format: 'org/repo'")
+
+        parts = self.repository_id.split("/")
+
         return parts[1]
 
     @classmethod
@@ -182,8 +185,4 @@ class Issue(ABC):
 
         @return: True if the issue is valid, False otherwise.
         """
-        return all([
-            self.repository_id is not None,
-            self.title is not None,
-            self.issue_number is not None
-        ])
+        return all([self.repository_id is not None, self.title is not None, self.issue_number is not None])

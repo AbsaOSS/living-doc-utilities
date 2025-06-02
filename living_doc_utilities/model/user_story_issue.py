@@ -26,6 +26,3 @@ class UserStoryIssue(Issue):
     Represents a User Story Issue in the GitHub repository ecosystem.
     It extends the Issue class to include specific methods valid for user story-type issues.
     """
-
-    def __init__(self):
-        super().__init__()

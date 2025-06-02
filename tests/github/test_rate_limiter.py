@@ -16,6 +16,78 @@
 
 import time
 
+from living_doc_utilities.github.rate_limiter import GithubRateLimiter
+
+
+# --- Fakes ---
+
+class FakeReset:
+    def timestamp(self):
+        return 1000  # always later than current time
+
+class FakeCore:
+    def __init__(self):
+        self.remaining = 0
+        self.reset = FakeReset()
+
+class FakeRateLimit:
+    def __init__(self):
+        self.core = FakeCore()
+
+class FakeGithubClient:
+    def get_rate_limit(self):
+        return FakeRateLimit()
+
+class FakeTime:
+    def __init__(self):
+        self.slept = []
+    def time(self):
+        return 200000000  # current time >> reset -> sleep_time always negative
+    def sleep(self, duration):
+        self.slept.append(duration)
+
+class FakeLogger:
+    def __init__(self):
+        self.warnings = []
+    def warning(self, msg):
+        self.warnings.append(msg)
+    def info(self, *args, **kwargs):
+        pass  # optional: collect info logs
+
+# --- Test ---
+
+def test_exceeds_max_iterations():
+    # Replace external modules inside the class's scope
+    import living_doc_utilities.github.rate_limiter as rate_limiter_module
+
+    fake_time = FakeTime()
+    fake_logger = FakeLogger()
+    fake_client = FakeGithubClient()
+
+    # Inject fakes directly into the module (not using monkeypatch/unittest.mock)
+    original_time = rate_limiter_module.time
+    original_logger = rate_limiter_module.logger
+    rate_limiter_module.time = fake_time
+    rate_limiter_module.logger = fake_logger
+
+    try:
+        limiter = GithubRateLimiter(fake_client)
+
+        @limiter
+        def dummy_func():
+            return "ok"
+
+        result = dummy_func()
+
+        assert result == "ok"
+        assert fake_logger.warnings, "Expected a warning about max iterations"
+        assert any("maximum iterations" in msg for msg in fake_logger.warnings)
+        assert fake_time.slept[0] == 65  # fallback: 60 + 5 seconds buffer
+    finally:
+        # Restore original modules after test
+        rate_limiter_module.time = original_time
+        rate_limiter_module.logger = original_logger
+
 
 # GithubRateLimiter __call__ method
 

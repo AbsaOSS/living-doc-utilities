@@ -28,9 +28,6 @@ class FunctionalityIssue(Issue):
     It extends the Issue class to include specific methods valid for functionality-type issues.
     """
 
-    def __init__(self):
-        super().__init__()
-
     def get_related_feature_ids(self) -> list[int]:
         """
         Get the feature IDs from the issue body.
