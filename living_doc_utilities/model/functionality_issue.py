@@ -15,7 +15,7 @@
 #
 
 """
-This module contains the Issue class, which represents the data of an issue.
+This module defines the FeatureIssue class, which is a specialized type of Issue
 """
 import re
 
@@ -24,7 +24,7 @@ from living_doc_utilities.model.issue import Issue
 
 class FunctionalityIssue(Issue):
     """
-    Represents a Feature Issue in the GitHub repository ecosystem.
+    Represents a Functionality Issue in the GitHub repository ecosystem.
     It extends the Issue class to include specific methods valid for functionality-type issues.
     """
 
@@ -33,7 +33,7 @@ class FunctionalityIssue(Issue):
         Get the feature IDs from the issue body.
 
         Expected format:
-            ### A Features
+            ### Associated Feature
             - #13
             - #14
 
@@ -42,7 +42,7 @@ class FunctionalityIssue(Issue):
         if not self.body:
             return []
 
-        pattern = r"### Associated Feature\s*(?:\n- #\d+)+"
+        pattern = r"### Associated Feature\s*(?:\s*[-*]\s*#\d+)+"
         section_match = re.search(pattern, self.body)
         if not section_match:
             return []

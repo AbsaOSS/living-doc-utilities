@@ -17,6 +17,7 @@
 import time
 
 from living_doc_utilities.github.rate_limiter import GithubRateLimiter
+from tests.conftest import rate_limiter
 
 
 # --- Fakes ---
@@ -56,37 +57,31 @@ class FakeLogger:
 
 # --- Test ---
 
-def test_exceeds_max_iterations():
-    # Replace external modules inside the class's scope
-    import living_doc_utilities.github.rate_limiter as rate_limiter_module
 
-    fake_time = FakeTime()
-    fake_logger = FakeLogger()
-    fake_client = FakeGithubClient()
+def test_exceeds_max_iterations1(rate_limiter, mock_rate_limiter, mocker):
+    # Mock time.time() to return a value much larger than reset timestamp
+    mock_time = mocker.patch("living_doc_utilities.github.rate_limiter.time")
+    mock_time.time.return_value = 200000000
+    mock_time.sleep = mocker.Mock()
 
-    # Inject fakes directly into the module (not using monkeypatch/unittest.mock)
-    original_time = rate_limiter_module.time
-    original_logger = rate_limiter_module.logger
-    rate_limiter_module.time = fake_time
-    rate_limiter_module.logger = fake_logger
+    # Mock logger to capture warnings
+    mock_logger = mocker.patch("living_doc_utilities.github.rate_limiter.logger")
 
-    try:
-        limiter = GithubRateLimiter(fake_client)
+    # Set up rate limit scenario that triggers max iterations
+    mock_rate_limiter.core.remaining = 0
+    mock_rate_limiter.core.reset.timestamp.return_value = 1000
 
-        @limiter
-        def dummy_func():
+    @rate_limiter
+    def dummy_func():
             return "ok"
 
-        result = dummy_func()
+    result = dummy_func()
 
-        assert result == "ok"
-        assert fake_logger.warnings, "Expected a warning about max iterations"
-        assert any("maximum iterations" in msg for msg in fake_logger.warnings)
-        assert fake_time.slept[0] == 65  # fallback: 60 + 5 seconds buffer
-    finally:
-        # Restore original modules after test
-        rate_limiter_module.time = original_time
-        rate_limiter_module.logger = original_logger
+    assert result == "ok"
+    mock_logger.warning.assert_called()
+    warning_call = mock_logger.warning.call_args[0][0]
+    assert "maximum iterations" in warning_call
+    mock_time.sleep.assert_called_with(65)  # 60 + 5 seconds buffer
 
 
 # GithubRateLimiter __call__ method

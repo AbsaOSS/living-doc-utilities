@@ -28,6 +28,6 @@ class Exporter:
         A method for exporting the output in the selected format.
 
         @param kwargs: Additional arguments for the export method
-        @return: None
+        @return: True if the export was successful, False otherwise
         """
         raise NotImplementedError("Subclasses should implement this method")

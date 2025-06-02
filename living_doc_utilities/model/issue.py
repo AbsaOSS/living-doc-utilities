@@ -17,14 +17,13 @@
 """
 This module contains the Issue class, which represents the data of an issue.
 """
-from abc import ABC
 from typing import Any, Optional
 
 from living_doc_utilities.model.project_status import ProjectStatus
 
 
 # pylint: disable=too-many-instance-attributes
-class Issue(ABC):
+class Issue:
     """
     Represents an issue in the GitHub repository ecosystem.
     """

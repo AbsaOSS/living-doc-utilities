@@ -39,7 +39,7 @@ class Issues:
 
     def __init__(self, issues: Optional[dict[str, Issue]] = None, project_states_included: bool = False) -> None:
         self.issues: dict[str, Issue] = issues or {}
-        self.project_state_included: bool = project_states_included
+        self.project_states_included: bool = project_states_included
 
     def save_to_json(self, file_path: str | Path) -> None:
         """

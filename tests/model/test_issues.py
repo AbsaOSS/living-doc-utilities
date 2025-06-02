@@ -362,8 +362,8 @@ def test_load_from_json_json_decode_error(tmp_path, mocker):
 
 
 def test_load_from_json_unexpected_exception(mocker):
-    mock_open = mocker.patch("builtins.open", mocker.mock_open())
-    mock_json_load = mocker.patch("json.load", side_effect=RuntimeError("boom"))
+    mocker.patch("builtins.open", mocker.mock_open())
+    mocker.patch("json.load", side_effect=RuntimeError("boom"))
     mock_logger = mocker.patch("living_doc_utilities.model.issues.logger.error")
     result = Issues.load_from_json("anyfile.json")
     assert isinstance(result, Issues)

@@ -40,6 +40,8 @@ class IssueFactory:
         Return an instance of the Issue subclass by name.
 
         @param class_name: The name of the Issue class to instantiate.
+        @param values: A dictionary of values to initialize the Issue instance.
+
         @return: An instance of the matched Issue subclass, or base Issue.
         """
         match class_name:

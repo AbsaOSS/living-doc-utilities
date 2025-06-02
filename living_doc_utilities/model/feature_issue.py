@@ -15,7 +15,7 @@
 #
 
 """
-This module contains the Issue class, which represents the data of an issue.
+This module defines the FeatureIssue class, which is a specialized type of Issue
 """
 
 from living_doc_utilities.model.issue import Issue
@@ -24,5 +24,5 @@ from living_doc_utilities.model.issue import Issue
 class FeatureIssue(Issue):
     """
     Represents a Feature Issue in the GitHub repository ecosystem.
-    It extends the Issue class to include specific methods valid for feature-type issues.
+    This specialized issue type allows for classification and type-specific handling of feature-related issues.
     """

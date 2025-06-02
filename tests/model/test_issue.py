@@ -24,9 +24,9 @@ def test_issue_initialization():
     issue = Issue()
 
     # Assert
-    assert issue.repository_id == None
-    assert issue.title == None
-    assert issue.issue_number == None
+    assert issue.repository_id is None
+    assert issue.title is None
+    assert issue.issue_number is None
     assert issue.state is None
     assert issue.created_at is None
     assert issue.updated_at is None
