@@ -65,6 +65,7 @@ def test_set_output_custom_path(mocker):
 
 
 def test_set_action_output_ioerror(mocker):
+    mocker.patch("os.getenv", return_value="fail.txt")
     mock_open = mocker.patch("builtins.open", side_effect=IOError("disk full"))
     mock_logger = mocker.patch("living_doc_utilities.github.utils.logger.error")
 
