@@ -19,7 +19,7 @@ import time
 from tests.conftest import rate_limiter
 
 
-def test_exceeds_max_iterations1(rate_limiter, mock_rate_limiter, mocker):
+def test_exceeds_max_iterations(rate_limiter, mock_rate_limiter, mocker):
     # Mock time.time() to return a value much larger than reset timestamp
     mock_time = mocker.patch("living_doc_utilities.github.rate_limiter.time")
     mock_time.time.return_value = 200000000
