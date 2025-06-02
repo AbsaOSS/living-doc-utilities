@@ -16,46 +16,7 @@
 
 import time
 
-from living_doc_utilities.github.rate_limiter import GithubRateLimiter
 from tests.conftest import rate_limiter
-
-
-# --- Fakes ---
-
-class FakeReset:
-    def timestamp(self):
-        return 1000  # always later than current time
-
-class FakeCore:
-    def __init__(self):
-        self.remaining = 0
-        self.reset = FakeReset()
-
-class FakeRateLimit:
-    def __init__(self):
-        self.core = FakeCore()
-
-class FakeGithubClient:
-    def get_rate_limit(self):
-        return FakeRateLimit()
-
-class FakeTime:
-    def __init__(self):
-        self.slept = []
-    def time(self):
-        return 200000000  # current time >> reset -> sleep_time always negative
-    def sleep(self, duration):
-        self.slept.append(duration)
-
-class FakeLogger:
-    def __init__(self):
-        self.warnings = []
-    def warning(self, msg):
-        self.warnings.append(msg)
-    def info(self, *args, **kwargs):
-        pass  # optional: collect info logs
-
-# --- Test ---
 
 
 def test_exceeds_max_iterations1(rate_limiter, mock_rate_limiter, mocker):
