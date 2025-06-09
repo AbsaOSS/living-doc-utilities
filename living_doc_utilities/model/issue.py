@@ -32,7 +32,7 @@ class Issue:
     STATE = "state"
     REPOSITORY_ID = "repository_id"
     TITLE = "title"
-    NUMBER = "number"
+    ISSUE_NUMBER = "issue_number"
     CREATED_AT = "created_at"
     UPDATED_AT = "updated_at"
     CLOSED_AT = "closed_at"
@@ -78,7 +78,7 @@ class Issue:
         if self.title:
             res[self.TITLE] = self.title
         if self.issue_number:
-            res[self.NUMBER] = self.issue_number
+            res[self.ISSUE_NUMBER] = self.issue_number
 
         if self.state:
             res[self.STATE] = self.state
@@ -159,7 +159,7 @@ class Issue:
 
         issue.repository_id = data.get(cls.REPOSITORY_ID, None)
         issue.title = data.get(cls.TITLE, None)
-        issue.issue_number = data.get(cls.NUMBER, None)
+        issue.issue_number = data.get(cls.ISSUE_NUMBER, None)
 
         issue.state = data.get(cls.STATE, None)
         issue.created_at = data.get(cls.CREATED_AT, None)
