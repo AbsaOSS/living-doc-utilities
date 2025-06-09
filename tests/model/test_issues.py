@@ -159,7 +159,7 @@ def test_load_from_json_no_type(tmp_path):
         "org/repo/1": {
             "repository_id": "org/repo",
             "title": "Test Issue",
-            "number": 1,
+            "issue_number": 1,
             "state": "open",
             "created_at": "2025-01-01T00:00:00Z",
             "labels": ["bug"],
@@ -196,7 +196,7 @@ def test_load_from_json_issue_type(tmp_path):
         "org/repo/1": {
             "repository_id": "org/repo",
             "title": "Test Issue",
-            "number": 1,
+            "issue_number": 1,
             "state": "open",
             "created_at": "2025-01-01T00:00:00Z",
             "labels": ["bug"],
@@ -234,7 +234,7 @@ def test_load_from_json_user_story_issue_type(tmp_path):
         "org/repo/1": {
             "repository_id": "org/repo",
             "title": "Test Issue",
-            "number": 1,
+            "issue_number": 1,
             "state": "open",
             "created_at": "2025-01-01T00:00:00Z",
             "labels": ["bug"],
@@ -272,7 +272,7 @@ def test_load_from_json_feature_issue_type(tmp_path):
         "org/repo/1": {
             "repository_id": "org/repo",
             "title": "Test Issue",
-            "number": 1,
+            "issue_number": 1,
             "state": "open",
             "created_at": "2025-01-01T00:00:00Z",
             "labels": ["bug"],
@@ -310,7 +310,7 @@ def test_load_from_json_functionality_issue_type(tmp_path):
         "org/repo/1": {
             "repository_id": "org/repo",
             "title": "Test Issue",
-            "number": 1,
+            "issue_number": 1,
             "state": "open",
             "created_at": "2025-01-01T00:00:00Z",
             "labels": ["bug"],

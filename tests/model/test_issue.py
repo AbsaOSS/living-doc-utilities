@@ -63,7 +63,7 @@ def test_issue_to_dict():
     assert result == {
         "repository_id": "org/repo",
         "title": "Test Issue",
-        "number": 1,
+        "issue_number": 1,
         "html_url": "url",
         "body": "body",
         "state": "open",
@@ -82,7 +82,7 @@ def test_issue_from_dict():
     data = {
         "repository_id": "org/repo",
         "title": "Test Issue",
-        "number": 1,
+        "issue_number": 1,
         "state": "open",
         "created_at": "2025-01-01T00:00:00Z",
         "labels": ["bug", "enhancement"],
