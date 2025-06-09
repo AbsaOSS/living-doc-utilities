@@ -16,8 +16,6 @@
 
 import time
 
-from tests.conftest import rate_limiter
-
 
 def test_exceeds_max_iterations(rate_limiter, mock_rate_limiter, mocker):
     # Mock time.time() to return a value much larger than reset timestamp

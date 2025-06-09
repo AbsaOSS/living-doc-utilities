@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import json
 import pytest
 
 from living_doc_utilities.model.feature_issue import FeatureIssue
@@ -168,7 +169,6 @@ def test_load_from_json_no_type(tmp_path):
         }
     }
     with open(file_path, "w", encoding="utf-8") as f:
-        import json
         json.dump(data, f)
 
     # Act
@@ -189,7 +189,13 @@ def test_load_from_json_no_type(tmp_path):
     assert issue.project_statuses[0].project_title == "Test Project"
 
 
-def test_load_from_json_issue_type(tmp_path):
+@pytest.mark.parametrize("issue_type,expected_class", [
+    ("Issue", Issue),
+    ("UserStoryIssue", UserStoryIssue),
+    ("FeatureIssue", FeatureIssue),
+    ("FunctionalityIssue", FunctionalityIssue),
+    ])
+def test_load_from_json_specialized_issue_types(tmp_path, issue_type, expected_class):
     # Arrange
     file_path = tmp_path / "issues.json"
     data = {
@@ -202,11 +208,10 @@ def test_load_from_json_issue_type(tmp_path):
             "labels": ["bug"],
             "linked_to_project": True,
             "project_status": [{"project_title": "Test Project"}],
-            "type": "Issue",  # Explicitly set the type
+            "type": issue_type,
         }
     }
     with open(file_path, "w", encoding="utf-8") as f:
-        import json
         json.dump(data, f)
 
     # Act
@@ -215,121 +220,7 @@ def test_load_from_json_issue_type(tmp_path):
     # Assert
     assert len(issues.issues) == 1
     issue = issues.issues["org/repo/1"]
-    assert isinstance(issue, Issue)
-    assert issue.repository_id == "org/repo"
-    assert issue.title == "Test Issue"
-    assert issue.issue_number == 1
-    assert issue.state == "open"
-    assert issue.created_at == "2025-01-01T00:00:00Z"
-    assert issue.labels == ["bug"]
-    assert issue.linked_to_project is True
-    assert len(issue.project_statuses) == 1
-    assert issue.project_statuses[0].project_title == "Test Project"
-
-
-def test_load_from_json_user_story_issue_type(tmp_path):
-    # Arrange
-    file_path = tmp_path / "issues.json"
-    data = {
-        "org/repo/1": {
-            "repository_id": "org/repo",
-            "title": "Test Issue",
-            "issue_number": 1,
-            "state": "open",
-            "created_at": "2025-01-01T00:00:00Z",
-            "labels": ["bug"],
-            "linked_to_project": True,
-            "project_status": [{"project_title": "Test Project"}],
-            "type": "UserStoryIssue",  # Explicitly set the type
-        }
-    }
-    with open(file_path, "w", encoding="utf-8") as f:
-        import json
-        json.dump(data, f)
-
-    # Act
-    issues = Issues.load_from_json(file_path)
-
-    # Assert
-    assert len(issues.issues) == 1
-    issue = issues.issues["org/repo/1"]
-    assert isinstance(issue, UserStoryIssue)
-    assert issue.repository_id == "org/repo"
-    assert issue.title == "Test Issue"
-    assert issue.issue_number == 1
-    assert issue.state == "open"
-    assert issue.created_at == "2025-01-01T00:00:00Z"
-    assert issue.labels == ["bug"]
-    assert issue.linked_to_project is True
-    assert len(issue.project_statuses) == 1
-    assert issue.project_statuses[0].project_title == "Test Project"
-
-
-def test_load_from_json_feature_issue_type(tmp_path):
-    # Arrange
-    file_path = tmp_path / "issues.json"
-    data = {
-        "org/repo/1": {
-            "repository_id": "org/repo",
-            "title": "Test Issue",
-            "issue_number": 1,
-            "state": "open",
-            "created_at": "2025-01-01T00:00:00Z",
-            "labels": ["bug"],
-            "linked_to_project": True,
-            "project_status": [{"project_title": "Test Project"}],
-            "type": "FeatureIssue",  # Explicitly set the type
-        }
-    }
-    with open(file_path, "w", encoding="utf-8") as f:
-        import json
-        json.dump(data, f)
-
-    # Act
-    issues = Issues.load_from_json(file_path)
-
-    # Assert
-    assert len(issues.issues) == 1
-    issue = issues.issues["org/repo/1"]
-    assert isinstance(issue, FeatureIssue)
-    assert issue.repository_id == "org/repo"
-    assert issue.title == "Test Issue"
-    assert issue.issue_number == 1
-    assert issue.state == "open"
-    assert issue.created_at == "2025-01-01T00:00:00Z"
-    assert issue.labels == ["bug"]
-    assert issue.linked_to_project is True
-    assert len(issue.project_statuses) == 1
-    assert issue.project_statuses[0].project_title == "Test Project"
-
-
-def test_load_from_json_functionality_issue_type(tmp_path):
-    # Arrange
-    file_path = tmp_path / "issues.json"
-    data = {
-        "org/repo/1": {
-            "repository_id": "org/repo",
-            "title": "Test Issue",
-            "issue_number": 1,
-            "state": "open",
-            "created_at": "2025-01-01T00:00:00Z",
-            "labels": ["bug"],
-            "linked_to_project": True,
-            "project_status": [{"project_title": "Test Project"}],
-            "type": "FunctionalityIssue",  # Explicitly set the type
-        }
-    }
-    with open(file_path, "w", encoding="utf-8") as f:
-        import json
-        json.dump(data, f)
-
-    # Act
-    issues = Issues.load_from_json(file_path)
-
-    # Assert
-    assert len(issues.issues) == 1
-    issue = issues.issues["org/repo/1"]
-    assert isinstance(issue, FunctionalityIssue)
+    assert isinstance(issue, expected_class)
     assert issue.repository_id == "org/repo"
     assert issue.title == "Test Issue"
     assert issue.issue_number == 1
