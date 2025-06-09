@@ -1,6 +1,6 @@
 [project]
 name = "living-doc-utilities"
-version = "0.1.3"
+version = "0.2.0"
 description = "Core utility functions and data models shared across the living-doc ecosystem."
 authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
