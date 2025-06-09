@@ -17,6 +17,32 @@
 import time
 
 
+def test_exceeds_max_iterations(rate_limiter, mock_rate_limiter, mocker):
+    # Mock time.time() to return a value much larger than reset timestamp
+    mock_time = mocker.patch("living_doc_utilities.github.rate_limiter.time")
+    mock_time.time.return_value = 200000000
+    mock_time.sleep = mocker.Mock()
+
+    # Mock logger to capture warnings
+    mock_logger = mocker.patch("living_doc_utilities.github.rate_limiter.logger")
+
+    # Set up rate limit scenario that triggers max iterations
+    mock_rate_limiter.core.remaining = 0
+    mock_rate_limiter.core.reset.timestamp.return_value = 1000
+
+    @rate_limiter
+    def dummy_func():
+        return "ok"
+
+    result = dummy_func()
+
+    assert result == "ok"
+    mock_logger.warning.assert_called()
+    warning_call = mock_logger.warning.call_args[0][0]
+    assert "maximum iterations" in warning_call
+    mock_time.sleep.assert_called_with(65)  # 60 + 5 seconds buffer
+
+
 # GithubRateLimiter __call__ method
 
 

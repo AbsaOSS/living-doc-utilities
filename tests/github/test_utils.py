@@ -62,3 +62,19 @@ def test_set_output_custom_path(mocker):
     mock_open.assert_called_with("custom_output.txt", "a", encoding="utf-8")
     handle = mock_open()
     handle.write.assert_any_call("custom-output=custom_value\n")
+
+
+def test_set_action_output_ioerror(mocker):
+    mocker.patch("os.getenv", return_value="fail.txt")
+    mock_open = mocker.patch("builtins.open", side_effect=IOError("disk full"))
+    mock_logger = mocker.patch("living_doc_utilities.github.utils.logger.error")
+
+    set_action_output("fail-output", "fail-value", "fail.txt")
+
+    mock_open.assert_called_once_with("fail.txt", "a", encoding="utf-8")
+    mock_logger.assert_called_once()
+    args = mock_logger.call_args[0]
+    assert args[0] == "Failed to write output to %s: %s"
+    assert args[1] == "fail.txt"
+    assert isinstance(args[2], IOError)
+    assert "disk full" in str(args[2])
