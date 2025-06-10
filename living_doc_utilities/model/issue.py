@@ -17,9 +17,12 @@
 """
 This module contains the Issue class, which represents the data of an issue.
 """
+import logging
 from typing import Any, Optional
 
 from living_doc_utilities.model.project_status import ProjectStatus
+
+logger = logging.getLogger(__name__)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -44,9 +47,9 @@ class Issue:
 
     def __init__(self):
         # issue's properties - required for all issues
-        self.repository_id: Optional[str] = None
-        self.title: Optional[str] = None
-        self.issue_number: Optional[int] = None
+        self.repository_id: str = ""
+        self.title: str = ""
+        self.issue_number: int = 0
 
         # issue's properties
         self.state: Optional[str] = None
@@ -73,11 +76,11 @@ class Issue:
         res: dict[str, Any] = {}
         res[self.TYPE] = self.__class__.__name__
 
-        if self.repository_id:
+        if len(self.repository_id) > 0:
             res[self.REPOSITORY_ID] = self.repository_id
-        if self.title:
+        if len(self.title) > 0:
             res[self.TITLE] = self.title
-        if self.issue_number:
+        if self.issue_number > 0:
             res[self.ISSUE_NUMBER] = self.issue_number
 
         if self.state:
@@ -157,9 +160,44 @@ class Issue:
         """
         issue: Issue = cls()
 
-        issue.repository_id = data.get(cls.REPOSITORY_ID, None)
-        issue.title = data.get(cls.TITLE, None)
-        issue.issue_number = data.get(cls.ISSUE_NUMBER, None)
+        repository_id = data.get(cls.REPOSITORY_ID, None)
+        if repository_id is None:
+            logger.error(
+                "Not provided repository_id for issue, title: '%s', issue number: %d. Cannot create Issue object.",
+                data.get(cls.TITLE, "Unknown"),
+                data.get(cls.ISSUE_NUMBER, "Unknown"),
+            )
+            raise ValueError("Repository ID is required to create an Issue object.")
+        if not isinstance(repository_id, str):
+            raise ValueError("Repository ID must be a string.")
+        issue.repository_id = repository_id
+
+        title = data.get(cls.TITLE, None)
+        if title is None:
+            logger.error("Not provided title for issue, issue number: %d.", data.get(cls.ISSUE_NUMBER, "Unknown"))
+            raise ValueError("Title is required to create an Issue object.")
+        if not isinstance(title, str):
+            raise ValueError("Title must be a string.")
+        issue.title = title
+
+        issue_number = data.get(cls.ISSUE_NUMBER, None)
+        if issue_number is None:
+            logger.error(
+                "Not provided issue_number for issue, title: '%s'. Cannot create Issue object.",
+                data.get(cls.TITLE, "Unknown"),
+            )
+            raise ValueError("Issue number is required to create an Issue object.")
+        if not isinstance(issue_number, int):
+            raise ValueError("Issue number must be an integer.")
+        if issue_number <= 0:
+            logger.error(
+                "Provided issue_number for issue, title: '%s', is not a positive integer: %d. "
+                "Cannot create Issue object.",
+                data.get(cls.TITLE, "Unknown"),
+                issue_number,
+            )
+            raise ValueError("Issue number must be a positive integer.")
+        issue.issue_number = issue_number
 
         issue.state = data.get(cls.STATE, None)
         issue.created_at = data.get(cls.CREATED_AT, None)
@@ -184,4 +222,4 @@ class Issue:
 
         @return: True if the issue is valid, False otherwise.
         """
-        return all([self.repository_id is not None, self.title is not None, self.issue_number is not None])
+        return all([len(self.repository_id) > 0, len(self.title) > 0, self.issue_number > 0])
