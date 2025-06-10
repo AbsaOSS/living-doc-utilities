@@ -222,4 +222,4 @@ class Issue:
 
         @return: True if the issue is valid, False otherwise.
         """
-        return all([len(self.repository_id) > 0, len(self.title) > 0, self.issue_number > 0])
+        return all([self.repository_id, self.title, self.issue_number > 0])
