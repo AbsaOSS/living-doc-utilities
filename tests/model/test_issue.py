@@ -196,7 +196,6 @@ def test_issue_is_valid_issue_all_fields_present():
     issue.repository_id = "org/repo"
     issue.title = "Test"
     issue.issue_number = 1
-    test = issue.is_valid_issue()
     assert issue.is_valid_issue()
 
 

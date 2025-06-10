@@ -165,7 +165,7 @@ class Issue:
             logger.error(
                 "Not provided repository_id for issue, title: '%s', issue number: %d. Cannot create Issue object.",
                 data.get(cls.TITLE, "Unknown"),
-                data.get(cls.ISSUE_NUMBER, "Unknown"),
+                data.get(cls.ISSUE_NUMBER, -1),
             )
             raise ValueError("Repository ID is required to create an Issue object.")
         if not isinstance(repository_id, str):
@@ -174,7 +174,7 @@ class Issue:
 
         title = data.get(cls.TITLE, None)
         if title is None:
-            logger.error("Not provided title for issue, issue number: %d.", data.get(cls.ISSUE_NUMBER, "Unknown"))
+            logger.error("Not provided title for issue, issue number: %d.", data.get(cls.ISSUE_NUMBER, -1))
             raise ValueError("Title is required to create an Issue object.")
         if not isinstance(title, str):
             raise ValueError("Title must be a string.")
