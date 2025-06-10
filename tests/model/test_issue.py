@@ -24,9 +24,9 @@ def test_issue_initialization():
     issue = Issue()
 
     # Assert
-    assert issue.repository_id is None
-    assert issue.title is None
-    assert issue.issue_number is None
+    assert issue.repository_id == ""
+    assert issue.title == ""
+    assert issue.issue_number == 0
     assert issue.state is None
     assert issue.created_at is None
     assert issue.updated_at is None
@@ -153,7 +153,7 @@ def test_issue_from_dict_project_statuses_none():
     data = {
         "repository_id": "org/repo",
         "title": "Test Issue",
-        "number": 1,
+        "issue_number": 1,
         "state": "open",
         "created_at": "2025-01-01T00:00:00Z",
         # No "project_status" key
@@ -196,14 +196,14 @@ def test_issue_is_valid_issue_all_fields_present():
     issue.repository_id = "org/repo"
     issue.title = "Test"
     issue.issue_number = 1
-    assert issue.is_valid_issue() is True
+    assert issue.is_valid_issue()
 
 
-def test_issue_is_valid_issue_missing_repository_id():
+def test_issue_is_not_valid_issue_missing_repository_id():
     issue = Issue()
     issue.title = "Test"
     issue.issue_number = 1
-    assert issue.is_valid_issue() is False
+    assert not issue.is_valid_issue()
 
 
 def test_issue_is_valid_issue_missing_title():
