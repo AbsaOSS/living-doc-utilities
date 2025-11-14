@@ -45,7 +45,7 @@ jobs:
 
       - name: Check tag format
         id: check-version-tag
-        uses: AbsaOSS/version-tag-check@v0.3.0
+        uses: AbsaOSS/version-tag-check@36496be76eab24e1f14d45d3b8292311a2aebaaa  # v0.3.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -55,7 +55,7 @@ jobs:
       - name: Check previous tag (if provided)
         if: ${{ github.event.inputs.from-tag-name }}
         id: check-version-from-tag
-        uses: AbsaOSS/version-tag-check@v0.3.0
+        uses: AbsaOSS/version-tag-check@36496be76eab24e1f14d45d3b8292311a2aebaaa  # v0.3.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -65,7 +65,7 @@ jobs:
 
       - name: Generate Release Notes
         id: generate_release_notes
-        uses: AbsaOSS/generate-release-notes@v0.7.0
+        uses: AbsaOSS/generate-release-notes@vb90223510d1704301a36a36f0d86a72a0e72f0cf  # 0.7.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
