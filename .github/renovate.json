@@ -14,6 +14,24 @@
         "patch"
       ],
       "automerge": true
+    },
+    {
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "groupName": null,
+      "automerge": true
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions",
+      "automerge": true
     }
   ],
   "labels": [
@@ -21,5 +39,11 @@
   ],
   "schedule": [
     "0 0 1 * *"
-  ]
+  ],
+  "baseBranches": [
+    "master"
+  ],
+  "prConcurrentLimit": 3,
+  "commitMessage": "Release Notes:\n- {{depName}} to {{newVersion}}",
+  "prTitle": "Update {{depName}} to {{newVersion}}"
 }
