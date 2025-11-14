@@ -23,7 +23,7 @@
         "major"
       ],
       "groupName": null,
-      "automerge": false
+      "automerge": true
     },
     {
       "matchManagers": [
