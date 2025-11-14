@@ -20,6 +20,6 @@
     "auto-update"
   ],
   "schedule": [
-    "at any time"
+    "0 0 1 * *"
   ]
 }
