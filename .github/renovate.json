@@ -33,14 +33,14 @@
       ],
       "groupName": "GitHub Actions",
       "groupSlug": "github-actions",
-      "automerge": true
+      "automerge": false
     }
   ],
   "labels": [
     "auto-update"
   ],
   "schedule": [
-    "0 0 1 * *"
+    "0 0 * * 0"
   ],
   "baseBranches": [
     "master"
