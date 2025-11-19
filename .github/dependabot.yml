@@ -13,7 +13,6 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
-    rebase-strategy: "disabled"
 
   - package-ecosystem: "pip"
     directory: "/"
@@ -30,4 +29,3 @@ updates:
       include: "scope"
     allow:
       - dependency-type: "direct"
-    rebase-strategy: "disabled"
