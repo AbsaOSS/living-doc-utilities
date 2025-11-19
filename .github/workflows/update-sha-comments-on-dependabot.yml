@@ -9,7 +9,7 @@ jobs:
     name: Workflows Changes Detection
     runs-on: ubuntu-latest
     outputs:
-      terraform_changed: ${{ steps.changes.outputs.workflows_changed }}
+      workflows_changed: ${{ steps.changes.outputs.workflows_changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
