@@ -5,9 +5,37 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
+  detect:
+    name: Workflows Changes Detection
+    runs-on: ubuntu-latest
+    outputs:
+      terraform_changed: ${{ steps.changes.outputs.workflows_changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if workflows/ changed
+        id: changes
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            RANGE="${{ github.event.pull_request.base.sha }}...${{ github.sha }}"
+          else
+            RANGE="${{ github.sha }}~1...${{ github.sha }}"
+          fi
+          if git diff --name-only "$RANGE" | grep -qE '^workflows/'; then
+            echo "workflows_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflows_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   sync-comments:
-    # Run only on PRs created by Dependabot
-    if: github.actor == 'dependabot[bot]'
+    name: Sync GitHub Actions SHA comments
+    needs: detect
+    if: needs.detect.outputs.workflows_changed == 'true'
     runs-on: ubuntu-latest
 
     permissions:
@@ -131,3 +159,11 @@ jobs:
           branch: ${{ github.head_ref }}
           commit_user_name: "github-actions[bot]"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
+
+  noop:
+    name: No Operation
+    needs: detect
+    if: needs.detect.outputs.workflows_changed == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No changes under workflows/ — passing."
