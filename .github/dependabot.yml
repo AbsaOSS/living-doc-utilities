@@ -14,6 +14,14 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "\*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "pip"
     directory: "/"
@@ -31,3 +39,11 @@ updates:
       include: "scope"
     allow:
       - dependency-type: "direct"
+    groups:
+      pip-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "\*"
+        update-types:
+          - "minor"
+          - "patch"
