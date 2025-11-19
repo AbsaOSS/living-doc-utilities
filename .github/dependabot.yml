@@ -13,9 +13,6 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
-    ignore:
-      - dependency-name: "*"
-        versions: ["0.*", "*-alpha", "*-beta", "*-rc"]
   - package-ecosystem: "pip"
     directory: "/"
     target-branch: "master"
