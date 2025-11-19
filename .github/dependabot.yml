@@ -13,6 +13,8 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    rebase-strategy: "disabled"
+
   - package-ecosystem: "pip"
     directory: "/"
     target-branch: "master"
@@ -23,20 +25,9 @@ updates:
       - "auto update"
       - "infrastructure"
     open-pull-requests-limit: 3
-    groups:
-      python-minor-patch:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-      python-major:
-        patterns:
-          - "*"
-        update-types:
-          - "major"
     commit-message:
       prefix: "chore"
       include: "scope"
     allow:
       - dependency-type: "direct"
+    rebase-strategy: "disabled"
