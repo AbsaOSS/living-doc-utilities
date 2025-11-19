@@ -9,6 +9,7 @@ updates:
     labels:
       - "auto update"
       - "infrastructure"
+      - "no RN"
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore"
@@ -23,6 +24,7 @@ updates:
     labels:
       - "auto update"
       - "infrastructure"
+      - "no RN"
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore"
