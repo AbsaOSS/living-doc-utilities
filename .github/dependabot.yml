@@ -7,7 +7,7 @@ updates:
       interval: "weekly"
       day: "sunday"
     labels:
-      - "auto-update"
+      - "auto update"
       - "infrastructure"
     open-pull-requests-limit: 3
     commit-message:
@@ -23,7 +23,7 @@ updates:
       interval: "weekly"
       day: "sunday"
     labels:
-      - "auto-update"
+      - "auto update"
       - "infrastructure"
     open-pull-requests-limit: 3
     groups:
