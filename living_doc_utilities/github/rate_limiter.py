@@ -54,9 +54,9 @@ class GithubRateLimiter:
         """
 
         def wrapped_method(*args, **kwargs) -> Optional[Any]:
-            rate_limit = self.github_client.get_rate_limit().core
-            remaining_calls = rate_limit.remaining
-            reset_time = rate_limit.reset.timestamp()
+            rate = self.github_client.get_rate_limit().rate
+            remaining_calls = rate.remaining
+            reset_time = rate.reset.timestamp()
 
             if remaining_calls < 5:
                 logger.info("Rate limit almost reached. Sleeping until reset time.")
