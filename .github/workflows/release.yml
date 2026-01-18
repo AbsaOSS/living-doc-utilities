@@ -45,7 +45,7 @@ jobs:
 
       - name: Check tag format
         id: check-version-tag
-        uses: AbsaOSS/version-tag-check@36496be76eab24e1f14d45d3b8292311a2aebaaa
+        uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -55,7 +55,7 @@ jobs:
       - name: Check previous tag (if provided)
         if: ${{ github.event.inputs.from-tag-name }}
         id: check-version-from-tag
-        uses: AbsaOSS/version-tag-check@36496be76eab24e1f14d45d3b8292311a2aebaaa
+        uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
