@@ -18,6 +18,7 @@
 This module contains an Action Inputs class methods,
 which are essential for running the GH action.
 """
+
 import logging
 from abc import ABC, abstractmethod
 
