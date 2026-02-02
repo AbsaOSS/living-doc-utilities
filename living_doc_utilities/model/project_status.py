@@ -17,6 +17,7 @@
 """
 This module contains a data container for an issue's Project Status.
 """
+
 from living_doc_utilities.constants import NO_PROJECT_DATA
 
 

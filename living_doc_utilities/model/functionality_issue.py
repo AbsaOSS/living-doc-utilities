@@ -17,6 +17,7 @@
 """
 This module defines the FeatureIssue class, which is a specialized type of Issue
 """
+
 import re
 
 from living_doc_utilities.model.issue import Issue

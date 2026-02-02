@@ -17,6 +17,7 @@
 """
 This module contains the Issue class, which represents the data of an issue.
 """
+
 import logging
 from typing import Any, Optional
 
