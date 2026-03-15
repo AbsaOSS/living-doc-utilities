@@ -118,7 +118,7 @@ jobs:
         run: twine upload dist/*
 
       - name: Create Draft GitHub Release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
+        uses: softprops/action-gh-release@b25b93d384199fc0fc8c2e126b2d937a0cbeb2ae
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
