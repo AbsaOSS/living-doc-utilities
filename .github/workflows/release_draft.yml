@@ -60,7 +60,7 @@ jobs:
 
       - name: Generate Release Notes
         id: generate_release_notes
-        uses: AbsaOSS/generate-release-notes@33804e98b7f48d99eb58f11668f8c9595b4182cf
+        uses: AbsaOSS/generate-release-notes@6c7497cc51cb365ac07ad48a835394d549d8e62b
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -109,7 +109,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Draft Release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
