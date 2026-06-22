@@ -2,7 +2,7 @@ mypy==2.1.0
 mypy-extensions==1.1.0
 typing_extensions==4.15.0
 PyGithub==2.9.1
-pylint==4.0.5
+pylint==4.0.6
 black==26.5.1
 pytest==9.1.1
 pytest-cov==7.1.0
