@@ -5,7 +5,7 @@ description = "Core utility functions and data models shared across the living-d
 authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 
 [project.urls]
 Repository = "https://github.com/AbsaOSS/living-doc-utilities"
@@ -16,14 +16,22 @@ include = ["living_doc_utilities*"]
 
 [tool.black]
 line-length = 120
-target-version = ['py312']
+target-version = ['py310']
 force-exclude = '''test'''
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
 
 [tool.coverage.run]
 omit = ["tests/*"]
 
 [tool.mypy]
 check_untyped_defs = true
+python_version = "3.10"
 exclude = "tests"
 
 [build-system]

@@ -1,6 +1,7 @@
 # Living Documentation Utilities - for Developers
 
 - [Project Setup](#project-setup)
+- [Quality Gates (`make`)](#quality-gates-make)
 - [Run Pylint Check Locally](#run-pylint-check-locally)
 - [Run Black Tool Locally](#run-black-tool-locally)
 - [Run mypy Tool Locally](#run-mypy-tool-locally)
@@ -25,6 +26,30 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+---
+## Quality Gates (`make`)
+
+The root `Makefile` is the canonical command vocabulary shared across every `living-doc-*`
+repo. Run the whole gate before opening a pull request:
+
+```shell
+make qa
+```
+
+`make qa` runs `format-check` → `lint` → `types` → `coverage` and fails on the first
+failing gate. The individual targets are also available while iterating:
+
+| Target | Runs | Gate |
+|---|---|---|
+| `make lint` | Pylint over all tracked `*.py` | score ≥ 9.5 / 10 |
+| `make format` | Black, rewriting files in place | line length 120 |
+| `make format-check` | Black in `--check` mode | line length 120 |
+| `make types` | mypy | clean |
+| `make test` | pytest, unit tests only | pass |
+| `make coverage` | pytest with the coverage gate | `--cov-fail-under=80` |
+
+The sections below explain each tool in more detail and how to scope it to a single file.
+
 ---
 ## Run Pylint Check Locally
 
