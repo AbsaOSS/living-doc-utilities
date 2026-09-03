@@ -22,7 +22,8 @@ which acts as a rate limiter for GitHub API calls.
 import logging
 import time
 from datetime import datetime
-from typing import Callable, Optional, Any
+from typing import Any, Callable, Optional
+
 from github import Github
 
 logger = logging.getLogger(__name__)

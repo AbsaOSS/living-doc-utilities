@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 import time
-import pytest
 
+import pytest
 from github import Github
 from github.Rate import Rate
 

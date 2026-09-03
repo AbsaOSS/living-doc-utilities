@@ -21,10 +21,10 @@ This module contains the IssueFactory class, which dynamically creates instances
 
 from typing import Any
 
-from living_doc_utilities.model.issue import Issue
-from living_doc_utilities.model.user_story_issue import UserStoryIssue
 from living_doc_utilities.model.feature_issue import FeatureIssue
 from living_doc_utilities.model.functionality_issue import FunctionalityIssue
+from living_doc_utilities.model.issue import Issue
+from living_doc_utilities.model.user_story_issue import UserStoryIssue
 
 
 class IssueFactory:

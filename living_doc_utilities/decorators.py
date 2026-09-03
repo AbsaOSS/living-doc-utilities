@@ -20,11 +20,11 @@ and for creating rate-limited safe call functions.
 """
 
 import logging
-
-from typing import Callable, Optional, Any
 from functools import wraps
+from typing import Any, Callable, Optional
+
 from github import GithubException
-from requests import Timeout, RequestException
+from requests import RequestException, Timeout
 
 from living_doc_utilities.github.rate_limiter import GithubRateLimiter
 

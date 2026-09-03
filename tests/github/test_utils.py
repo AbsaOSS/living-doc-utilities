@@ -16,7 +16,6 @@
 
 from living_doc_utilities.github.utils import get_action_input, set_action_output
 
-
 # GitHub action utils
 # get_action_input
 

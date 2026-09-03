@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 import json
+
 import pytest
 
 from living_doc_utilities.model.feature_issue import FeatureIssue
