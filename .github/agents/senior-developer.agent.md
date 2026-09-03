@@ -12,9 +12,8 @@ Purpose
 Writing style
 
 - Must use short headings and bullet lists.
-- Prefer constraints (Must / Must not / Prefer / Avoid) over prose.
-- Must keep the document portable.
-- Must put repo-specific details only in “Repo additions”.
+- Must write rules as constraints — `Must` / `Must not` / `Prefer` / `Avoid`, sentence-leading, no trailing colons.
+- Prefer constraints over prose.
 
 Mission
 
@@ -87,7 +86,7 @@ Non-goals
 - Must not introduce new dependencies without justification and compatibility check.
 - Must not broaden scope beyond the task.
 
-Repo additions
+Repo specifics
 
 - Runtime/toolchain targets
   - Python: 3.12+
