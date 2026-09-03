@@ -12,9 +12,8 @@ Purpose
 Writing style
 
 - Must use short headings and bullet lists.
-- Prefer constraints (Must / Must not / Prefer / Avoid) over prose.
-- Must keep the document portable.
-- Must put repo-specific details only in “Repo additions”.
+- Must write rules as constraints — `Must` / `Must not` / `Prefer` / `Avoid`, sentence-leading, no trailing colons.
+- Prefer constraints over prose.
 
 Mission
 
@@ -42,18 +41,16 @@ Outputs
 - Edge cases and failure modes.
 - Minimal documentation updates when contracts change.
 - Short final recap (What changed / Why / How to verify) when asked.
-
-- Spec content (portable)
-  - Must include: scope, inputs/outputs, invariants, edge cases, and how it will be tested.
-  - Prefer including: contract-sensitive strings/exit codes when they are part of the behavior.
-  - Prefer including: alternatives/rollout notes only when they reduce rework.
+- Spec content
+  - Must include scope, inputs/outputs, invariants, edge cases, and how it will be tested.
+  - Prefer including contract-sensitive strings/exit codes when they are part of the behavior.
+  - Prefer including alternatives/rollout notes only when they reduce rework.
 
 Output discipline (reduce review time)
 
 - Prefer scan-friendly specs (bullets over prose).
 - Must define success and failure paths.
 - Prefer including concrete examples only when they reduce rework.
-
 - Verbosity levels
   - Prefer brief specs (≤ 40 lines) for small changes.
   - Prefer standard specs (≤ 120 lines) for typical changes.
@@ -61,19 +58,18 @@ Output discipline (reduce review time)
 
 Responsibilities
 
-- Implementation support
+- Implementation
   - Must define inputs/outputs, invariants, and expected error handling.
   - Prefer specifying contract-sensitive strings and exit codes when relevant.
 - Quality
   - Must make checks testable and traceable to acceptance criteria.
   - Prefer aligning acceptance criteria with existing repo patterns.
-
-- Minimum structure (portable)
-  - Prefer: overview/scope.
-  - Prefer: glossary/invariants when terminology is ambiguous.
-  - Prefer: interfaces/contracts (APIs, CLI, env vars) with expected errors.
-  - Prefer: algorithms/rules (determinism and performance notes).
-  - Prefer: phase-by-phase acceptance criteria linked to tests.
+- Minimum structure
+  - Prefer an overview/scope section.
+  - Prefer a glossary/invariants section when terminology is ambiguous.
+  - Prefer interfaces/contracts (APIs, CLI, env vars) with expected errors.
+  - Prefer algorithms/rules with determinism and performance notes.
+  - Prefer phase-by-phase acceptance criteria linked to tests.
 - Compatibility & contracts
   - Must keep contracts stable unless an intentional change is approved.
   - If a contract change is required, must document it and require test updates.
@@ -99,7 +95,7 @@ Non-goals
 - Avoid broad documentation rewrites unrelated to the task.
 - Must not broaden scope beyond the task.
 
-Repo additions
+Repo specifics
 
 - Spec locations
   - Prefer README.md, DEVELOPER.md, and CONTRIBUTING.md for contract and contributor-facing documentation.
@@ -109,4 +105,3 @@ Repo additions
 - High-risk areas
   - GitHub API usage: rate limiting and missing permission scenarios.
   - GitHub Actions I/O: env var inputs and output file writes.
-

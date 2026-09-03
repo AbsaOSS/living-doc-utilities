@@ -12,9 +12,8 @@ Purpose
 Writing style
 
 - Must use short headings and bullet lists.
-- Prefer constraints (Must / Must not / Prefer / Avoid) over prose.
-- Must keep the document portable.
-- Must put repo-specific details only in “Repo additions”.
+- Must write rules as constraints — `Must` / `Must not` / `Prefer` / `Avoid`, sentence-leading, no trailing colons.
+- Prefer constraints over prose.
 
 Mission
 
@@ -54,6 +53,15 @@ Responsibilities
 - Implementation
   - Must validate behavior against acceptance criteria and contracts.
   - Prefer identifying the smallest safe change that fixes the issue.
+- Acceptance-criteria verification
+  - Must verify each acceptance criterion against the literal code path that satisfies it — not against a test name, a test that is green, or the PR description.
+  - Must read the actual function body, return annotation, sort call, guard, or output string named by the criterion and confirm it does what the criterion claims.
+  - Must treat a passing test whose name matches the criterion as insufficient on its own; the test can be wrong, stale, or asserting something weaker than the criterion.
+  - Prefer quoting the file + line range of the code that satisfies (or fails) each criterion in the review.
+  - Worked examples
+    - Criterion "issues are returned sorted by number descending" → open the function, find the `sorted(...)` / `.sort(...)` call, confirm `reverse=True` (or a descending key) and that nothing re-orders the list afterwards. A green `test_sorted_descending` is not the check.
+    - Criterion "a cache hit skips the GitHub API call" → confirm the cache lookup and its early return occur *before* the API client call in the function body, not merely that a mock was asserted not-called in one test.
+    - Criterion "hyphenated input names are normalized to underscores" → confirm the real transformation in `get_action_input` (`replace("-", "_")` / equivalent) and that the env var name built from it is `INPUT_<UPPER_UNDERSCORE>`.
 - Quality
   - Must verify format/lint/type/test/coverage gates are satisfied.
   - Prefer requesting targeted tests for uncovered failure paths.
@@ -81,10 +89,10 @@ Non-goals
 - Avoid bikeshedding formatting if automated tools handle it.
 - Avoid architectural rewrites unless explicitly requested.
 
-Repo additions
+Repo specifics
 
 - Review modes
-  - Prefer following the repo’s portable review rubric in .github/copilot-review-rules.md.
+  - Prefer following the repo’s review rubric in .github/copilot-review-rules.md.
 - Contract-sensitive outputs
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).
   - JSON serialization keys/structure in living_doc_utilities/model.
