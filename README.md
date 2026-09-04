@@ -55,7 +55,7 @@ Make sure you activate the virtual environment in your main project before insta
 #### Option 2: From GitHub (using a release tag)
 
 ```bash
-pip install git+https://github.com/AbsaOSS/living-doc-utilities@v0.3.1
+pip install git+https://github.com/AbsaOSS/living-doc-utilities@v0.4.0
 ```
 
 #### Option 3: From PyPI
@@ -67,7 +67,7 @@ pip install living-doc-utilities
 To pin a specific version:
 
 ```bash
-pip install living-doc-utilities==0.3.1
+pip install living-doc-utilities==0.4.0
 ```
 
 ### Importing
