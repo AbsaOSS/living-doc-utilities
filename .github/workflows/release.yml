@@ -48,9 +48,11 @@ jobs:
 
       - name: Verify release tag matches pyproject.toml version
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          tag="${{ github.event.release.tag_name }}"
+          tag="$RELEASE_TAG"
           project_version=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
           if [[ "$tag" != "v${project_version}" ]]; then
             echo "::error::release tag '$tag' does not match pyproject.toml version '$project_version' (expected 'v${project_version}')."

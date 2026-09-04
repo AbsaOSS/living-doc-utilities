@@ -38,6 +38,9 @@ jobs:
   draft-release:
     name: Draft Release
     runs-on: ubuntu-latest
+    # Draft releases must be cut from master — the tag is created on this ref's
+    # commit, so a dispatch from any other branch would tag a non-release commit.
+    if: github.ref == 'refs/heads/master'
 
     steps:
       - name: Checkout code
@@ -54,9 +57,11 @@ jobs:
 
       - name: Verify tag matches pyproject.toml version
         shell: bash
+        env:
+          TAG_NAME: ${{ github.event.inputs.tag-name }}
         run: |
           set -euo pipefail
-          tag="${{ github.event.inputs.tag-name }}"
+          tag="$TAG_NAME"
           project_version=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
           if [[ "$tag" != "v${project_version}" ]]; then
             echo "::error::tag-name '$tag' does not match pyproject.toml version '$project_version' (expected 'v${project_version}')."
