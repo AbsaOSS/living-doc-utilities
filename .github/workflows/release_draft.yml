@@ -119,7 +119,7 @@ jobs:
           duplicity-scope: 'none'
           warnings: true
           skip-release-notes-labels: "no RN,duplicate,invalid,wontfix"
-          print-empty-chapters: false
+          print-empty-chapters: true
           row-format-issue: '_{title}_ {developers} in {number}'
           row-format-pr: '_{title}_ {developers} in {number}'
           row-format-link-pr: true
