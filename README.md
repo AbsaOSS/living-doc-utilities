@@ -1,6 +1,6 @@
 # Living Documentation Utilities
 
-[![Static analysis & tests](https://github.com/AbsaOSS/living-doc-utilities/actions/workflows/static_analysis_and_tests.yml/badge.svg)](https://github.com/AbsaOSS/living-doc-utilities/actions/workflows/static_analysis_and_tests.yml)
+[![Static analysis & tests](https://github.com/AbsaOSS/living-doc-utilities/actions/workflows/test.yml/badge.svg)](https://github.com/AbsaOSS/living-doc-utilities/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PyPI](https://img.shields.io/pypi/v/living-doc-utilities.svg)](https://pypi.org/project/living-doc-utilities/)
 
