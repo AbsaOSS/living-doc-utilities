@@ -14,31 +14,68 @@
 # limitations under the License.
 #
 
+# Stage 1 of 2 of the release pipeline (manual dispatch).
+#
+# This workflow is the human review gate: it runs the quality gate, tags the
+# commit, and creates a *draft* GitHub release with generated notes. Nothing
+# irreversible happens here — no PyPI upload. Publishing the draft release from
+# the Releases page triggers stage 2 (release.yml), which builds and uploads the
+# package to PyPI.
+
 name: Draft Release
+
 on:
   workflow_dispatch:
     inputs:
       tag-name:
-        description: 'Name of git tag to be created, and then draft release created. Syntax: "v[0-9]+.[0-9]+.[0-9]+".'
+        description: 'New release tag; must match the pyproject.toml version. Syntax: "v[0-9]+.[0-9]+.[0-9]+".'
         required: true
       from-tag-name:
-        description: 'Name of the git tag from which to detect changes from. Default value: latest tag. Syntax: "v[0-9]+.[0-9]+.[0-9]+".'
+        description: 'Previous tag to compare against for the changelog (optional). Default: latest tag.'
         required: false
 
 jobs:
-  release-draft:
+  draft-release:
+    name: Draft Release
     runs-on: ubuntu-latest
+    # Draft releases must be cut from master — the tag is created on this ref's
+    # commit, so a dispatch from any other branch would tag a non-release commit.
+    if: github.ref == 'refs/heads/master'
+
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.13'
+          cache: 'pip'
 
-      - name: Check Format of Received Tag
+      - name: Verify tag matches pyproject.toml version
+        shell: bash
+        env:
+          TAG_NAME: ${{ github.event.inputs.tag-name }}
+        run: |
+          set -euo pipefail
+          tag="$TAG_NAME"
+          project_version=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          if [[ "$tag" != "v${project_version}" ]]; then
+            echo "::error::tag-name '$tag' does not match pyproject.toml version '$project_version' (expected 'v${project_version}')."
+            exit 1
+          fi
+          echo "Tag '$tag' matches pyproject.toml version '$project_version'."
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run quality gate
+        run: make qa
+
+      - name: Check tag format
         id: check-version-tag
         uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
         env:
@@ -47,7 +84,7 @@ jobs:
           github-repository: ${{ github.repository }}
           version-tag: ${{ github.event.inputs.tag-name }}
 
-      - name: Check Format of Received From Tag
+      - name: Check previous tag (if provided)
         if: ${{ github.event.inputs.from-tag-name }}
         id: check-version-from-tag
         uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
@@ -88,27 +125,23 @@ jobs:
           row-format-link-pr: true
           hierarchy: true
 
-      - name: Create and Push Tag
+      - name: Create and push Git tag
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           TAG_NAME: ${{ github.event.inputs.tag-name }}
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const tag = process.env.TAG_NAME
-            const ref = `refs/tags/${tag}`;
-            const sha = context.sha; // The SHA of the commit to tag
-
+            const tag = process.env.TAG_NAME;
             await github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: ref,
-              sha: sha
+              ref: `refs/tags/${tag}`,
+              sha: context.sha
             });
-
             console.log(`Tag created: ${tag}`);
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Draft Release
+      - name: Create Draft GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

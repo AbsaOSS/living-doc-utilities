@@ -59,7 +59,7 @@ PRs have to target `main`, `master`, `support/*`, or `release/*`.
 
 ### Community and Communication
 
-If you have any questions or need help, don't hesitate to reach out through our GitHub discussion section. We're here to help!
+If you have any questions or need help, open a [GitHub Issue](https://github.com/AbsaOSS/living-doc-utilities/issues). We're here to help!
 
 #### Thanks!
 

@@ -200,7 +200,16 @@ open htmlcov/index.html
 
 ## How to Release
 
-All releases are handled entirely through GitHub Actions via a manual dispatch — no local tagging or manual PyPI upload is required.
+Releasing is a **two-stage GitHub Actions pipeline**. No local tagging or manual PyPI upload is
+required.
+
+| Stage | Workflow | Trigger | What it does |
+|---|---|---|---|
+| 1 | **Draft Release** (`release_draft.yml`) | Manual dispatch | Quality gate, tag, draft GitHub release with generated notes. Nothing irreversible. |
+| 2 | **Release - Build & Publish** (`release.yml`) | You publish the draft release | Builds the package from the tag and uploads it to PyPI. |
+
+Publishing the draft release is the human approval gate for the PyPI upload — until you click
+**"Publish release"**, nothing has been pushed to PyPI and the tag/draft can still be deleted.
 
 ### 🔁 Steps to Release
 
@@ -210,34 +219,35 @@ All releases are handled entirely through GitHub Actions via a manual dispatch �
 version = "0.1.1"
 ```
 
-2. Commit the change (use IDE or command line):
+2. Land the version bump on `master` through a pull request (run `make qa` first).
 
 ```bash
 git commit -am "Release v0.1.1"
-git push origin main
+git push origin <your-branch>
 ```
 
-3. Trigger the release workflow:
-   - Go to your repository **→ Actions**
-   - Select **"Release - Build & Publish"**
-   - Click **"Run workflow"**
-   - Fill in the inputs:
-     - `tag-name`: `v0.1.1` ← this must match the version in pyproject.toml
-     - `from-tag-name` (optional): a previous tag like `v0.1.0`
-       - This is used to generate changelog entries **only for changes** since that tag. If omitted, the most recent existing tag will be used automatically.
+3. **Stage 1 — draft the release.** Go to your repository **→ Actions → "Draft Release" →
+   Run workflow** and fill in the inputs:
+     - `tag-name`: `v0.1.1` ← must match the version in `pyproject.toml` exactly; the
+       workflow fails fast if it does not.
+     - `from-tag-name` (optional): a previous tag like `v0.1.0`. Used to scope changelog
+       entries to changes since that tag. If omitted, the most recent existing tag is used.
 
-
-4. The workflow will:
+   This workflow will:
+   - Verify `tag-name` matches the `pyproject.toml` version
+   - Run the full quality gate (`make qa`)
    - Validate the version tag format
    - Generate structured release notes
-   - Create and push a Git tag for the current commit
-   - Build the Python package
-   - Upload the package to PyPI
-   - Create a draft GitHub release using the generated changelog
+   - Create and push the Git tag on the current `master` commit
+   - Create a **draft** GitHub release using the generated changelog
 
+4. **Review the draft release.** Go to **Releases**, open the draft for `v0.1.1`, and make any
+   final edits to the notes.
 
-5. Review and publish the draft release:
-   - Go to your repository **→ Releases**
-   - Click the newly created Draft release for v0.1.1
-   - Make any final edits (if needed)
-   - Click **“Publish release”** to make it public
+5. **Stage 2 — publish.** Click **"Publish release"**. This fires `release.yml`, which:
+   - Checks out the released tag and re-verifies it against `pyproject.toml`
+   - Builds the Python package
+   - Uploads it to PyPI
+   - Generates the Aqua security manifest
+
+   If you need to abort before this point, delete the draft release and the `v0.1.1` tag.

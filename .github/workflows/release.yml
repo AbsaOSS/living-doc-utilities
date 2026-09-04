@@ -14,96 +14,51 @@
 # limitations under the License.
 #
 
+# Stage 2 of 2 of the release pipeline.
+#
+# Triggered when a maintainer publishes a GitHub release that was drafted by
+# release_draft.yml. This is the point of no return: it builds the package from
+# the released tag and uploads it to PyPI. Clicking "Publish release" on the
+# draft is therefore the human approval gate for the PyPI upload.
+
 name: Release - Build & Publish
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag-name:
-        description: 'New release tag (e.g., v0.1.1).'
-        required: true
-      from-tag-name:
-        description: 'Previous tag to compare against for changelog (optional)'
-        required: false
+  release:
+    types: [published]
 
 jobs:
-  release-build-publish:
-    name: Release Build & Publish
+  build-and-publish:
+    name: Build & Publish
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout the released tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version: '3.12'
+          python-version: '3.13'
+          cache: 'pip'
 
-      - name: Check tag format
-        id: check-version-tag
-        uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
+      - name: Verify release tag matches pyproject.toml version
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          github-repository: ${{ github.repository }}
-          version-tag: ${{ github.event.inputs.tag-name }}
-
-      - name: Check previous tag (if provided)
-        if: ${{ github.event.inputs.from-tag-name }}
-        id: check-version-from-tag
-        uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          github-repository: ${{ github.repository }}
-          version-tag: ${{ github.event.inputs.from-tag-name }}
-          should-exist: true
-
-      - name: Generate Release Notes
-        id: generate_release_notes
-        uses: AbsaOSS/generate-release-notes@4592187ca123598c8f0bd6de06311c9f5cd8b773
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-name: ${{ github.event.inputs.tag-name }}
-          chapters: |
-            - { title: No entry 🚫, label: duplicate }
-            - { title: No entry 🚫, label: no RN }
-            - { title: Breaking Changes 💥, label: breaking-change }
-            - { title: New Features 🎉, label: enhancement }
-            - { title: New Features 🎉, label: feature }
-            - { title: Bugfixes 🛠, label: bug }
-            - { title: Infrastructure ⚙️, label: infrastructure }
-            - { title: Silent-live 🤫, label: silent-live }
-            - { title: Documentation 📜, label: documentation }
-
-          coderabbit-support-active: 'true'
-          coderabbit-release-notes-title: 'Summary by CodeRabbit'
-          coderabbit-summary-ignore-groups: 'Documentation, Tests, Chores, Bug Fixes, Refactor'
-
-          skip-release-notes-labels: 'no RN'
-          verbose: true
-          print-empty-chapters: true
-
-      - name: Create Git Tag
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
-        with:
-          script: |
-            const tag = core.getInput('tag-name')
-            const ref = `refs/tags/${tag}`;
-            const sha = context.sha;
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: ref,
-              sha: sha
-            });
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          tag-name: ${{ github.event.inputs.tag-name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          tag="$RELEASE_TAG"
+          project_version=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          if [[ "$tag" != "v${project_version}" ]]; then
+            echo "::error::release tag '$tag' does not match pyproject.toml version '$project_version' (expected 'v${project_version}')."
+            exit 1
+          fi
+          echo "Release tag '$tag' matches pyproject.toml version '$project_version'."
 
       - name: Install build tools
         run: python -m pip install --upgrade build twine
@@ -116,17 +71,6 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload dist/*
-
-      - name: Create Draft GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          name: ${{ github.event.inputs.tag-name }}
-          body: ${{ steps.generate_release_notes.outputs.release-notes }}
-          tag_name: ${{ github.event.inputs.tag-name }}
-          draft: true
-          prerelease: false
 
       - name: Aquasec Manifest Generation
         run: |
