@@ -82,10 +82,12 @@ print(issues.count())
 
 ## Releasing
 
-Releases are published to PyPI entirely through GitHub Actions. The `.github/workflows/release.yml`
-workflow runs on manual dispatch: it validates the version tag, generates release notes, tags the
-commit, builds the package, uploads it to PyPI, and drafts a GitHub release. No local tagging or
-manual upload is required. See the [How to Release](DEVELOPER.md#how-to-release) section of the
+Releases run through a two-stage GitHub Actions pipeline. Stage 1
+(`.github/workflows/release_draft.yml`, manual dispatch) runs the quality gate, tags the commit, and
+creates a **draft** GitHub release with generated notes — nothing irreversible. Stage 2
+(`.github/workflows/release.yml`) fires when a maintainer **publishes** that draft release: it builds
+the package from the tag and uploads it to PyPI. Publishing the draft is the approval gate for the
+PyPI upload. No local tagging or manual upload is required. See the [How to Release](DEVELOPER.md#how-to-release) section of the
 Developer Guide for the step-by-step.
 
 ## Developer Guide
