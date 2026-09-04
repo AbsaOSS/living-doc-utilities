@@ -117,5 +117,4 @@ For more details, see the [LICENSE](LICENSE) file in the repository.
 If you need help with using or contributing to the `living-doc-utilities` library, or if you have any
 questions or feedback, don't hesitate to reach out:
 
-- **Issue Tracker**: For technical issues or feature requests, use the [GitHub Issues page](https://github.com/AbsaOSS/living-doc-utilities/issues).
-- **Discussion Forum**: For general questions and discussions, join our [GitHub Discussions forum](https://github.com/AbsaOSS/living-doc-utilities/discussions).
+- **Issue Tracker**: For technical issues, feature requests, and general questions, use the [GitHub Issues page](https://github.com/AbsaOSS/living-doc-utilities/issues).
