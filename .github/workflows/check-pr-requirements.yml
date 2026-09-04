@@ -1,0 +1,48 @@
+# PR requirements configured per ABSA git and change-integration guidelines:
+# - PR title carries the issue number: "#123: Title" (or "123 - Title")
+# - Working branches carry the ticket number: feature/123-user-login
+# - Issue references must use closing keywords (Fixes #123, Closes AB#12345)
+# - PR body follows the Overview / Release Notes / Related template
+# - Hotfix PRs may target support/* and release/* branches
+# Repos that publish releases should additionally enable check-release-notes.
+name: Check PR Requirements (ABSA)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-pr:
+    name: PR Requirements
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR requirements
+        uses: AbsaOSS/check-pr-requirements@adb22f6d88c93fd801e787a63d948d6fbbdd4af3
+        with:
+          pr-title: ${{ github.event.pull_request.title }}
+          pr-body: ${{ github.event.pull_request.body }}
+          pr-branch: ${{ github.event.pull_request.head.ref }}
+          pr-number: ${{ github.event.pull_request.number }}
+          target-branch: ${{ github.event.pull_request.base.ref }}
+          files-changed: ${{ github.event.pull_request.changed_files }}
+
+          check-title: "true"
+          title-formats: "issue-number"
+
+          check-description: "true"
+          description-required-sections: "## Overview,## Release Notes,## Related"
+
+          check-issue-reference: "true"
+          issue-reference-require-keyword: "true"
+
+          check-branch-name: "true"
+          branch-require-ticket: "true"
+
+          check-target-branch: "true"
+          allowed-target-branches: "main,master,support/*,release/*"
+
+          check-release-notes: "false"
