@@ -70,10 +70,6 @@ jobs:
     if: needs.detect.outputs.python_changed == 'true'
     runs-on: ubuntu-latest
     name: ${{ matrix.task.name }} (Python ${{ matrix.python-version }})
-    # The 3.10 leg is advisory until this package publishes a release with
-    # `Requires-Python >= 3.10` (the latest PyPI release still pins `>= 3.12`).
-    # Flip this to a hard gate once that release is out.
-    continue-on-error: ${{ matrix.python-version == '3.10' }}
     strategy:
       fail-fast: false
       matrix:
