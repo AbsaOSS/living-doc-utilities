@@ -108,10 +108,27 @@ jobs:
       - name: Run ${{ matrix.task.name }}
         run: make ${{ matrix.task.target }}
 
-  noop:
-    needs: detect
-    if: needs.detect.outputs.python_changed != 'true'
+  # Single required status check. Always runs, so it always reports; passes when
+  # the matrix succeeded or was skipped (no Python changes), fails otherwise.
+  qa-gate:
+    needs: [ detect, static-analysis-and-tests ]
+    if: always()
     runs-on: ubuntu-latest
-    name: No Python Changes
+    name: QA Gate
     steps:
-      - run: echo "No Python-related changes detected — static analysis & tests skipped."
+      - name: Check matrix outcome
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="${{ needs.detect.outputs.python_changed }}"
+          result="${{ needs.static-analysis-and-tests.result }}"
+          echo "python_changed=$changed | static-analysis-and-tests=$result"
+          if [[ "$changed" != "true" ]]; then
+            echo "No Python-related changes — static analysis & tests not required."
+            exit 0
+          fi
+          if [[ "$result" == "success" ]]; then
+            exit 0
+          fi
+          echo "::error::static analysis & tests did not pass (result: $result)."
+          exit 1
