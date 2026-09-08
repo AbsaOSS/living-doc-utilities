@@ -92,15 +92,5 @@ Repo specifics
 - Mocking rules
   - Must mock GitHub API interactions and environment variables in unit tests.
   - Must not call the real GitHub API in unit tests.
-- Mock/fixture cheat-table (use these targets, do not invent new ones)
-
-  | Surface to isolate | How | Reference pattern |
-  |---|---|---|
-  | GitHub REST/GraphQL API (HTTP) | `responses` library — register expected requests + canned JSON | existing `collector-gh/tests/` patterns (e.g. `test_toolkit_fixtures.py`) |
-  | `PyGithub` client objects (`Github`, `Rate`, issues, repos) | `mocker.Mock(spec=<class>)` wired through a `conftest.py` fixture | `tests/conftest.py` `rate_limiter` / `mock_rate_limiter` fixtures |
-  | Environment / action inputs (`INPUT_*`) | `mocker.patch("os.getenv", ...)` and assert the resolved `INPUT_<NAME>` key | `tests/github/test_utils.py`, `tests/inputs/test_action_inputs.py` |
-  | Module-level `time` (sleeps, clocks) | `mocker.patch("<module>.time")` and set `.time.return_value` | `tests/github/test_rate_limiter.py` |
-  | Logging assertions | `mocker.patch("<module>.logger")` and assert on `.warning` / `.error` | `tests/github/test_rate_limiter.py` |
-  | toolkit adapter version-compatibility | golden fixtures under `tests/fixtures/collector_gh/v*` — one fixture dir per supported schema version | toolkit adapter compat suite |
-  | JSON model round-trip (`Issue` / `Issues` / `UserStoryIssue`) | build the object, serialize, assert on keys/structure; no I/O | `tests/model/test_issues.py` |
+- Concrete mock/fixture targets for this repo — see `.claude/agents/test-author.md`.
 
