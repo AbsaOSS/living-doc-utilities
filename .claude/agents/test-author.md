@@ -13,14 +13,11 @@ surface** — so you mock the right target on the first try instead of guessing.
 - Must use `pytest` + `pytest-mock` (`mocker`). Tests live under `tests/`, mirroring the
   package layout (`tests/model/`, `tests/github/`, `tests/inputs/`, `tests/exporter/`,
   plus `tests/test_decorators.py`, `tests/test_logging_config.py`).
-- Must not make real network calls. Must not call the GitHub API in unit tests.
 - Must mock `INPUT_*` environment variables (via `mocker.patch("os.getenv", ...)` or
   patching `get_action_input`), never rely on the ambient environment.
-- Must cover the success path and the failure/edge paths for the changed logic —
-  especially the `from_dict()` validation branches and the `load_from_json()` fallbacks.
-- Must assert on behavior — return values, raised exceptions, exact log-message format
-  strings and args — and keep contract-sensitive strings and the serialized JSON field
-  names stable.
+- Must cover the `from_dict()` validation branches and the `load_from_json()` fallbacks —
+  they carry the most edge-case risk in this repo.
+- Must keep contract-sensitive strings and the serialized JSON field names stable.
 - Prefer adding to the shared fixtures in `tests/conftest.py` over duplicating setup.
 - Must keep the suite green under `make test` / `make coverage` (≥ 80%).
 
