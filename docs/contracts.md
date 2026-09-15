@@ -1,9 +1,10 @@
 # Documentation contracts
 
-This file is the normative definition of the six documentation contracts exchanged by the
+This file holds the normative rules for the six documentation contracts exchanged by the
 Living Documentation ecosystem. Every collector, transform and generator writes and reads
 artifacts that obey the rules below; `living-doc-utilities` owns the models, the exported
-JSON Schemas, and the shared helpers that enforce them.
+JSON Schemas, and the shared helpers that enforce them. Each contract's fields — names, types,
+required or optional — are defined by its model and the JSON Schema generated from it.
 
 Two reading notes:
 
@@ -36,8 +37,8 @@ field path in this document.
 | `doc-source-v1.0.0` | `doc-source.json` | `user_stories[]`, `features[]`, `functionalities[]` | the source-scanning collector | transforms |
 | `ui-tests-v1.0.0` | `ui-tests.json` | `scenarios[]` | the source-scanning collector | transforms |
 | `generator-ready-v1.0.0` | `generator-ready.json` | `content.entities[]` | transforms | generators |
-| `coverage-matrix-v1.0.0` | `coverage-matrix.json` | its row arrays | transforms | generators |
-| `ui-test-catalog-v1.0.0` | `ui-test-catalog.json` | its row arrays | transforms | generators |
+| `coverage-matrix-v1.0.0` | `coverage-matrix.json` | declared in `living_doc_utilities.contracts.coverage_matrix` | transforms | generators |
+| `ui-test-catalog-v1.0.0` | `ui-test-catalog.json` | declared in `living_doc_utilities.contracts.ui_test_catalog` | transforms | generators |
 
 Both issue-tracker collectors — GitHub and Azure DevOps — write `doc-entities.json`. The file
 name is the contract, never the source system; producer identity lives in
@@ -96,22 +97,23 @@ where it is a literal part of the id, not a version field.
 
 ### Fields prepared for Azure DevOps
 
-The v1 schemas already carry the fields the Azure DevOps collector needs, so that collector can
-ship without a contract change and without a coordinated fleet upgrade. Some are already populated
-by the GitHub path; the rest stay dormant until the Azure DevOps collector lands.
+The v1 contracts carry the fields the Azure DevOps collector needs, so that collector can ship
+without a contract change and without a coordinated fleet upgrade. The GitHub collector fills some
+of them; the rest stay unused until the Azure DevOps collector fills them.
 
-| Field | Prepared for | On GitHub output today |
+| Field | Prepared for | Written by the GitHub collector |
 |---|---|---|
 | `source_ref.native_type` | work-item type | populated — the documentation label |
 | `source_ref.area_path`, `source_ref.iteration_path` | Azure DevOps classification nodes | `null` |
 | `source_ref.native_id` **typed as a string** | Azure DevOps ids and GitHub issue numbers in one field | populated, as a string — a number is never written |
-| `metadata.source.organizations[]`, `metadata.source.repositories[]` | `org/project` entries | populated, as `org/repo` |
+| `metadata.source.organizations[]` | Azure DevOps organisations | populated — every configured `organization-name` |
+| `metadata.source.repositories[]` | `org/project` entries | populated, as `org/repo` |
 | `metadata.source.systems` accepting `AzureDevOps` | mixed-system pipelines | only `GitHub` appears |
 | `metadata.source.extraction_mode` | `markdown` or `field-map` extraction | `null` |
 | `cardinality.entities_skipped` | work items dropped in an excluded state | populated — items skipped for a missing entity id |
 
-Typing `native_id` as a string is the one of these that could not be deferred: changing a field from
-integer to string after artifacts exist is a breaking schema change, and Azure DevOps ids are not
+Of these, only typing `native_id` as a string could not be deferred: changing a field from integer to
+string after artifacts exist is a breaking schema change, and Azure DevOps ids are not
 interchangeable with GitHub issue numbers.
 
 ## 2. Schema authoring rules
@@ -289,21 +291,23 @@ before then.
 ### R5 — consumers check an input in a fixed order
 
 Contract id format: `<contract-name>-v<major>.<minor>.<patch>`. One shared check runs for every
-consumer:
+consumer. It decides whether the consumer can read a file from the file itself — its `schema_version`
+and its structure — never from the tool that wrote it:
 
 | Step | Check | On failure |
 |---|---|---|
 | 1 | `schema_version` present and parses | **hard** `INVALID_CONTRACT_ID` |
 | 2 | contract id is in the consumer's expected set (e.g. a documentation input accepts `doc-entities` or `doc-source`) | **hard** `CONTRACT_MISMATCH` naming the expected set |
-| 3 | structural validation against the bundled schema | **hard** `SCHEMA_VALIDATION_FAILED`, naming the failing path, the file's recorded producer utilities-library version and the consumer's own utilities-library version; if they differ, adds "the components run different utilities versions — align the pins" |
-| 4 | producer version within that producer's confirmed range | warn `VERSION_MISMATCH` |
+| 3 | structural validation against the bundled schema | **hard** `SCHEMA_VALIDATION_FAILED`, naming the failing path, the file's `metadata.producer.utilities_version` and the consumer's own utilities-library version; if they differ, adds "the components run different utilities versions — align the pins" |
 
 The order matters: each step's message is only useful once the previous step has passed. Reporting a
 schema violation on a file that is not even the right contract sends the reader after the wrong
 problem.
 
-Warnings go to the consumer's own `warnings[]` output rather than only to a log, so they survive into
-the artifact and reach whoever reads the result.
+`metadata.producer.version` is **audit information only**: it records which release of which tool
+wrote the file, and no step checks it. One producer can write more than one contract version and one
+contract has several producers, so a tool's release says nothing about whether a file is readable;
+the file's `schema_version` does.
 
 There is **no digest and no contract version range before v1**. Contracts evolve in place with no
 external customers yet; a skew fails at step 3 with the cause named explicitly — including both
@@ -311,8 +315,10 @@ utilities-library versions, so the reader is pointed at the pins rather than at 
 release tooling keep the fleet aligned instead (section 6), rather than each consumer carrying
 negotiation logic it would exercise once.
 
-**After v1**, step 2 becomes a version-interval check, and a file outside the accepted interval is
-read leniently with a warning rather than rejected.
+**After v1**, step 2 becomes an interval check on the contract version the file declares, and a file
+outside the accepted interval is read leniently with a warning rather than rejected. That warning goes
+to the consumer's own `warnings[]` output rather than only to a log, so it survives into the artifact
+and reaches whoever reads the result.
 
 ### R6 — every artifact carries `schema_version` plus the metadata envelope
 
@@ -381,7 +387,7 @@ contract, with `[]` marking each array level:
 | `doc-source` | `user_stories[]`, `features[]`, `functionalities[]` |
 | `ui-tests` | `scenarios[]` |
 | `generator-ready` | `content.entities[]` |
-| `coverage-matrix`, `ui-test-catalog` | the row arrays each contract declares |
+| `coverage-matrix`, `ui-test-catalog` | the record roots declared in `living_doc_utilities.contracts.coverage_matrix` and `living_doc_utilities.contracts.ui_test_catalog` |
 
 So `entities[].not_in_scope` and `entities[].acceptance_criteria[].not_in_scope` are distinct paths,
 which is the point: the same field name at two levels is two different things to lose.
@@ -427,9 +433,10 @@ Each source is collected by its own function returning its own result, and the r
 success only after every source has been attempted. One failure therefore never discards sources that
 were already collected.
 
-**Configuration errors fail at start**, before any network request: a missing or malformed project
-id, a malformed repository or project entry, a rejected token. There is no reason to spend a rate
-limit discovering a typo.
+**Configuration errors fail at start** with `INVALID_CONFIGURATION`, naming the input and the reason.
+A missing or malformed project id and a malformed repository or project entry fail before any network
+request; a token rejected by the first request fails the same way, and no further request is made.
+There is no reason to spend a rate limit discovering a typo.
 
 **Explicit retries, one shared policy**, identical on every collector: up to **5 attempts**,
 exponential backoff starting at **2 seconds** with jitter, a single wait capped at **60 seconds**
@@ -443,7 +450,8 @@ and a **60 second** read timeout.
 | HTTP 403 with rate-limit-remaining at 0 | wait until the reset time, retry |
 | HTTP 403 / 429 with `Retry-After` (secondary rate limit) | wait `Retry-After`, retry |
 | a rate-limited GraphQL error returned with HTTP 200 | treat as a primary rate limit |
-| HTTP 401, or a GraphQL scope/permission error | no retry; source fails; the message names the missing scope |
+| HTTP 401 on the first request | no retry; the run fails at start with `INVALID_CONFIGURATION` |
+| HTTP 401 after the first request, or a GraphQL scope/permission error | no retry; source fails; the message names the missing scope |
 | GraphQL not-found error, HTTP 404 | no retry; source fails |
 
 **The default is hard failure**: the run names the source and the cause, exits non-zero, and writes
@@ -462,7 +470,7 @@ legible in the final document, several steps away from where it happened.
 **Empty is not failed.** A source that answers successfully with zero entities is a warning
 (`EMPTY_SOURCE`), not an error. A repository with no documentation yet is a normal state.
 
-**No silent swallowing in shared code.** The shared HTTP-call wrapper logs and **re-raises** every
+**No silent swallowing in shared code.** The shared GitHub call decorator logs and **re-raises** every
 exception; it never turns a failure into `None`. A `None` that means "failed" and a `None` that means
 "absent" are indistinguishable at the call site, and the retry policy above cannot act on a value.
 
@@ -507,8 +515,11 @@ Reading that example:
 - **`source` is required on every collector output**, and **`source.project_id` is required
   everywhere**. On a transform output, `source` is copied from the one documentation input, plus the
   test input's systems when there is one.
-- `source.systems` values are `GitHub` and `AzureDevOps`. `repositories[]` entries are `org/repo`
-  (GitHub) or `org/project` (Azure DevOps). `extraction_mode` is `markdown`, `field-map`, or `null`.
+- `source.systems` values are `GitHub` and `AzureDevOps`. `organizations[]` lists every organisation
+  of the run once, as the `organization-name` configured on the collector. `repositories[]` entries
+  are `org/repo` (GitHub) or `org/project` (Azure DevOps), and each entry's `org` must be listed in
+  `organizations[]`; an organisation may be listed without any repository or project.
+  `extraction_mode` is `markdown`, `field-map`, or `null`.
 - **`document` appears only on `generator-ready`, `ui-test-catalog` and `coverage-matrix`** — the
   three contracts a generator turns into a document. It holds what the generator titles and filters
   by, including `document.view`.
@@ -567,10 +578,10 @@ contradict it. A mismatch across inputs — or an input with no project id — i
 ## 4. Rendering rules
 
 Every authored field is carried at its **authored level** in the `generator-ready` contract; nothing
-is expanded, inherited or flattened on the way through. A transform's view filter selects **records**
-only: the release view drops `planned` and `in_review` entities and acceptance criteria, and drops a
-Feature by its derived state. A generator then decides **presentation** from the document's declared
-view.
+is expanded, inherited or flattened on the way through. The view filter that builds a
+`generator-ready` document selects **records** only: the release view drops `planned` and `in_review`
+entities and acceptance criteria, and drops a Feature by its derived state. A generator then decides
+**presentation** from the document's declared view.
 
 Separating the two is what lets one transform serve both views' record sets consistently while each
 generator stays free to present them differently.
@@ -603,12 +614,21 @@ Coverage is computed **per aspect**:
   linked scenario; otherwise it is `partially_covered`, with a per-aspect breakdown;
 - an acceptance criterion **without** aspects keeps a plain `covered` / `not_covered`.
 
-Counted acceptance criteria: `active`, `in_review` and `deprecated`, in **both** views.
+Counted acceptance criteria: `active` and `deprecated`, in **both** views. A coverage matrix's
+`document.view` changes presentation only, never which criteria are counted.
 
-Not counted: `planned` acceptance criteria, whether backlog or targeted. A scenario linked to a
-planned criterion is a **warning** (`PLANNED_AC_HAS_TESTS`), not an error — writing tests ahead of
-implementation is legitimate practice, and counting unimplemented work would depress a coverage
-figure that is supposed to describe what exists.
+Not counted:
+
+- `in_review` acceptance criteria. Collection and every step after it run against `master`, and the
+  tests for work still in review are not there yet, so counting those criteria would report them as
+  uncovered. A scenario linked to an `in_review` criterion is a **warning**
+  (`IN_REVIEW_AC_HAS_TESTS`), not an error: it is only reported, the link is kept and the criterion
+  stays uncounted. A test for it on `master` usually means the work has merged and the criterion's
+  state was not updated.
+- `planned` acceptance criteria, whether backlog or targeted. A scenario linked to a planned criterion
+  is a **warning** (`PLANNED_AC_HAS_TESTS`), not an error — writing tests ahead of implementation is
+  legitimate practice, and counting unimplemented work would depress a coverage figure that is
+  supposed to describe what exists.
 
 A supplementary planned-work summary — totals, backlog versus targeted, and a breakdown per target
 version — is always carried in the artifact, and rendered only in the inner view.
@@ -659,8 +679,8 @@ identically-numbered stories disappears from a document without anyone noticing.
 
 | Code | When |
 |---|---|
-| `VERSION_MISMATCH` | producer version outside the confirmed range (R5 step 4) |
 | `PLANNED_AC_HAS_TESTS` | a scenario links a `planned` acceptance criterion |
+| `IN_REVIEW_AC_HAS_TESTS` | a scenario links an `in_review` acceptance criterion; reported only, the criterion stays uncounted |
 | `STALE_AC_REF` | a scenario references an unknown acceptance criterion, or an undeclared aspect |
 
 In addition, **every input warning is forwarded unchanged** into the transform's own `warnings[]`,
@@ -670,7 +690,7 @@ with the input named in its context.
 
 | Code | Kind | When |
 |---|---|---|
-| (configuration error) | hard, at start | project id missing or malformed; malformed repository/project entry; rejected token |
+| `INVALID_CONFIGURATION` | hard, at start | project id missing or malformed; malformed repository/project entry; token rejected by the first request. Context names the input and the reason |
 | `SOURCE_UNAVAILABLE` | hard; warning in partial mode | source unfetchable after retries, a configured path missing, or a token lacking a required scope |
 | `SCHEMA_VALIDATION_FAILED` | hard | output fails pre-write validation; no file written |
 | `EMPTY_SOURCE` | warning | source answered with zero entities |
@@ -707,11 +727,12 @@ There is **no digest and no contract version range before a v1 release**. Contra
 and there are no external customers, so the cost of a negotiation mechanism would be paid every
 release while the benefit stayed hypothetical.
 
-A version skew between components fails loudly at validation — R9's `additionalProperties: false`
-together with required fields catches it — and the message names both the producer's and the
-consumer's utilities-library version and, when they differ, advises that the pins be aligned. Loud
-and specific beats tolerant: a tolerant reader turns a skew into subtly wrong output that nobody
-traces back to a pin.
+A skew between components' utilities-library versions fails loudly at validation (R5 step 3) — R9's
+`additionalProperties: false` together with required fields catches it — and the message names both
+the producer's and the consumer's utilities-library version and, when they differ, advises that the
+pins be aligned. It is the only version check before v1: the producer's own release version is audit
+information and is never checked. Loud and specific beats tolerant: a tolerant reader turns a skew
+into subtly wrong output that nobody traces back to a pin.
 
 Alignment is enforced where it is cheap. CI installs each component in its own isolated environment
 against its own pin and reports the pins in use: a **warning** between release gates, an **error** at
