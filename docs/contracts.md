@@ -310,10 +310,11 @@ contract has several producers, so a tool's release says nothing about whether a
 the file's `schema_version` does.
 
 There is **no digest and no contract version range before v1**. Contracts evolve in place with no
-external customers yet; a skew fails at step 3 with the cause named explicitly — including both
-utilities-library versions, so the reader is pointed at the pins rather than at the data. CI and
-release tooling keep the fleet aligned instead (section 6), rather than each consumer carrying
-negotiation logic it would exercise once.
+external customers yet. A skew that shows in the file fails at step 3 with the cause named
+explicitly — including both utilities-library versions, so the reader is pointed at the pins rather
+than at the data; a skew that leaves the file valid is not detected at run time. CI and release
+tooling keep the fleet aligned instead (section 6), rather than each consumer carrying negotiation
+logic it would exercise once.
 
 **After v1**, step 2 becomes an interval check on the contract version the file declares, and a file
 outside the accepted interval is read leniently with a warning rather than rejected. That warning goes
@@ -727,17 +728,22 @@ There is **no digest and no contract version range before a v1 release**. Contra
 and there are no external customers, so the cost of a negotiation mechanism would be paid every
 release while the benefit stayed hypothetical.
 
-A skew between components' utilities-library versions fails loudly at validation (R5 step 3) — R9's
-`additionalProperties: false` together with required fields catches it — and the message names both
-the producer's and the consumer's utilities-library version and, when they differ, advises that the
-pins be aligned. It is the only version check before v1: the producer's own release version is audit
-information and is never checked. Loud and specific beats tolerant: a tolerant reader turns a skew
+Structural validation (R5 step 3) catches a skew between components' utilities-library versions only
+when the skew shows in the file: a field the reader does not know (R9's `additionalProperties: false`),
+a required field the file lacks, or a value the reader's schema does not allow. The failure message
+then names both the producer's and the consumer's utilities-library version and, when they differ,
+advises that the pins be aligned. Loud and specific beats tolerant: a tolerant reader turns a skew
 into subtly wrong output that nobody traces back to a pin.
 
-Alignment is enforced where it is cheap. CI installs each component in its own isolated environment
-against its own pin and reports the pins in use: a **warning** between release gates, an **error** at
-every gate, milestone and release. A contract change made between gates follows the documented
-contract-change process.
+A skew that leaves the file valid against the reader's schema passes. Before v1 there is **no run-time
+alignment check**: `metadata.producer.utilities_version`, like the producer's own release version, is
+audit information — quoted in the failure message, never compared.
+
+Alignment is enforced where it is cheap, and it covers the skews validation cannot see. CI installs
+each component in its own isolated environment against its own pin and reports the pins in use: a
+**warning** between release gates, an **error** at every gate, milestone and release, where all
+components must be on the same utilities-library minor (patch versions may differ). A contract change
+made between gates follows the documented contract-change process.
 
 After v1, contracts are versioned with an interval check instead, and R5's step 2 changes
 accordingly.
