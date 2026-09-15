@@ -28,6 +28,14 @@ ecosystem.
 
 > **The Living Documentation pipeline runs AI-free.** Every step — collect → normalize → generate — is deterministic tooling (Python, JSON Schema validation, Jinja2/Markdown templates) with no LLM call anywhere in that path. [`AbsaOSS/agentic-toolkit`](https://github.com/AbsaOSS/agentic-toolkit) can accelerate the upstream *authoring* of GitHub Issues and `.feature` files, but it is never a runtime dependency of this pipeline: a human writing the same input by hand is a fully supported, identical path.
 
+## Documentation contracts
+
+The six documentation contracts exchanged across the ecosystem — `doc-entities`, `doc-source`,
+`ui-tests`, `generator-ready`, `coverage-matrix`, `ui-test-catalog` — are defined normatively in
+[Documentation contracts](docs/contracts.md): the schema authoring rules, the shared metadata
+envelope, the artifact and rendering rules, and the catalogue of error and warning codes. Every
+collector, transform and generator in the ecosystem is written against that document.
+
 ## Usage
 
 ### Prerequisites
