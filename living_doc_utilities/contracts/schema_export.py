@@ -147,7 +147,8 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
     (AcceptanceCriterion._check_version_required_unless_planned,
     _check_removal_planned_only_when_deprecated; Entity._check_state_origin,
     _check_stub_reason_is_feature_only, _check_pages_have_exactly_one_primary;
-    AcCoverage._check_status_matches_aspects) as `allOf` if/then/else so a plain jsonschema
+    AspectCoverage._check_status_matches_scenario_ids; AcCoverage._check_status_matches_aspects,
+    incl. its no-aspects scenario_ids tie-in) as `allOf` if/then/else so a plain jsonschema
     validator rejects what pydantic rejects. A no-op for a contract whose $defs don't carry
     that definition (e.g. ui-tests has neither).
 
@@ -157,15 +158,18 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
     schema carries its own private copy of the `Metadata` def, so this cannot leak across
     contracts.
 
-    Two model_validator rules are deliberately not encoded here, because plain JSON Schema
+    Three model_validator rules are deliberately not encoded here, because plain JSON Schema
     has no keyword that can express them: Entity._check_acceptance_criteria_belong_to_this_entity
     and CoverageMatrixResult._check_acceptance_criteria_belong_to_this_entity both require an
     id field's value to be used as a runtime prefix pattern against a sibling/ancestor
-    field's value, which JSON Schema cannot cross-reference. A consumer validating raw JSON
-    against the generated schema alone (not through these Pydantic models) will not catch a
-    misowned acceptance-criterion id; this is a documented, accepted schema limitation, not
-    an oversight - the same is true of GeneratorReadyResult's SelectionSummary entity-total
-    identity (see generator_ready.SelectionSummary docstring).
+    field's value, which JSON Schema cannot cross-reference; PlannedSummary's
+    _check_total_equals_backlog_plus_targeted sums the values of a dynamic-keyed map
+    (by_target_version), which JSON Schema has no arithmetic/aggregation keyword for. A
+    consumer validating raw JSON against the generated schema alone (not through these
+    Pydantic models) will not catch a misowned acceptance-criterion id or an inconsistent
+    planned-summary total; this is a documented, accepted schema limitation, not an oversight -
+    the same is true of GeneratorReadyResult's SelectionSummary entity-total identity (see
+    generator_ready.SelectionSummary docstring).
     """
     defs = schema.get("$defs", {})
 
@@ -219,15 +223,41 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
             ]
         )
 
+    aspect_coverage_def = defs.get("AspectCoverage")
+    if isinstance(aspect_coverage_def, dict):
+        # status is evidence-backed by scenario_ids, never independently authored
+        # (AspectCoverage._check_status_matches_scenario_ids).
+        aspect_coverage_def.setdefault("allOf", []).append(
+            {
+                "if": {"properties": {"status": {"const": "covered"}}, "required": ["status"]},
+                "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
+                "else": {"properties": {"scenario_ids": {"maxItems": 0}}},
+            }
+        )
+
     ac_coverage_def = defs.get("AcCoverage")
     if isinstance(ac_coverage_def, dict):
         # An aspect that failed coverage (AcCoverage._check_status_matches_aspects).
         not_covered_aspect = {"properties": {"status": {"const": "not_covered"}}, "required": ["status"]}
+        no_aspects = {"properties": {"aspects": {"maxItems": 0}}}
         ac_coverage_def.setdefault("allOf", []).extend(
             [
                 {
-                    "if": {"properties": {"aspects": {"maxItems": 0}}},
+                    "if": no_aspects,
                     "then": {"properties": {"status": {"enum": ["covered", "not_covered"]}}},
+                },
+                {
+                    # without aspects, status is evidence-backed by the AC's own scenario_ids
+                    # (same rule as AspectCoverage, applied at the AC level).
+                    "if": {**no_aspects, "properties": {**no_aspects["properties"], "status": {"const": "covered"}}},
+                    "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
+                },
+                {
+                    "if": {
+                        **no_aspects,
+                        "properties": {**no_aspects["properties"], "status": {"const": "not_covered"}},
+                    },
+                    "then": {"properties": {"scenario_ids": {"maxItems": 0}}},
                 },
                 {
                     "if": {
@@ -237,7 +267,10 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
                     "then": {"properties": {"status": {"const": "covered"}}},
                 },
                 {
-                    "if": {"properties": {"aspects": {"minItems": 1, "contains": not_covered_aspect}}},
+                    "if": {
+                        "properties": {"aspects": {"minItems": 1, "contains": not_covered_aspect}},
+                        "required": ["aspects"],
+                    },
                     "then": {"properties": {"status": {"const": "partially_covered"}}},
                 },
             ]
@@ -250,6 +283,9 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
             if not isinstance(source_inputs, dict):
                 raise ValueError("expected a 'source_inputs' property on the Metadata definition")
             source_inputs["minItems"] = 1
+            required = metadata_def.setdefault("required", [])
+            if "source_inputs" not in required:
+                required.append("source_inputs")
 
 
 def find_schema_violations(schema: dict[str, Any]) -> list[str]:

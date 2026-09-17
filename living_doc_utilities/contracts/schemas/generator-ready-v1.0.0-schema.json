@@ -705,7 +705,8 @@
         "producer",
         "source",
         "generated_at",
-        "stats"
+        "stats",
+        "source_inputs"
       ],
       "title": "Metadata",
       "type": "object"

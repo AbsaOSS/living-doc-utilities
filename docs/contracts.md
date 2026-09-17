@@ -617,6 +617,10 @@ Coverage is computed **per aspect**:
   linked scenario; otherwise it is `partially_covered`, with a per-aspect breakdown;
 - an acceptance criterion **without** aspects keeps a plain `covered` / `not_covered`.
 
+`covered` is always evidence-backed, never authored independently of its linked scenarios: an
+aspect (or, absent aspects, the acceptance criterion itself) is `covered` if and only if its
+`scenario_ids` has at least one entry, and `not_covered` if and only if it is empty.
+
 Counted acceptance criteria: `active` and `deprecated`, in **both** views. A coverage matrix's
 `document.view` changes presentation only, never which criteria are counted.
 
@@ -634,7 +638,9 @@ Not counted:
   supposed to describe what exists.
 
 A supplementary planned-work summary — totals, backlog versus targeted, and a breakdown per target
-version — is always carried in the artifact, and rendered only in the inner view.
+version — is always carried in the artifact, and rendered only in the inner view. Every planned
+acceptance criterion is either backlog (no target version) or targeted at exactly one version, so
+`total` always equals `backlog` plus the sum of `by_target_version`'s values.
 
 ## 5. Errors and warnings
 

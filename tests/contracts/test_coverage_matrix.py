@@ -119,12 +119,44 @@ def test_ac_coverage_accepts_covered_status_when_every_aspect_is_covered():
     assert row.status == "covered"
 
 
+def test_ac_coverage_rejects_a_malformed_ac_id():
+    # AC_ID_PATTERN, same as common.AcceptanceCriterion.id and ui_tests.AcLink.id - the
+    # belongs-to-entity prefix check alone does not catch a malformed suffix.
+    with pytest.raises(ValidationError):
+        factories.ac_coverage(ac_id="US-001-anything")
+
+
+def test_aspect_coverage_rejects_covered_status_with_no_linked_scenarios():
+    with pytest.raises(ValidationError, match="status must be 'not_covered'"):
+        factories.aspect_coverage(status="covered", scenario_ids=[])
+
+
+def test_aspect_coverage_rejects_not_covered_status_with_linked_scenarios():
+    with pytest.raises(ValidationError, match="status must be 'covered'"):
+        factories.aspect_coverage(status="not_covered", scenario_ids=["SCN-001"])
+
+
+def test_ac_coverage_without_aspects_rejects_covered_status_with_no_linked_scenarios():
+    with pytest.raises(ValidationError, match="status must be 'not_covered'"):
+        factories.ac_coverage(status="covered", aspects=[], scenario_ids=[])
+
+
+def test_ac_coverage_without_aspects_rejects_not_covered_status_with_linked_scenarios():
+    with pytest.raises(ValidationError, match="status must be 'covered'"):
+        factories.ac_coverage(status="not_covered", aspects=[], scenario_ids=["SCN-001"])
+
+
 def test_planned_summary_models_total_backlog_and_by_target_version():
     summary = factories.planned_summary(total=5, backlog=2, by_target_version={"1.5.0": 2, "1.6.0": 1})
 
     assert summary.total == 5
     assert summary.backlog == 2
     assert summary.by_target_version == {"1.5.0": 2, "1.6.0": 1}
+
+
+def test_planned_summary_rejects_a_total_that_does_not_equal_backlog_plus_targeted():
+    with pytest.raises(ValidationError, match="must equal backlog"):
+        factories.planned_summary(total=1, backlog=1, by_target_version={"1.5.0": 2})
 
 
 def test_by_target_version_keys_must_be_a_version_string():
@@ -196,7 +228,8 @@ _MOVED_TO_UNLINKED = "unlinked scenarios are a different contract - ui-test-cata
 _MOVED_TO_WARNINGS = "flattened into the free-text warnings[] of a STALE_AC_REF warning, not a structured field"
 _NO_AC_TEXT_DESTINATION = (
     "not present on the new AcCoverage row; available via generator-ready's "
-    "content.entities[].acceptance_criteria[] by joining ac_id, not duplicated here - open question, see PR #131 review"
+    "content.entities[].acceptance_criteria[] by joining ac_id, not duplicated here - same "
+    "join-not-duplicate design as _JOIN_GENERATOR_READY/_JOIN_UI_TEST_CATALOG above"
 )
 
 TOOLKIT_FIELDS_NOT_CARRIED = {

@@ -26,7 +26,7 @@ from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
-from living_doc_utilities.contracts.common import VERSION_PATTERN, ContractModel, LifecycleState, View
+from living_doc_utilities.contracts.common import AC_ID_PATTERN, VERSION_PATTERN, ContractModel, LifecycleState, View
 from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
 
 CONTRACT_ID: Literal["coverage-matrix-v1.0.0"] = "coverage-matrix-v1.0.0"
@@ -47,11 +47,23 @@ class AspectCoverage(ContractModel):
     status: AspectStatus
     scenario_ids: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _check_status_matches_scenario_ids(self) -> "AspectCoverage":
+        # docs/contracts.md, section 4 "Coverage": an aspect is covered only when it has at
+        # least one linked scenario - status is evidence-backed, never authored independently
+        # of scenario_ids.
+        expected = "covered" if self.scenario_ids else "not_covered"
+        if self.status != expected:
+            raise ValueError(
+                f"status must be '{expected}' given scenario_ids={self.scenario_ids!r}, got '{self.status}'"
+            )
+        return self
+
 
 class AcCoverage(ContractModel):
     """One acceptance criterion's resolved coverage row."""
 
-    ac_id: str
+    ac_id: str = Field(pattern=AC_ID_PATTERN)
     state: CountedState
     status: CoverageStatus
     aspects: list[AspectCoverage] = Field(default_factory=list)
@@ -61,10 +73,16 @@ class AcCoverage(ContractModel):
     def _check_status_matches_aspects(self) -> "AcCoverage":
         # docs/contracts.md, section 4 "Coverage": with aspects, covered only when every
         # aspect is covered, else partially_covered; without aspects, a plain covered/
-        # not_covered - partially_covered never applies.
+        # not_covered - partially_covered never applies, and (same evidence rule as
+        # AspectCoverage) covered only when scenario_ids has at least one entry.
         if not self.aspects:
             if self.status == "partially_covered":
                 raise ValueError("status cannot be 'partially_covered' when aspects is empty")
+            expected = "covered" if self.scenario_ids else "not_covered"
+            if self.status != expected:
+                raise ValueError(
+                    f"status must be '{expected}' given scenario_ids={self.scenario_ids!r}, got '{self.status}'"
+                )
             return self
         expected = "covered" if all(aspect.status == "covered" for aspect in self.aspects) else "partially_covered"
         if self.status != expected:
@@ -100,6 +118,18 @@ class PlannedSummary(ContractModel):
     by_target_version: dict[Annotated[str, StringConstraints(pattern=VERSION_PATTERN)], Annotated[int, Field(ge=0)]] = (
         Field(default_factory=dict)
     )
+
+    @model_validator(mode="after")
+    def _check_total_equals_backlog_plus_targeted(self) -> "PlannedSummary":
+        # docs/contracts.md, section 4 "Coverage": every planned AC is either backlog (no
+        # target version) or targeted at exactly one version, so the two must sum to the total.
+        targeted = sum(self.by_target_version.values())
+        if self.total != self.backlog + targeted:
+            raise ValueError(
+                f"total ({self.total}) must equal backlog ({self.backlog}) + "
+                f"sum(by_target_version.values()) ({targeted})"
+            )
+        return self
 
 
 class Document(ContractModel):

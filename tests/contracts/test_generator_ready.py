@@ -199,10 +199,13 @@ TOOLKIT_FIELDS_NOT_CARRIED = {
     # entity_id is parsed from the title (MISSING_ENTITY_ID) - it is not a rename of this
     # field (docs/contracts.md, "Entity identity").
     "UserStory.id": "superseded by entity_id, which is parsed from the title, not carried from this field",
-    # No destination exists on Entity today.
-    "Sections.user_guide": "no destination on Entity today - open gap, see PR #131 review",
-    "Sections.connections": "no destination on Entity today - open gap, see PR #131 review",
-    "Sections.last_edited": "no destination on Entity today - open gap, see PR #131 review "
+    # Retired, not lost: none of these three is in the canonical authored field set
+    # (test_authored_field_set.py, copied from AbsaOSS/living-doc's canon, issue #128) that
+    # Entity's shape was built and tested against - they are toolkit-internal fields the canon
+    # never carried forward, not fields this contract forgot to place.
+    "Sections.user_guide": "retired - not in the canonical authored field set (test_authored_field_set.py)",
+    "Sections.connections": "retired - not in the canonical authored field set (test_authored_field_set.py)",
+    "Sections.last_edited": "retired - not in the canonical authored field set (test_authored_field_set.py) "
     "(free-text attribution, not an ISO timestamp - not the same as Timestamps.updated)",
 }
 

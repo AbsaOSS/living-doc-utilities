@@ -7,6 +7,7 @@
       "description": "One acceptance criterion's resolved coverage row.",
       "properties": {
         "ac_id": {
+          "pattern": "^[A-Z]+-\\d+-\\d+$",
           "title": "Ac Id",
           "type": "string"
         },
@@ -73,6 +74,47 @@
           "if": {
             "properties": {
               "aspects": {
+                "maxItems": 0
+              },
+              "status": {
+                "const": "covered"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "scenario_ids": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "scenario_ids"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "maxItems": 0
+              },
+              "status": {
+                "const": "not_covered"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "scenario_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
                 "minItems": 1
               }
             },
@@ -117,7 +159,10 @@
                   ]
                 }
               }
-            }
+            },
+            "required": [
+              "aspects"
+            ]
           },
           "then": {
             "properties": {
@@ -158,7 +203,38 @@
         "status"
       ],
       "title": "AspectCoverage",
-      "type": "object"
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "covered"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scenario_ids": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "scenario_ids"
+            ]
+          },
+          "else": {
+            "properties": {
+              "scenario_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "AuditStats": {
       "additionalProperties": false,
@@ -384,7 +460,8 @@
         "producer",
         "source",
         "generated_at",
-        "stats"
+        "stats",
+        "source_inputs"
       ],
       "title": "Metadata",
       "type": "object"
