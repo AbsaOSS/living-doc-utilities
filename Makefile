@@ -11,7 +11,7 @@ PYLINT_MIN  ?= 9.5
 COV_MIN     ?= 80
 
 .DEFAULT_GOAL := help
-.PHONY: help install qa lint format format-check types test coverage
+.PHONY: help install qa lint format format-check types test coverage schemas
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -41,3 +41,6 @@ test: ## Run the unit test suite (integration tests excluded).
 
 coverage: ## Run the unit test suite with the coverage gate.
 	pytest --ignore=tests/integration --cov=. -v tests/ --cov-fail-under=$(COV_MIN)
+
+schemas: ## Regenerate the contract JSON Schemas from the pydantic models (docs/contracts.md).
+	$(PYTHON) -m living_doc_utilities.contracts.schema_export

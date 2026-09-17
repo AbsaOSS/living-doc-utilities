@@ -96,3 +96,4 @@ Repo specifics
 - Contract-sensitive outputs
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).
   - JSON serialization keys/structure in living_doc_utilities/model.
+  - living_doc_utilities/contracts/schemas/*.json — the Schema Regeneration Check CI job (test.yml) fails the build if these drift from `make schemas`' output; keep that job green rather than relaxing it.

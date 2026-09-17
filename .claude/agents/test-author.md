@@ -12,7 +12,7 @@ surface** — so you mock the right target on the first try instead of guessing.
 
 - Must use `pytest` + `pytest-mock` (`mocker`). Tests live under `tests/`, mirroring the
   package layout (`tests/model/`, `tests/github/`, `tests/inputs/`, `tests/exporter/`,
-  plus `tests/test_decorators.py`, `tests/test_logging_config.py`).
+  `tests/contracts/`, plus `tests/test_decorators.py`, `tests/test_logging_config.py`).
 - Must mock `INPUT_*` environment variables (via `mocker.patch("os.getenv", ...)` or
   patching `get_action_input`), never rely on the ambient environment.
 - Must cover the `from_dict()` validation branches and the `load_from_json()` fallbacks —
@@ -20,6 +20,13 @@ surface** — so you mock the right target on the first try instead of guessing.
 - Must keep contract-sensitive strings and the serialized JSON field names stable.
 - Prefer adding to the shared fixtures in `tests/conftest.py` over duplicating setup.
 - Must keep the suite green under `make test` / `make coverage` (≥ 80%).
+- For `living_doc_utilities/contracts/` (pydantic models, not the legacy `to_dict()`/
+  `from_dict()` pattern): Must use `tests/contracts/factories.py`'s builder functions
+  (`user_story()`, `feature()`, `functionality()`, `scenario()`, `metadata()`, ...) instead
+  of hand-written model instances; Must assert a validator failure with
+  `pytest.raises(pydantic.ValidationError, match=...)`; Must run
+  `python -m living_doc_utilities.contracts.schema_export` after any model-field test
+  reveals a needed model change, so the committed schema stays in step.
 
 ## Mock / fixture cheat-table (sourced from what already exists in `tests/`)
 
@@ -37,6 +44,9 @@ surface** — so you mock the right target on the first try instead of guessing.
 | GitHub / HTTP exceptions | raise real `github.GithubException(status, data, headers)` / `requests.RequestException` from the wrapped function | `tests/test_decorators.py` |
 | Model serde | build the object, call `to_dict()`, assert exact keys; feed a dict to `from_dict()` / `IssueFactory.get()` and assert the subtype + fields — no mocks needed | `tests/model/test_issue.py`, `tests/model/test_issues.py` |
 | Filesystem for `save_to_json` / `load_from_json` | use `tmp_path` and a real file round trip; for the error branches patch `builtins.open` with `side_effect` | `tests/model/test_issues.py` |
+| A `contracts/` model instance | call a `tests/contracts/factories.py` builder (`factories.user_story(entity_id=..., **overrides)`), never construct the pydantic class by hand | `tests/contracts/factories.py`; any `tests/contracts/test_*.py` |
+| A `contracts/` cross-field validator failure | `pytest.raises(ValidationError, match="<the raise message>")` around a factory call with an overridden field | `tests/contracts/test_doc_entities.py::test_feature_with_authored_state_origin_fails` |
+| A generated-schema shape claim (map typing, enum, `field_occupancy` keys) | load the committed file (`json.loads((.../contracts/schemas/<id>-schema.json).read_text())`), assert on the schema dict directly, or `jsonschema.validate(instance=data, schema=schema)` for pass/fail cases — not a pydantic-only assertion | `tests/contracts/test_schema_export.py` |
 
 **Adding a new `Issue` subtype:** add the `case` in `factory/issue_factory.py`, then a
 `tests/model/` case that round-trips it through `to_dict()` → `Issues.save_to_json()` →

@@ -103,4 +103,5 @@ Repo specifics
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).
   - Input-name normalization (hyphen to underscore) in get_action_input.
   - JSON serialization keys/structure in living_doc_utilities/model.
+  - living_doc_utilities/contracts/ pydantic models and their generated living_doc_utilities/contracts/schemas/*.json — run make schemas after any model change and commit the regenerated file in the same PR.
 

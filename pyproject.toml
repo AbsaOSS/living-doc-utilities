@@ -6,6 +6,9 @@ authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.13,<3",
+]
 
 [project.urls]
 Repository = "https://github.com/AbsaOSS/living-doc-utilities"
@@ -13,6 +16,9 @@ Repository = "https://github.com/AbsaOSS/living-doc-utilities"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["living_doc_utilities*"]
+
+[tool.setuptools.package-data]
+"living_doc_utilities.contracts" = ["schemas/*.json"]
 
 [tool.black]
 line-length = 120

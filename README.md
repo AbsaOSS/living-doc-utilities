@@ -36,6 +36,23 @@ The six documentation contracts exchanged across the ecosystem — `doc-entities
 envelope, the artifact and rendering rules, and the catalogue of error and warning codes. Every
 collector, transform and generator in the ecosystem is written against that document.
 
+The three collector-output contracts — `doc-entities`, `doc-source`, `ui-tests` — are implemented
+as typed, `extra="forbid"` pydantic models in `living_doc_utilities.contracts`, with their JSON
+Schemas generated from those models and shipped as package data under
+`living_doc_utilities/contracts/schemas/`:
+
+```python
+from living_doc_utilities.contracts.doc_entities import DocEntitiesResult
+from living_doc_utilities.contracts.schema_export import load_schema
+
+result = DocEntitiesResult.model_validate(data)
+schema = load_schema("doc-entities-v1.0.0")  # loaded via importlib.resources
+```
+
+The transform-output contracts (`generator-ready`, `coverage-matrix`, `ui-test-catalog`) and the
+runtime read/validate helpers are not implemented yet; they build on this envelope in later
+releases.
+
 ## Usage
 
 ### Prerequisites

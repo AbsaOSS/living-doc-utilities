@@ -31,6 +31,8 @@ jobs:
   build-and-publish:
     name: Build & Publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout the released tag
@@ -71,6 +73,11 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload dist/*
+
+      - name: Upload contract schemas as release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" living_doc_utilities/contracts/schemas/*.json --clobber
 
       - name: Aquasec Manifest Generation
         run: |
