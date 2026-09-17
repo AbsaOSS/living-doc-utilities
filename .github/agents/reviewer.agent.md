@@ -96,6 +96,7 @@ Repo specifics
 - Contract-sensitive outputs
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).
   - JSON serialization keys/structure in living_doc_utilities/model.
+  - living_doc_utilities/contracts/ pydantic models and their generated living_doc_utilities/contracts/schemas/*.json — a model change must ship a regenerated schema (make schemas) in the same PR; field names/shapes must match AbsaOSS/living-doc's canon (tools/examples_check.py, docs/guides/living-doc-header-types.md), not living-doc's stale docs/examples/_expected/*.json.
 - High-risk areas
   - GitHub API usage: rate limits and error handling.
   - GitHub Actions I/O: INPUT_* env vars and GITHUB_OUTPUT writes.

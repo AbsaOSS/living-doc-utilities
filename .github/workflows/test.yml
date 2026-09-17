@@ -104,10 +104,45 @@ jobs:
       - name: Run ${{ matrix.task.name }}
         run: make ${{ matrix.task.target }}
 
+  # Owner-side regeneration gate (docs/contracts.md, "Schema authoring rules"): a contract
+  # model change with no regenerated schema must fail here, not downstream.
+  schema-regeneration-check:
+    needs: detect
+    if: needs.detect.outputs.python_changed == 'true'
+    runs-on: ubuntu-latest
+    name: Schema Regeneration Check
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Regenerate contract schemas
+        run: make schemas
+
+      - name: Fail if the regenerated schemas differ from what is committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code -- living_doc_utilities/contracts/schemas; then
+            echo "::error::Generated schemas are out of date. Run 'make schemas' and commit the result."
+            exit 1
+          fi
+
   # Single required status check. Always runs, so it always reports; passes when
   # the matrix succeeded or was skipped (no Python changes), fails otherwise.
   qa-gate:
-    needs: [ detect, static-analysis-and-tests ]
+    needs: [ detect, static-analysis-and-tests, schema-regeneration-check ]
     if: always()
     runs-on: ubuntu-latest
     name: QA Gate
@@ -117,14 +152,15 @@ jobs:
         run: |
           set -euo pipefail
           changed="${{ needs.detect.outputs.python_changed }}"
-          result="${{ needs.static-analysis-and-tests.result }}"
-          echo "python_changed=$changed | static-analysis-and-tests=$result"
+          test_result="${{ needs.static-analysis-and-tests.result }}"
+          schema_result="${{ needs.schema-regeneration-check.result }}"
+          echo "python_changed=$changed | static-analysis-and-tests=$test_result | schema-regeneration-check=$schema_result"
           if [[ "$changed" != "true" ]]; then
             echo "No Python-related changes — static analysis & tests not required."
             exit 0
           fi
-          if [[ "$result" == "success" ]]; then
+          if [[ "$test_result" == "success" && "$schema_result" == "success" ]]; then
             exit 0
           fi
-          echo "::error::static analysis & tests did not pass (result: $result)."
+          echo "::error::static analysis & tests or the schema regeneration check did not pass (tests: $test_result, schemas: $schema_result)."
           exit 1

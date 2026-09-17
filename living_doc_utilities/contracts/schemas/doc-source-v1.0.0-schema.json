@@ -1,0 +1,1125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://absaoss.github.io/living-doc-utilities/schemas/doc-source-v1.0.0-schema.json",
+  "$defs": {
+    "AcceptanceCriterion": {
+      "additionalProperties": false,
+      "description": "One acceptance criterion, in the AC-block grammar's shape.",
+      "properties": {
+        "id": {
+          "pattern": "^[A-Z]+-\\d+-\\d+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "planned",
+            "in_review",
+            "active",
+            "deprecated"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "aspect": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aspect",
+          "type": "array"
+        },
+        "preconditions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "not_in_scope": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Not In Scope",
+          "type": "array"
+        },
+        "removal_planned": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Removal Planned"
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale"
+        },
+        "placeholder_values": {
+          "title": "Placeholder Values",
+          "type": "object",
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "description"
+      ],
+      "title": "AcceptanceCriterion",
+      "type": "object"
+    },
+    "AuditStats": {
+      "additionalProperties": false,
+      "description": "The stats carried per input inside metadata.source_inputs[] (R7): an audit record of\nanother contract's paths, so field_occupancy is pattern-checked rather than enumerated.",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/$defs/Cardinality"
+        },
+        "field_occupancy": {
+          "title": "Field Occupancy",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*(\\[\\])?(\\.[a-z][a-z0-9_]*(\\[\\])?)*$"
+          }
+        }
+      },
+      "required": [
+        "cardinality"
+      ],
+      "title": "AuditStats",
+      "type": "object"
+    },
+    "Cardinality": {
+      "additionalProperties": false,
+      "description": "Fixed record counts carried in metadata.stats.cardinality (R11).",
+      "properties": {
+        "entities": {
+          "default": 0,
+          "title": "Entities",
+          "type": "integer"
+        },
+        "entities_by_type": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "DocumentedUserStory",
+              "DocumentedFeature",
+              "DocumentedFunctionality"
+            ]
+          },
+          "title": "Entities By Type",
+          "type": "object"
+        },
+        "acceptance_criteria": {
+          "default": 0,
+          "title": "Acceptance Criteria",
+          "type": "integer"
+        },
+        "scenarios": {
+          "default": 0,
+          "title": "Scenarios",
+          "type": "integer"
+        },
+        "warnings_by_code": {
+          "title": "Warnings By Code",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          }
+        },
+        "sources_configured": {
+          "default": 0,
+          "title": "Sources Configured",
+          "type": "integer"
+        },
+        "sources_failed": {
+          "default": 0,
+          "title": "Sources Failed",
+          "type": "integer"
+        },
+        "unresolved_refs": {
+          "default": 0,
+          "title": "Unresolved Refs",
+          "type": "integer"
+        },
+        "entities_skipped": {
+          "default": 0,
+          "title": "Entities Skipped",
+          "type": "integer"
+        }
+      },
+      "title": "Cardinality",
+      "type": "object"
+    },
+    "ContractWarning": {
+      "additionalProperties": false,
+      "description": "One entry of an artifact's top-level warnings[] array.",
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ContractWarning",
+      "type": "object"
+    },
+    "Entity": {
+      "additionalProperties": false,
+      "description": "A documented User Story, Feature or Functionality.\n\nEvery authored field of every entity type lives here, at its authored level; a field\nthat does not apply to a given entity's type is simply absent. Which headings are\nrequired for which type is a parsing-time concern (a later package) - this model only\nfixes the contract's shape. The cross-cutting invariants that are structural, not\nparsing-time, are enforced below: a Feature's state is always derived, stub_reason\nonly ever describes a Feature, and every acceptance criterion's id belongs to its\nentity.",
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "type": {
+          "enum": [
+            "DocumentedUserStory",
+            "DocumentedFeature",
+            "DocumentedFunctionality"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "planned",
+            "in_review",
+            "active",
+            "deprecated"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "state_origin": {
+          "enum": [
+            "authored",
+            "derived"
+          ],
+          "title": "State Origin",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "timestamps": {
+          "$ref": "#/$defs/Timestamps"
+        },
+        "narrative": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narrative"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "business_value": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Business Value",
+          "type": "array"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "$ref": "#/$defs/AcceptanceCriterion"
+          },
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "preconditions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "not_in_scope": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Not In Scope",
+          "type": "array"
+        },
+        "deprecated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deprecated At"
+        },
+        "deprecation_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deprecation Reason"
+        },
+        "superseded_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Superseded By"
+        },
+        "surface_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Surface Type"
+        },
+        "owners": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Owners",
+          "type": "array"
+        },
+        "user_stories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "User Stories",
+          "type": "array"
+        },
+        "functionalities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Functionalities",
+          "type": "array"
+        },
+        "external_dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "External Dependencies",
+          "type": "array"
+        },
+        "stub_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stub Reason"
+        },
+        "wizard_steps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Wizard Steps",
+          "type": "array"
+        },
+        "pages": {
+          "items": {
+            "$ref": "#/$defs/PageRef"
+          },
+          "title": "Pages",
+          "type": "array"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        },
+        "func_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Func Type"
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale"
+        }
+      },
+      "required": [
+        "entity_id",
+        "source_ref",
+        "type",
+        "title",
+        "state",
+        "state_origin"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "Metadata": {
+      "additionalProperties": false,
+      "description": "The envelope every contract artifact carries under its top-level metadata key.",
+      "properties": {
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "run": {
+          "$ref": "#/$defs/Run"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/$defs/Stats"
+        },
+        "source_inputs": {
+          "items": {
+            "$ref": "#/$defs/SourceInputEntry"
+          },
+          "title": "Source Inputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "producer",
+        "source",
+        "generated_at",
+        "stats"
+      ],
+      "title": "Metadata",
+      "type": "object"
+    },
+    "PageRef": {
+      "additionalProperties": false,
+      "description": "One PageObject file backing a Feature's surface - the full header or a\ncross-reference one (living-doc's docs/guides/living-doc-header-types.md,\n\"Feature in a PageObject File\"). Exactly one of a Feature's pages is the full\nheader; the rest are cross-reference headers pointing back via `parent-feat`.",
+      "properties": {
+        "is_primary": {
+          "default": false,
+          "title": "Is Primary",
+          "type": "boolean"
+        },
+        "route": {
+          "title": "Route",
+          "type": "string"
+        },
+        "page_object": {
+          "title": "Page Object",
+          "type": "string"
+        },
+        "owners": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Owners",
+          "type": "array"
+        },
+        "purpose": {
+          "title": "Purpose",
+          "type": "string"
+        },
+        "functionalities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Functionalities",
+          "type": "array"
+        }
+      },
+      "required": [
+        "route",
+        "page_object",
+        "purpose"
+      ],
+      "title": "PageRef",
+      "type": "object"
+    },
+    "Producer": {
+      "additionalProperties": false,
+      "description": "Identifies the tool that wrote this specific file (R6).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "build": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Build"
+        },
+        "utilities_version": {
+          "title": "Utilities Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "utilities_version"
+      ],
+      "title": "Producer",
+      "type": "object"
+    },
+    "Run": {
+      "additionalProperties": false,
+      "description": "CI run context the file was produced under. Audit information only.",
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "run_attempt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Attempt"
+        },
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "workflow": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workflow"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha"
+        }
+      },
+      "title": "Run",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "description": "Identifies the one project, and the systems/organizations/repositories, a file documents.",
+      "properties": {
+        "project_id": {
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "systems": {
+          "items": {
+            "enum": [
+              "GitHub",
+              "AzureDevOps"
+            ],
+            "type": "string"
+          },
+          "title": "Systems",
+          "type": "array"
+        },
+        "organizations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Organizations",
+          "type": "array"
+        },
+        "repositories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repositories",
+          "type": "array"
+        },
+        "extraction_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "markdown",
+                "field-map"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extraction Mode"
+        }
+      },
+      "required": [
+        "project_id"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SourceInputEntry": {
+      "additionalProperties": false,
+      "description": "One transform input's provenance and stats (R7). Collector outputs carry none.",
+      "properties": {
+        "schema_version": {
+          "pattern": "^[a-z][a-z-]*-v\\d+\\.\\d+\\.\\d+$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "run": {
+          "$ref": "#/$defs/Run"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "stats": {
+          "$ref": "#/$defs/AuditStats"
+        },
+        "selected_stats": {
+          "$ref": "#/$defs/AuditStats"
+        }
+      },
+      "required": [
+        "schema_version",
+        "producer",
+        "source",
+        "stats",
+        "selected_stats"
+      ],
+      "title": "SourceInputEntry",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "Provenance pointer back to the tracking system an entity or scenario came from.",
+      "properties": {
+        "system": {
+          "enum": [
+            "GitHub",
+            "AzureDevOps"
+          ],
+          "title": "System",
+          "type": "string"
+        },
+        "native_id": {
+          "title": "Native Id",
+          "type": "string"
+        },
+        "native_type": {
+          "title": "Native Type",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "tracker_state": {
+          "title": "Tracker State",
+          "type": "string"
+        },
+        "area_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Area Path"
+        },
+        "iteration_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Iteration Path"
+        }
+      },
+      "required": [
+        "system",
+        "native_id",
+        "native_type",
+        "url",
+        "tracker_state"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Stats": {
+      "additionalProperties": false,
+      "description": "A file's own metadata.stats: cardinality plus field_occupancy keyed by that file's\nown contract paths. schema_export.py enumerates the allowed keys per contract.",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/$defs/Cardinality"
+        },
+        "field_occupancy": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Field Occupancy",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "features[].acceptance_criteria[].aspect[]",
+              "features[].acceptance_criteria[].description",
+              "features[].acceptance_criteria[].id",
+              "features[].acceptance_criteria[].not_in_scope[]",
+              "features[].acceptance_criteria[].placeholder_values",
+              "features[].acceptance_criteria[].preconditions[]",
+              "features[].acceptance_criteria[].rationale",
+              "features[].acceptance_criteria[].removal_planned",
+              "features[].acceptance_criteria[].state",
+              "features[].acceptance_criteria[].version",
+              "features[].business_value[]",
+              "features[].deprecated_at",
+              "features[].deprecation_reason",
+              "features[].entity_id",
+              "features[].external_dependencies[]",
+              "features[].func_type",
+              "features[].functionalities[]",
+              "features[].narrative",
+              "features[].not_in_scope[]",
+              "features[].owners[]",
+              "features[].pages[].functionalities[]",
+              "features[].pages[].is_primary",
+              "features[].pages[].owners[]",
+              "features[].pages[].page_object",
+              "features[].pages[].purpose",
+              "features[].pages[].route",
+              "features[].parent",
+              "features[].preconditions[]",
+              "features[].purpose",
+              "features[].rationale",
+              "features[].source",
+              "features[].source_ref.area_path",
+              "features[].source_ref.iteration_path",
+              "features[].source_ref.native_id",
+              "features[].source_ref.native_type",
+              "features[].source_ref.system",
+              "features[].source_ref.tracker_state",
+              "features[].source_ref.url",
+              "features[].state",
+              "features[].state_origin",
+              "features[].stub_reason",
+              "features[].superseded_by",
+              "features[].surface_type",
+              "features[].tags[]",
+              "features[].timestamps.closed_at",
+              "features[].timestamps.created_at",
+              "features[].timestamps.updated_at",
+              "features[].title",
+              "features[].type",
+              "features[].user_stories[]",
+              "features[].wizard_steps[]",
+              "functionalities[].acceptance_criteria[].aspect[]",
+              "functionalities[].acceptance_criteria[].description",
+              "functionalities[].acceptance_criteria[].id",
+              "functionalities[].acceptance_criteria[].not_in_scope[]",
+              "functionalities[].acceptance_criteria[].placeholder_values",
+              "functionalities[].acceptance_criteria[].preconditions[]",
+              "functionalities[].acceptance_criteria[].rationale",
+              "functionalities[].acceptance_criteria[].removal_planned",
+              "functionalities[].acceptance_criteria[].state",
+              "functionalities[].acceptance_criteria[].version",
+              "functionalities[].business_value[]",
+              "functionalities[].deprecated_at",
+              "functionalities[].deprecation_reason",
+              "functionalities[].entity_id",
+              "functionalities[].external_dependencies[]",
+              "functionalities[].func_type",
+              "functionalities[].functionalities[]",
+              "functionalities[].narrative",
+              "functionalities[].not_in_scope[]",
+              "functionalities[].owners[]",
+              "functionalities[].pages[].functionalities[]",
+              "functionalities[].pages[].is_primary",
+              "functionalities[].pages[].owners[]",
+              "functionalities[].pages[].page_object",
+              "functionalities[].pages[].purpose",
+              "functionalities[].pages[].route",
+              "functionalities[].parent",
+              "functionalities[].preconditions[]",
+              "functionalities[].purpose",
+              "functionalities[].rationale",
+              "functionalities[].source",
+              "functionalities[].source_ref.area_path",
+              "functionalities[].source_ref.iteration_path",
+              "functionalities[].source_ref.native_id",
+              "functionalities[].source_ref.native_type",
+              "functionalities[].source_ref.system",
+              "functionalities[].source_ref.tracker_state",
+              "functionalities[].source_ref.url",
+              "functionalities[].state",
+              "functionalities[].state_origin",
+              "functionalities[].stub_reason",
+              "functionalities[].superseded_by",
+              "functionalities[].surface_type",
+              "functionalities[].tags[]",
+              "functionalities[].timestamps.closed_at",
+              "functionalities[].timestamps.created_at",
+              "functionalities[].timestamps.updated_at",
+              "functionalities[].title",
+              "functionalities[].type",
+              "functionalities[].user_stories[]",
+              "functionalities[].wizard_steps[]",
+              "user_stories[].acceptance_criteria[].aspect[]",
+              "user_stories[].acceptance_criteria[].description",
+              "user_stories[].acceptance_criteria[].id",
+              "user_stories[].acceptance_criteria[].not_in_scope[]",
+              "user_stories[].acceptance_criteria[].placeholder_values",
+              "user_stories[].acceptance_criteria[].preconditions[]",
+              "user_stories[].acceptance_criteria[].rationale",
+              "user_stories[].acceptance_criteria[].removal_planned",
+              "user_stories[].acceptance_criteria[].state",
+              "user_stories[].acceptance_criteria[].version",
+              "user_stories[].business_value[]",
+              "user_stories[].deprecated_at",
+              "user_stories[].deprecation_reason",
+              "user_stories[].entity_id",
+              "user_stories[].external_dependencies[]",
+              "user_stories[].func_type",
+              "user_stories[].functionalities[]",
+              "user_stories[].narrative",
+              "user_stories[].not_in_scope[]",
+              "user_stories[].owners[]",
+              "user_stories[].pages[].functionalities[]",
+              "user_stories[].pages[].is_primary",
+              "user_stories[].pages[].owners[]",
+              "user_stories[].pages[].page_object",
+              "user_stories[].pages[].purpose",
+              "user_stories[].pages[].route",
+              "user_stories[].parent",
+              "user_stories[].preconditions[]",
+              "user_stories[].purpose",
+              "user_stories[].rationale",
+              "user_stories[].source",
+              "user_stories[].source_ref.area_path",
+              "user_stories[].source_ref.iteration_path",
+              "user_stories[].source_ref.native_id",
+              "user_stories[].source_ref.native_type",
+              "user_stories[].source_ref.system",
+              "user_stories[].source_ref.tracker_state",
+              "user_stories[].source_ref.url",
+              "user_stories[].state",
+              "user_stories[].state_origin",
+              "user_stories[].stub_reason",
+              "user_stories[].superseded_by",
+              "user_stories[].surface_type",
+              "user_stories[].tags[]",
+              "user_stories[].timestamps.closed_at",
+              "user_stories[].timestamps.created_at",
+              "user_stories[].timestamps.updated_at",
+              "user_stories[].title",
+              "user_stories[].type",
+              "user_stories[].user_stories[]",
+              "user_stories[].wizard_steps[]"
+            ]
+          }
+        }
+      },
+      "required": [
+        "cardinality"
+      ],
+      "title": "Stats",
+      "type": "object"
+    },
+    "Timestamps": {
+      "additionalProperties": false,
+      "description": "Creation, update and close timestamps for an entity.",
+      "properties": {
+        "created_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "closed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Closed At"
+        }
+      },
+      "title": "Timestamps",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The doc-source-v1.0.0 artifact.",
+  "properties": {
+    "schema_version": {
+      "const": "doc-source-v1.0.0",
+      "default": "doc-source-v1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/ContractWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "user_stories": {
+      "items": {
+        "$ref": "#/$defs/Entity"
+      },
+      "title": "User Stories",
+      "type": "array"
+    },
+    "features": {
+      "items": {
+        "$ref": "#/$defs/Entity"
+      },
+      "title": "Features",
+      "type": "array"
+    },
+    "functionalities": {
+      "items": {
+        "$ref": "#/$defs/Entity"
+      },
+      "title": "Functionalities",
+      "type": "array"
+    }
+  },
+  "required": [
+    "metadata"
+  ],
+  "title": "DocSourceResult",
+  "type": "object"
+}

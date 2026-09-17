@@ -67,8 +67,8 @@ repo's own risk areas and review expectations; it is not shared with other repos
 
 ## Repo specifics
 
-- Must treat these as high-risk areas — the serde round trip in `model/issue.py` / `model/project_status.py`, the `type`-string dispatch in `factory/issue_factory.py`, `Issues.load_from_json()` / `save_to_json()`, `github/utils.py`, and `github/rate_limiter.py`.
-- Must treat these as contract-sensitive — the serialized JSON field names and the `type` discriminator, `Issues.make_issue_key()`'s `"{org}/{repo}/{number}"` format, `set_action_output()`'s `name=value` line, and the exact `ValueError` / log strings tests assert on.
+- Must treat these as high-risk areas — the serde round trip in `model/issue.py` / `model/project_status.py`, the `type`-string dispatch in `factory/issue_factory.py`, `Issues.load_from_json()` / `save_to_json()`, `github/utils.py`, `github/rate_limiter.py`, and any `contracts/` model change that lacks a regenerated `contracts/schemas/*.json`.
+- Must treat these as contract-sensitive — the serialized JSON field names and the `type` discriminator, `Issues.make_issue_key()`'s `"{org}/{repo}/{number}"` format, `set_action_output()`'s `name=value` line, the exact `ValueError` / log strings tests assert on, and a `contracts/` model's field names/shapes against `AbsaOSS/living-doc`'s canon (`tools/examples_check.py`'s `PAIR_FIELD_MAP`, `docs/guides/living-doc-header-types.md`) rather than `living-doc`'s `docs/examples/_expected/*.json`, which is known stale.
 - Must flag any public signature change or wire-format change that lacks a matching `pyproject.toml` `version` bump — this is a published PyPI library and every `living-doc-*` repo consumes it.
 - Must expect tests under `tests/`, mirroring the package layout, using `pytest` + `pytest-mock`.
-- Must expect QA to run through the root `Makefile` — `make qa` covers `format-check`, `lint`, `types`, and `test`.
+- Must expect QA to run through the root `Makefile` — `make qa` covers `format-check`, `lint`, `types`, and `test`; a `contracts/` model change must also carry a regenerated `contracts/schemas/*.json` (`make schemas`).

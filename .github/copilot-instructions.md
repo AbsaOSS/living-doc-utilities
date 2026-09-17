@@ -25,6 +25,7 @@ instead of re-implementing.
 - Must treat every public class and function as an import surface — there is no `main.py` / `run()`.
 - Must keep the library AI-free — deterministic Python only, no LLM call anywhere.
 - Must keep environment access confined to `logging_config.setup_logging()` and `github/utils.get_action_input()`; Must keep the models, factory, and serde free of environment reads.
+- Must treat `contracts/` as pydantic-based and deliberately different from `model/`/`factory/`/`exporter/` — the shared, typed doc-entities/doc-source/ui-tests contract models (see `docs/contracts.md`), not the legacy hand-rolled `to_dict()`/`from_dict()` pattern.
 
 ## Repo specifics
 
@@ -44,8 +45,13 @@ Module map — the `living_doc_utilities/` package:
 | `model/issues.py` | `Issues` — collection wrapper: `save_to_json()` / `load_from_json()` (via `IssueFactory`), `add_issue()` / `get_issue()` / `all_issues()` / `count()`, the static `make_issue_key(org, repo, number)` |
 | `model/user_story_issue.py`, `model/feature_issue.py`, `model/functionality_issue.py` | `Issue` subtypes; `FunctionalityIssue.get_related_feature_ids()` parses the `### Associated Feature` list from the issue body |
 | `model/project_status.py` | `ProjectStatus` — per-issue GitHub Project fields (`project_title` / `status` / `priority` / `size` / `moscow`), `to_dict()` / `from_dict()` |
+| `contracts/common.py` | `ContractModel` (`extra="forbid"` pydantic base every contract model extends), `AcceptanceCriterion`, `EntityCore`, `SourceRef`, `Timestamps` |
+| `contracts/envelope.py` | The shared metadata envelope — `Metadata`, `Producer`, `Run`, `Source`, `Cardinality`, `Stats` / `AuditStats`, `SourceInputEntry`, `ContractWarning` — one model imported unchanged by every contract |
+| `contracts/doc_entities.py`, `contracts/doc_source.py`, `contracts/ui_tests.py` | The `doc-entities` / `doc-source` / `ui-tests` contract result models (`Entity`, `PageRef`, `Scenario`, `AcLink`) and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
+| `contracts/schema_export.py` | Generates `contracts/schemas/*.json` from the models — `python -m living_doc_utilities.contracts.schema_export`, or `make schemas` |
 
 - Must treat the library as having no entry point — consumers import the classes and functions above directly.
+- Must regenerate `contracts/schemas/*.json` (`make schemas`) in the same change as any `contracts/` model edit — CI's Schema Regeneration Check fails the build on any diff.
 
 Inputs — this repo owns no `INPUT_*` contract of its own; it provides the helper consumers use:
 
@@ -59,6 +65,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep `get_action_input()` env-var mapping and `set_action_output()`'s `name=value\n` line format stable.
 - Must keep the `ValueError` / log message text in `Issue.from_dict()` and `Issues.get_issue()` stable — downstream tests assert exact strings.
 - Must treat any change to a public signature or to the serialized JSON shape as a breaking change that needs a version bump in `pyproject.toml`.
+- Must treat `contracts/schemas/*.json` as generated output, never hand-edited — a `contracts/` model change and its regenerated schema (`make schemas`) land in the same commit.
 
 ## Coding guidelines
 
@@ -99,19 +106,23 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 ## Patterns
 
 - Prefer leaf modules raising exceptions (`ValueError`, `TypeError`, `KeyError`) with a clear message; Must let the consuming action translate them into Action-failure output.
-- Prefer the `to_dict()` / `from_dict()` pair on every model, and Must keep the round trip loss-free.
+- Prefer the `to_dict()` / `from_dict()` pair on every `model/` model, and Must keep the round trip loss-free.
 - Must route new `Issue` subtypes through `IssueFactory` — add a `case` and keep the base `Issue` fallback.
 - Prefer private helpers (`_name`) for internal behaviour.
 - Must keep integration boundaries — the GitHub API via `PyGithub`, `requests`, and the filesystem — explicit and mockable.
+- Must use pydantic's own serde (`model_dump()` / `model_validate()`) on every `contracts/` model; Must not add a hand-rolled `to_dict()` / `from_dict()` there.
+- Must express a `contracts/` model's cross-field invariant as a leading-underscore `@model_validator(mode="after")` method, matching `doc_entities.Entity`'s `_check_state_origin` / `_check_stub_reason_is_feature_only` / `_check_acceptance_criteria_belong_to_this_entity`.
+- Must declare a new contract's record roots as a module-level `RECORD_ROOTS: dict[str, type[BaseModel]]`, matching `doc_entities.py` (docs/contracts.md, "Each contract declares its own record roots in its contract module").
 
 ## Testing
 
 - Must use `pytest` with `pytest-mock` (`mocker`), and Must not use `unittest`.
-- Must keep tests under `tests/`, mirroring the package layout — `tests/model/`, `tests/github/`, `tests/inputs/`, `tests/exporter/`, plus `tests/test_decorators.py` and `tests/test_logging_config.py`.
+- Must keep tests under `tests/`, mirroring the package layout — `tests/model/`, `tests/github/`, `tests/inputs/`, `tests/exporter/`, `tests/contracts/`, plus `tests/test_decorators.py` and `tests/test_logging_config.py`.
 - Must test behaviour — return values, raised exceptions, log messages.
 - Must mock `INPUT_*` environment variables and the GitHub API in unit tests; Must not call external services or the real GitHub API.
 - Prefer the shared fixtures in `tests/conftest.py` — `rate_limiter`, `mock_rate_limiter`, `mock_logging_setup`.
 - Must bind PyGithub mocks with `spec=` (`mocker.Mock(spec=Github)`, `mocker.Mock(spec=Rate)`) as `conftest.py` does.
+- Prefer `tests/contracts/factories.py`'s builder functions over hand-written pydantic instances in a `contracts/` test; Must assert a schema-shape claim (map typing, `field_occupancy` keys, header keys) against the generated `contracts/schemas/*.json` via `jsonschema.validate`, not against the pydantic model alone.
 
 ## Tooling and quality gates
 
@@ -121,6 +132,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep `make format-check` (Black, line length 120, config in `pyproject.toml`) clean, and Prefer `make format` (ruff autofix + Black) to fix import order and formatting in one step.
 - Must keep `make types` (mypy, config in `pyproject.toml`) clean, and Prefer fixing types over adding ignores.
 - Must keep `make coverage` (pytest, `--cov-fail-under=80`) passing.
+- Must run `make schemas` and commit the regenerated `contracts/schemas/*.json` when a `contracts/` model changes — `make qa` does not regenerate them itself, and CI's Schema Regeneration Check fails the build on any diff.
 
 ## Common pitfalls
 
@@ -128,6 +140,8 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must remove unused imports and variables in the same change, and Avoid leaving dead code.
 - Avoid changing the serialized JSON field names, the `type` discriminator, `make_issue_key()`'s format, or public signatures unless the task calls for it — every `living-doc-*` repo consumes them.
 - Must bump `pyproject.toml` `version` when a change alters the public API or the wire format.
+- Avoid hand-editing a file under `contracts/schemas/` — edit the pydantic model and run `make schemas` instead; a hand-edit is overwritten by the next regeneration and masks a real model/schema mismatch.
+- Must check a `contracts/` field name against `AbsaOSS/living-doc`'s canon (`tools/examples_check.py`'s `PAIR_FIELD_MAP` / `REQUIRED_PO_KEYS_FULL` / `REQUIRED_PO_KEYS_XREF`, and `docs/guides/living-doc-header-types.md`) before inventing one — several field names in the first version of this package (`description`, `parent_feature`, `user_story_ids`, `functionality_ids`) were later renamed to match canon (`narrative`/`purpose`, `parent`, `user_stories`, `functionalities`); Avoid trusting `living-doc`'s `docs/examples/_expected/*.json` fixtures for this — they were stale (predating this repo's `docs/contracts.md` rewrite: `original_metadata`, `descoped_at`, leading-`v` versions) even on the same day as the canon commit above.
 
 ## Learned rules
 

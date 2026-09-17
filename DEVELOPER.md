@@ -7,6 +7,7 @@
 - [Run mypy Tool Locally](#run-mypy-tool-locally)
 - [Run Unit Test](#run-unit-test)
 - [Code Coverage](#code-coverage)
+- [Regenerate Contract Schemas](#regenerate-contract-schemas)
 - [How to Release](#how-to-release)
 
 ## Project Setup
@@ -47,6 +48,7 @@ failing gate. The individual targets are also available while iterating:
 | `make types` | mypy | clean |
 | `make test` | pytest, unit tests only | pass |
 | `make coverage` | pytest with the coverage gate | `--cov-fail-under=80` |
+| `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
 
 The sections below explain each tool in more detail and how to scope it to a single file.
 
@@ -195,6 +197,32 @@ See the coverage report on the path:
 ```shell
 open htmlcov/index.html
 ```
+
+---
+
+## Regenerate Contract Schemas
+
+The JSON Schemas under `living_doc_utilities/contracts/schemas/` are generated from the
+pydantic models in `living_doc_utilities/contracts/` — see [Documentation contracts](docs/contracts.md)
+for the rules they implement. The models are the source of truth; a model change without a
+regenerated schema is a bug, not a style choice.
+
+Follow these steps whenever a contract model changes:
+
+- Perform the [setup of python venv](#set-up-python-environment).
+
+### Run the schema export
+
+```shell
+make schemas
+```
+
+This runs `python -m living_doc_utilities.contracts.schema_export`, which overwrites the
+three `*-schema.json` files in place. Commit the result alongside the model change.
+
+A CI job (`Schema Regeneration Check`) runs the same command and fails the build if the
+regenerated files differ from what is committed, so a forgotten regeneration is caught
+before review rather than downstream.
 
 ---
 
