@@ -64,6 +64,16 @@ def _instance_dict_with_entities(entities) -> dict:
     return json.loads(result.model_dump_json())
 
 
+def _coverage_matrix_instance_dict() -> dict:
+    result = coverage_matrix.CoverageMatrixResult(
+        metadata=factories.transform_metadata(),
+        document=factories.coverage_matrix_document(),
+        entities=[factories.entity_coverage()],
+        planned_summary=factories.planned_summary(),
+    )
+    return json.loads(result.model_dump_json())
+
+
 # ---------------------------------------------------------------------------
 # Regeneration: byte-for-byte and in step with the committed files.
 # ---------------------------------------------------------------------------
@@ -297,6 +307,85 @@ def test_pages_without_exactly_one_primary_is_rejected_by_pydantic_and_jsonschem
         jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
 
 
+def test_pages_primary_omitted_entirely_is_rejected_by_jsonschema_too():
+    # Before the `contains` subschema required "is_primary", an item that omitted the field
+    # vacuously satisfied the const:true check (JSON Schema's "properties" is a no-op on an
+    # absent key), so a pages list with no explicit primary at all wrongly passed jsonschema
+    # even though Pydantic defaults is_primary=False and rejects it (0 primaries found).
+    data = _instance_dict_with_entities([factories.feature()])
+    del data["entities"][0]["pages"][0]["is_primary"]
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
+def test_ac_coverage_covered_status_with_a_not_covered_aspect_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="status must be 'partially_covered'"):
+        factories.ac_coverage(status="covered", aspects=[factories.aspect_coverage(status="not_covered")])
+
+    data = _coverage_matrix_instance_dict()
+    data["entities"][0]["acceptance_criteria"][0]["status"] = "covered"
+    data["entities"][0]["acceptance_criteria"][0]["aspects"] = [
+        {"aspect": "checkout", "status": "not_covered", "scenario_ids": []}
+    ]
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
+
+
+def test_ac_coverage_partially_covered_status_with_no_aspects_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="cannot be 'partially_covered'"):
+        factories.ac_coverage(status="partially_covered", aspects=[])
+
+    data = _coverage_matrix_instance_dict()
+    data["entities"][0]["acceptance_criteria"][0]["status"] = "partially_covered"
+    data["entities"][0]["acceptance_criteria"][0]["aspects"] = []
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
+
+
+@pytest.mark.parametrize(
+    "contract_id, _model, record_roots",
+    [c for c in CONTRACTS if c[0] in {generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID}],
+    ids=[generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID],
+)
+def test_transform_output_source_inputs_minitems_is_mirrored_into_the_schema(contract_id, _model, record_roots):
+    schema = _committed_schema(contract_id)
+    metadata_def = schema["$defs"]["Metadata"]
+
+    assert metadata_def["properties"]["source_inputs"]["minItems"] == 1
+
+
+def test_generator_ready_with_empty_source_inputs_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="source_inputs must have at least one entry"):
+        generator_ready.GeneratorReadyResult(
+            metadata=factories.metadata(),
+            document=factories.generator_ready_document(),
+            content=generator_ready.Content(entities=[factories.user_story()]),
+        )
+
+    result = generator_ready.GeneratorReadyResult(
+        metadata=factories.transform_metadata(),
+        document=factories.generator_ready_document(),
+        content=generator_ready.Content(entities=[factories.user_story()]),
+    )
+    data = json.loads(result.model_dump_json())
+    data["metadata"]["source_inputs"] = []
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(generator_ready.CONTRACT_ID))
+
+
+def test_collector_output_with_empty_source_inputs_still_passes_jsonschema():
+    # The minItems constraint above is gated to the three transform contracts only - a
+    # collector output's Metadata legitimately carries an empty source_inputs (R7).
+    data = _doc_entities_instance_dict()
+    assert data["metadata"]["source_inputs"] == []
+
+    jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
 # ---------------------------------------------------------------------------
 # Cross-cutting envelope facts.
 # ---------------------------------------------------------------------------
@@ -341,6 +430,13 @@ def test_inject_own_field_occupancy_enum_requires_a_field_occupancy_property():
 
     with pytest.raises(ValueError, match="expected a 'field_occupancy' property"):
         schema_export._inject_own_field_occupancy_enum(schema, [])
+
+
+def test_inject_cross_field_constraints_requires_a_source_inputs_property_on_transform_contracts():
+    schema = {"$defs": {"Metadata": {"properties": {}}}}
+
+    with pytest.raises(ValueError, match="expected a 'source_inputs' property"):
+        schema_export._inject_cross_field_constraints(schema, generator_ready.CONTRACT_ID)
 
 
 def test_main_regenerates_the_committed_schemas_in_place():

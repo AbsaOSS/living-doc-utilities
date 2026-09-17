@@ -225,6 +225,15 @@ def metadata(**overrides: Any) -> Metadata:
     return Metadata(**fields)
 
 
+def transform_metadata(**overrides: Any) -> Metadata:
+    """metadata() with a non-empty source_inputs - for the three transform-output contracts
+    (generator-ready, coverage-matrix, ui-test-catalog), whose result models require at
+    least one entry (R7). Collector-output fixtures keep using metadata()."""
+    fields: dict[str, Any] = {"source_inputs": [source_input_entry()]}
+    fields.update(overrides)
+    return metadata(**fields)
+
+
 def selection_summary(**overrides: Any) -> SelectionSummary:
     fields: dict[str, Any] = {
         "total_entities": 10,

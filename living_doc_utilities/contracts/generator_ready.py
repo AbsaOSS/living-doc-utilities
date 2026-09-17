@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from living_doc_utilities.contracts.common import ContractModel, View
 from living_doc_utilities.contracts.doc_entities import Entity
-from living_doc_utilities.contracts.envelope import ContractWarning, Metadata
+from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
 
 CONTRACT_ID: Literal["generator-ready-v1.0.0"] = "generator-ready-v1.0.0"
 
@@ -84,6 +84,11 @@ class GeneratorReadyResult(ContractModel):
     warnings: list[ContractWarning] = Field(default_factory=list)
     document: Document
     content: Content
+
+    @model_validator(mode="after")
+    def _check_source_inputs_not_empty(self) -> "GeneratorReadyResult":
+        check_transform_source_inputs(self.metadata)
+        return self
 
 
 # Declares this contract's record roots (docs/contracts.md, section 1) - see

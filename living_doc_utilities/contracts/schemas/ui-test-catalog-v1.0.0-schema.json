@@ -257,7 +257,8 @@
             "$ref": "#/$defs/SourceInputEntry"
           },
           "title": "Source Inputs",
-          "type": "array"
+          "type": "array",
+          "minItems": 1
         }
       },
       "required": [

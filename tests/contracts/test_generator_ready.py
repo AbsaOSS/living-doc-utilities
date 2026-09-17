@@ -39,7 +39,7 @@ from tests.contracts import factories
 
 def _result(**overrides: Any) -> GeneratorReadyResult:
     fields: dict[str, Any] = {
-        "metadata": factories.metadata(),
+        "metadata": factories.transform_metadata(),
         "document": factories.generator_ready_document(),
         "content": Content(entities=[factories.user_story()]),
     }
@@ -87,6 +87,12 @@ def test_there_is_no_retired_provenance_shape_anywhere_in_the_tree():
         assert "audit" not in model.model_fields
 
 
+def test_metadata_source_inputs_must_be_non_empty():
+    # R7: a transform always has at least its documentation input.
+    with pytest.raises(ValidationError, match="source_inputs must have at least one entry"):
+        _result(metadata=factories.metadata())
+
+
 def test_selection_summary_is_a_record_with_exactly_six_fields():
     assert set(SelectionSummary.model_fields) == {
         "total_entities",
@@ -124,14 +130,6 @@ def test_content_entities_reuses_the_doc_entities_entity_model_directly():
     assert item_type is Entity
 
 
-def test_every_doc_entities_field_is_reachable_on_generator_ready_content_entities():
-    entity_fields = set(Entity.model_fields)
-
-    assert entity_fields, "doc-entities Entity should declare at least one field"
-    for field_name in entity_fields:
-        assert field_name in Entity.model_fields  # reachable via content.entities[].<field_name>
-
-
 def test_acceptance_criteria_reuses_the_shared_acceptance_criterion_model_directly():
     ac_annotation = Entity.model_fields["acceptance_criteria"].annotation
     (item_type,) = ac_annotation.__args__
@@ -139,24 +137,28 @@ def test_acceptance_criteria_reuses_the_shared_acceptance_criterion_model_direct
     assert item_type is AcceptanceCriterion
 
 
-def test_every_acceptance_criterion_field_is_reachable_on_generator_ready():
-    ac_fields = set(AcceptanceCriterion.model_fields)
-
-    assert ac_fields, "doc-entities AcceptanceCriterion should declare at least one field"
-    for field_name in ac_fields:
-        assert field_name in AcceptanceCriterion.model_fields  # content.entities[].acceptance_criteria[].<field_name>
-
-
 # ---------------------------------------------------------------------------
-# Nothing carried by today's toolkit `SelectionSummary` / `ViewSummary` models is lost in
-# the move (this repo's issue #130 "Dependencies / Related"). The toolkit lives in a
-# different repository, so this maps the *source* field names (read from
-# living-doc-toolkit's generator_ready/v1/models.py) to their destination path here, and
-# proves every destination actually resolves.
+# Nothing carried by today's toolkit's generator-ready models is lost in the move (this
+# repo's issue #130 "Dependencies / Related": "nothing existing should be lost in the move -
+# track it with a field-by-field mapping test"). The toolkit lives in a different repository
+# (living-doc-toolkit, packages/datasets_generator_ready/.../generator_ready/v1/models.py),
+# so this maps each of its *source* field names to a destination path here and proves every
+# destination actually resolves. A container field (Meta.selection_summary, Meta.view,
+# UserStory.timestamps, UserStory.sections) is not itself an entry: its own fields are proven
+# reachable by the nested model's entries below instead, the same way this table never lists
+# "GeneratorReadyV1.meta" or "GeneratorReadyV1.content".
 # ---------------------------------------------------------------------------
 
-# (toolkit source model.field, destination path on GeneratorReadyResult)
+# (toolkit source model.field, destination path on GeneratorReadyResult; "[]" crosses a list,
+# matching docs/contracts.md's own field-path notation)
 TOOLKIT_FIELD_MAPPING = {
+    # Meta (docs/contracts.md, "The metadata envelope").
+    "Meta.document_title": "document.title",
+    "Meta.document_version": "document.version",
+    "Meta.generated_at": "metadata.generated_at",
+    # A flat list of source identifiers; superseded by R7's richer, structured per-input
+    # provenance record (producer, run, source, stats - not just a name).
+    "Meta.source_set": "metadata.source_inputs",
     # SelectionSummary counted entities (toolkit's "items" are user stories/entities,
     # see normalize_issues/builder.py: total_items = len(adapter_result.items)).
     "SelectionSummary.total_items": "document.selection_summary.total_entities",
@@ -168,40 +170,91 @@ TOOLKIT_FIELD_MAPPING = {
     "ViewSummary.view": "document.view",
     "ViewSummary.filtered_user_stories": "document.selection_summary.excluded_entities",
     "ViewSummary.filtered_acceptance_criteria": "document.selection_summary.excluded_acceptance_criteria",
+    # UserStory -> content.entities[] (doc-entities Entity, reused directly - not redeclared).
+    "UserStory.title": "content.entities[].title",
+    "UserStory.state": "content.entities[].state",
+    "UserStory.tags": "content.entities[].tags",
+    "UserStory.url": "content.entities[].source_ref.url",
+    "Timestamps.created": "content.entities[].timestamps.created_at",
+    "Timestamps.updated": "content.entities[].timestamps.updated_at",
+    # Sections -> content.entities[] (a User Story's authored body).
+    "Sections.description": "content.entities[].narrative",
+    "Sections.business_value": "content.entities[].business_value",
+    "Sections.preconditions": "content.entities[].preconditions",
+    # AcceptanceCriterion -> content.entities[].acceptance_criteria[] (common.AcceptanceCriterion,
+    # reused directly).
+    "AcceptanceCriterion.id": "content.entities[].acceptance_criteria[].id",
+    "AcceptanceCriterion.state": "content.entities[].acceptance_criteria[].state",
+    "AcceptanceCriterion.version": "content.entities[].acceptance_criteria[].version",
+    "AcceptanceCriterion.description": "content.entities[].acceptance_criteria[].description",
+}
+
+# Legacy fields with no destination today, each with why - mirrors R11's lineage-table
+# convention (every input leaf either maps or is dropped with a reason, never silently
+# forgotten). This is an accounting device for the test below, not a contract rule.
+TOOLKIT_FIELDS_NOT_CARRIED = {
+    # R8: retired outright, no alias window, no per-entry fallback.
+    "Meta.run_context": "retired outright (R8) - replaced by metadata.run",
+    "Meta.audit": "retired outright (R8) - replaced by metadata.source_inputs / metadata.stats",
+    # entity_id is parsed from the title (MISSING_ENTITY_ID) - it is not a rename of this
+    # field (docs/contracts.md, "Entity identity").
+    "UserStory.id": "superseded by entity_id, which is parsed from the title, not carried from this field",
+    # No destination exists on Entity today.
+    "Sections.user_guide": "no destination on Entity today - open gap, see PR #131 review",
+    "Sections.connections": "no destination on Entity today - open gap, see PR #131 review",
+    "Sections.last_edited": "no destination on Entity today - open gap, see PR #131 review "
+    "(free-text attribution, not an ISO timestamp - not the same as Timestamps.updated)",
 }
 
 
 def _resolve(model, path: str) -> None:
     """Walks a dotted field path through a chain of pydantic models, raising KeyError/
-    AttributeError if any segment does not resolve to a real field."""
+    AttributeError if any segment does not resolve to a real field. A segment suffixed "[]"
+    crosses that field's list boundary onto its item type."""
     current = model
-    for segment in path.split("."):
+    for raw_segment in path.split("."):
+        crosses_list = raw_segment.endswith("[]")
+        segment = raw_segment[:-2] if crosses_list else raw_segment
         field_info = current.model_fields[segment]
         annotation = field_info.annotation
-        origin = getattr(annotation, "__args__", None)
-        if origin and type(None) in origin:
-            (inner,) = [arg for arg in origin if arg is not type(None)]
-            annotation = inner
+        args = getattr(annotation, "__args__", None)
+        if args and type(None) in args:
+            (annotation,) = [arg for arg in args if arg is not type(None)]
+            args = getattr(annotation, "__args__", None)
+        if crosses_list:
+            (annotation,) = args
         current = annotation
 
 
 @pytest.mark.parametrize("source_field, destination", TOOLKIT_FIELD_MAPPING.items(), ids=list(TOOLKIT_FIELD_MAPPING))
-def test_every_toolkit_selection_and_view_summary_field_maps_to_a_real_destination(source_field, destination):
+def test_every_toolkit_field_maps_to_a_real_destination(source_field, destination):
     _resolve(GeneratorReadyResult, destination)
 
 
-def test_the_mapping_covers_every_field_of_both_toolkit_models():
-    # SelectionSummary: total_items, included_items, excluded_items.
-    # ViewSummary: view, filtered_user_stories, filtered_acceptance_criteria.
-    mapped_toolkit_fields = {source.split(".", 1)[1] for source in TOOLKIT_FIELD_MAPPING}
-    assert mapped_toolkit_fields == {
-        "total_items",
-        "included_items",
-        "excluded_items",
-        "view",
-        "filtered_user_stories",
-        "filtered_acceptance_criteria",
+def test_the_mapping_and_drop_list_together_account_for_every_field_of_every_toolkit_model():
+    accounted: dict[str, set[str]] = {}
+    for source in list(TOOLKIT_FIELD_MAPPING) + list(TOOLKIT_FIELDS_NOT_CARRIED):
+        model_name, field_name = source.split(".", 1)
+        accounted.setdefault(model_name, set()).add(field_name)
+
+    # Meta's own leaves only - selection_summary/view are containers, proven by
+    # SelectionSummary's/ViewSummary's own entries instead.
+    assert accounted["Meta"] == {"document_title", "document_version", "generated_at", "source_set", "run_context", "audit"}
+    assert accounted["SelectionSummary"] == {"total_items", "included_items", "excluded_items"}
+    assert accounted["ViewSummary"] == {"view", "filtered_user_stories", "filtered_acceptance_criteria"}
+    # UserStory's own leaves only - timestamps/sections are containers, proven by
+    # Timestamps's/Sections's own entries instead.
+    assert accounted["UserStory"] == {"title", "state", "tags", "url", "id"}
+    assert accounted["Timestamps"] == {"created", "updated"}
+    assert accounted["Sections"] == {
+        "description",
+        "business_value",
+        "preconditions",
+        "user_guide",
+        "connections",
+        "last_edited",
     }
+    assert accounted["AcceptanceCriterion"] == {"id", "state", "version", "description"}
 
 
 # ---------------------------------------------------------------------------

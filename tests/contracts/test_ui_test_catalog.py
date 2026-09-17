@@ -21,6 +21,9 @@ Tests for the ui-test-catalog-v1.0.0 contract.
 import json
 from typing import Any
 
+import pytest
+from pydantic import ValidationError
+
 from living_doc_utilities.contracts.ui_test_catalog import (
     CONTRACT_ID,
     RECORD_ROOTS,
@@ -35,12 +38,18 @@ from tests.contracts import factories
 
 def _result(**overrides: Any) -> UiTestCatalogResult:
     fields: dict[str, Any] = {
-        "metadata": factories.metadata(),
+        "metadata": factories.transform_metadata(),
         "document": factories.ui_test_catalog_document(),
         "feature_files": [factories.feature_file_catalog()],
     }
     fields.update(overrides)
     return UiTestCatalogResult(**fields)
+
+
+def test_metadata_source_inputs_must_be_non_empty():
+    # R7: a transform always has at least its documentation input.
+    with pytest.raises(ValidationError, match="source_inputs must have at least one entry"):
+        _result(metadata=factories.metadata())
 
 
 def test_round_trips_through_json():

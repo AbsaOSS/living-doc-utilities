@@ -48,7 +48,86 @@
         "status"
       ],
       "title": "AcCoverage",
-      "type": "object"
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "maxItems": 0
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "covered",
+                  "not_covered"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "minItems": 1
+              }
+            },
+            "not": {
+              "properties": {
+                "aspects": {
+                  "contains": {
+                    "properties": {
+                      "status": {
+                        "const": "not_covered"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "covered"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "minItems": 1,
+                "contains": {
+                  "properties": {
+                    "status": {
+                      "const": "not_covered"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "partially_covered"
+              }
+            }
+          }
+        }
+      ]
     },
     "AspectCoverage": {
       "additionalProperties": false,
@@ -297,7 +376,8 @@
             "$ref": "#/$defs/SourceInputEntry"
           },
           "title": "Source Inputs",
-          "type": "array"
+          "type": "array",
+          "minItems": 1
         }
       },
       "required": [

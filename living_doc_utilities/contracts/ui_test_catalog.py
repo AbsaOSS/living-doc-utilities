@@ -22,10 +22,10 @@ Scenario model is reused directly rather than redeclared here.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from living_doc_utilities.contracts.common import ContractModel, View
-from living_doc_utilities.contracts.envelope import ContractWarning, Metadata
+from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
 from living_doc_utilities.contracts.ui_tests import Scenario
 
 CONTRACT_ID: Literal["ui-test-catalog-v1.0.0"] = "ui-test-catalog-v1.0.0"
@@ -62,6 +62,11 @@ class UiTestCatalogResult(ContractModel):
     warnings: list[ContractWarning] = Field(default_factory=list)
     document: Document
     feature_files: list[FeatureFileCatalog] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check_source_inputs_not_empty(self) -> "UiTestCatalogResult":
+        check_transform_source_inputs(self.metadata)
+        return self
 
 
 # Declares this contract's record roots (docs/contracts.md, section 1) - see

@@ -610,7 +610,10 @@
                     "is_primary": {
                       "const": true
                     }
-                  }
+                  },
+                  "required": [
+                    "is_primary"
+                  ]
                 },
                 "minContains": 1,
                 "maxContains": 1

@@ -27,7 +27,7 @@ from typing import Annotated, Literal, get_args
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from living_doc_utilities.contracts.common import VERSION_PATTERN, ContractModel, LifecycleState, View
-from living_doc_utilities.contracts.envelope import ContractWarning, Metadata
+from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
 
 CONTRACT_ID: Literal["coverage-matrix-v1.0.0"] = "coverage-matrix-v1.0.0"
 
@@ -56,6 +56,22 @@ class AcCoverage(ContractModel):
     status: CoverageStatus
     aspects: list[AspectCoverage] = Field(default_factory=list)
     scenario_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check_status_matches_aspects(self) -> "AcCoverage":
+        # docs/contracts.md, section 4 "Coverage": with aspects, covered only when every
+        # aspect is covered, else partially_covered; without aspects, a plain covered/
+        # not_covered - partially_covered never applies.
+        if not self.aspects:
+            if self.status == "partially_covered":
+                raise ValueError("status cannot be 'partially_covered' when aspects is empty")
+            return self
+        expected = "covered" if all(aspect.status == "covered" for aspect in self.aspects) else "partially_covered"
+        if self.status != expected:
+            raise ValueError(
+                f"status must be '{expected}' given aspects={[a.status for a in self.aspects]!r}, got '{self.status}'"
+            )
+        return self
 
 
 class EntityCoverage(ContractModel):
@@ -101,6 +117,11 @@ class CoverageMatrixResult(ContractModel):
     document: Document
     entities: list[EntityCoverage] = Field(default_factory=list)
     planned_summary: PlannedSummary
+
+    @model_validator(mode="after")
+    def _check_source_inputs_not_empty(self) -> "CoverageMatrixResult":
+        check_transform_source_inputs(self.metadata)
+        return self
 
     @model_validator(mode="after")
     def _check_acceptance_criteria_belong_to_this_entity(self) -> "CoverageMatrixResult":

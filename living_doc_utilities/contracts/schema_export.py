@@ -58,6 +58,12 @@ _CONTRACTS: tuple[tuple[str, type[BaseModel], dict[str, type[BaseModel]]], ...] 
     (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
 )
 
+# The three contracts written by a transform (docs/contracts.md, section 1 table): R7 requires
+# metadata.source_inputs[] to carry at least one entry on these, never on a collector output.
+_TRANSFORM_CONTRACT_IDS = frozenset(
+    {generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID}
+)
+
 
 def _unwrap(annotation: Any) -> tuple[Any, bool]:
     """Peels Optional[...] and list[...] off a field annotation.
@@ -135,14 +141,21 @@ def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -
     field_occupancy["propertyNames"] = {"enum": paths}
 
 
-def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
+def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) -> None:
     """
     Encodes the model_validator cross-field rules pydantic's own model_json_schema() drops
     (AcceptanceCriterion._check_version_required_unless_planned,
     _check_removal_planned_only_when_deprecated; Entity._check_state_origin,
-    _check_stub_reason_is_feature_only, _check_pages_have_exactly_one_primary) as `allOf`
-    if/then/else so a plain jsonschema validator rejects what pydantic rejects. A no-op for
-    a contract whose $defs don't carry that definition (e.g. ui-tests has neither).
+    _check_stub_reason_is_feature_only, _check_pages_have_exactly_one_primary;
+    AcCoverage._check_status_matches_aspects) as `allOf` if/then/else so a plain jsonschema
+    validator rejects what pydantic rejects. A no-op for a contract whose $defs don't carry
+    that definition (e.g. ui-tests has neither).
+
+    metadata.source_inputs[] additionally gets a `minItems: 1` constraint (R7), but only for
+    the three transform contracts named by `_TRANSFORM_CONTRACT_IDS` - a collector output's
+    `Metadata` def legitimately allows the empty list, and each contract's own generated
+    schema carries its own private copy of the `Metadata` def, so this cannot leak across
+    contracts.
 
     Two model_validator rules are deliberately not encoded here, because plain JSON Schema
     has no keyword that can express them: Entity._check_acceptance_criteria_belong_to_this_entity
@@ -193,7 +206,10 @@ def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
                     "then": {
                         "properties": {
                             "pages": {
-                                "contains": {"properties": {"is_primary": {"const": True}}},
+                                "contains": {
+                                    "properties": {"is_primary": {"const": True}},
+                                    "required": ["is_primary"],
+                                },
                                 "minContains": 1,
                                 "maxContains": 1,
                             }
@@ -202,6 +218,38 @@ def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
                 },
             ]
         )
+
+    ac_coverage_def = defs.get("AcCoverage")
+    if isinstance(ac_coverage_def, dict):
+        # An aspect that failed coverage (AcCoverage._check_status_matches_aspects).
+        not_covered_aspect = {"properties": {"status": {"const": "not_covered"}}, "required": ["status"]}
+        ac_coverage_def.setdefault("allOf", []).extend(
+            [
+                {
+                    "if": {"properties": {"aspects": {"maxItems": 0}}},
+                    "then": {"properties": {"status": {"enum": ["covered", "not_covered"]}}},
+                },
+                {
+                    "if": {
+                        "properties": {"aspects": {"minItems": 1}},
+                        "not": {"properties": {"aspects": {"contains": not_covered_aspect}}},
+                    },
+                    "then": {"properties": {"status": {"const": "covered"}}},
+                },
+                {
+                    "if": {"properties": {"aspects": {"minItems": 1, "contains": not_covered_aspect}}},
+                    "then": {"properties": {"status": {"const": "partially_covered"}}},
+                },
+            ]
+        )
+
+    if contract_id in _TRANSFORM_CONTRACT_IDS:
+        metadata_def = defs.get("Metadata")
+        if isinstance(metadata_def, dict):
+            source_inputs = metadata_def.get("properties", {}).get("source_inputs")
+            if not isinstance(source_inputs, dict):
+                raise ValueError("expected a 'source_inputs' property on the Metadata definition")
+            source_inputs["minItems"] = 1
 
 
 def find_schema_violations(schema: dict[str, Any]) -> list[str]:
@@ -251,7 +299,7 @@ def generate_schema(
     raw_schema = model.model_json_schema()
     _rewrite_pattern_maps(raw_schema)
     _inject_own_field_occupancy_enum(raw_schema, field_occupancy_paths(record_roots))
-    _inject_cross_field_constraints(raw_schema)
+    _inject_cross_field_constraints(raw_schema, contract_id)
 
     schema: dict[str, Any] = {
         "$schema": SCHEMA_DIALECT,
