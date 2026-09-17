@@ -22,7 +22,15 @@ import jsonschema
 import pytest
 from pydantic import ValidationError
 
-from living_doc_utilities.contracts import doc_entities, doc_source, schema_export, ui_tests
+from living_doc_utilities.contracts import (
+    coverage_matrix,
+    doc_entities,
+    doc_source,
+    generator_ready,
+    schema_export,
+    ui_test_catalog,
+    ui_tests,
+)
 from living_doc_utilities.contracts.envelope import AUDIT_FIELD_PATH_PATTERN
 from tests.contracts import factories
 
@@ -33,6 +41,9 @@ CONTRACTS = [
     (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
     (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
     (ui_tests.CONTRACT_ID, ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
+    (generator_ready.CONTRACT_ID, generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
+    (coverage_matrix.CONTRACT_ID, coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
+    (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
 ]
 CONTRACT_IDS = [contract_id for contract_id, _, _ in CONTRACTS]
 
@@ -70,7 +81,7 @@ def test_write_schemas_is_byte_for_byte_deterministic(tmp_path):
     second_pass = {path.name: path.read_bytes() for path in schema_export.write_schemas(tmp_path)}
 
     assert first_pass == second_pass
-    assert len(first_pass) == 3
+    assert len(first_pass) == 6
 
 
 def test_regeneration_overwrites_a_tampered_schema_file(tmp_path):
@@ -269,8 +280,21 @@ def test_user_story_with_derived_state_origin_is_rejected_by_pydantic_and_jsonsc
 # ---------------------------------------------------------------------------
 
 
-def test_metadata_is_one_shared_model_across_the_three_contracts():
-    assert doc_entities.Metadata is doc_source.Metadata is ui_tests.Metadata
+@pytest.mark.parametrize("contract_id, _model, record_roots", CONTRACTS, ids=CONTRACT_IDS)
+def test_every_contract_declares_its_own_non_empty_record_roots(contract_id, _model, record_roots):
+    assert isinstance(record_roots, dict)
+    assert record_roots, f"{contract_id}: RECORD_ROOTS must not be empty"
+
+
+def test_metadata_is_one_shared_model_across_all_six_contracts():
+    assert (
+        doc_entities.Metadata
+        is doc_source.Metadata
+        is ui_tests.Metadata
+        is generator_ready.Metadata
+        is coverage_matrix.Metadata
+        is ui_test_catalog.Metadata
+    )
 
 
 # ---------------------------------------------------------------------------

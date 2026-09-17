@@ -1,0 +1,683 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://absaoss.github.io/living-doc-utilities/schemas/ui-test-catalog-v1.0.0-schema.json",
+  "$defs": {
+    "AcLink": {
+      "additionalProperties": false,
+      "description": "One `@AC:<id>[/aspect:<value>]` scenario tag (living-doc's AC_TAG_RE): a scenario may\ncarry several, each pairing a specific acceptance criterion with the specific aspect of\nit this scenario covers - or no aspect at all.",
+      "properties": {
+        "id": {
+          "pattern": "^[A-Z]+-\\d+-\\d+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "AcLink",
+      "type": "object"
+    },
+    "AuditStats": {
+      "additionalProperties": false,
+      "description": "The stats carried per input inside metadata.source_inputs[] (R7): an audit record of\nanother contract's paths, so field_occupancy is pattern-checked rather than enumerated.",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/$defs/Cardinality"
+        },
+        "field_occupancy": {
+          "title": "Field Occupancy",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*(\\[\\])?(\\.[a-z][a-z0-9_]*(\\[\\])?)*$"
+          }
+        }
+      },
+      "required": [
+        "cardinality"
+      ],
+      "title": "AuditStats",
+      "type": "object"
+    },
+    "Cardinality": {
+      "additionalProperties": false,
+      "description": "Fixed record counts carried in metadata.stats.cardinality (R11).",
+      "properties": {
+        "entities": {
+          "default": 0,
+          "title": "Entities",
+          "type": "integer"
+        },
+        "entities_by_type": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "DocumentedUserStory",
+              "DocumentedFeature",
+              "DocumentedFunctionality"
+            ]
+          },
+          "title": "Entities By Type",
+          "type": "object"
+        },
+        "acceptance_criteria": {
+          "default": 0,
+          "title": "Acceptance Criteria",
+          "type": "integer"
+        },
+        "scenarios": {
+          "default": 0,
+          "title": "Scenarios",
+          "type": "integer"
+        },
+        "warnings_by_code": {
+          "title": "Warnings By Code",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          }
+        },
+        "sources_configured": {
+          "default": 0,
+          "title": "Sources Configured",
+          "type": "integer"
+        },
+        "sources_failed": {
+          "default": 0,
+          "title": "Sources Failed",
+          "type": "integer"
+        },
+        "unresolved_refs": {
+          "default": 0,
+          "title": "Unresolved Refs",
+          "type": "integer"
+        },
+        "entities_skipped": {
+          "default": 0,
+          "title": "Entities Skipped",
+          "type": "integer"
+        }
+      },
+      "title": "Cardinality",
+      "type": "object"
+    },
+    "ContractWarning": {
+      "additionalProperties": false,
+      "description": "One entry of an artifact's top-level warnings[] array.",
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ContractWarning",
+      "type": "object"
+    },
+    "Document": {
+      "additionalProperties": false,
+      "description": "What the generator filters by.",
+      "properties": {
+        "view": {
+          "enum": [
+            "inner",
+            "release"
+          ],
+          "title": "View",
+          "type": "string"
+        }
+      },
+      "required": [
+        "view"
+      ],
+      "title": "Document",
+      "type": "object"
+    },
+    "FeatureFileCatalog": {
+      "additionalProperties": false,
+      "description": "One `.feature` file's scenarios, grouped into: linked to a User Story, linked to a\nFunctionality, or unlinked.",
+      "properties": {
+        "feature_file": {
+          "title": "Feature File",
+          "type": "string"
+        },
+        "linked_to_user_story": {
+          "items": {
+            "$ref": "#/$defs/LinkedScenarios"
+          },
+          "title": "Linked To User Story",
+          "type": "array"
+        },
+        "linked_to_functionality": {
+          "items": {
+            "$ref": "#/$defs/LinkedScenarios"
+          },
+          "title": "Linked To Functionality",
+          "type": "array"
+        },
+        "unlinked": {
+          "items": {
+            "$ref": "#/$defs/Scenario"
+          },
+          "title": "Unlinked",
+          "type": "array"
+        }
+      },
+      "required": [
+        "feature_file"
+      ],
+      "title": "FeatureFileCatalog",
+      "type": "object"
+    },
+    "LinkedScenarios": {
+      "additionalProperties": false,
+      "description": "The scenarios linked to one entity (a User Story or a Functionality).",
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "scenarios": {
+          "items": {
+            "$ref": "#/$defs/Scenario"
+          },
+          "title": "Scenarios",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "title": "LinkedScenarios",
+      "type": "object"
+    },
+    "Metadata": {
+      "additionalProperties": false,
+      "description": "The envelope every contract artifact carries under its top-level metadata key.",
+      "properties": {
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "run": {
+          "$ref": "#/$defs/Run"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/$defs/Stats"
+        },
+        "source_inputs": {
+          "items": {
+            "$ref": "#/$defs/SourceInputEntry"
+          },
+          "title": "Source Inputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "producer",
+        "source",
+        "generated_at",
+        "stats"
+      ],
+      "title": "Metadata",
+      "type": "object"
+    },
+    "Producer": {
+      "additionalProperties": false,
+      "description": "Identifies the tool that wrote this specific file (R6).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "build": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Build"
+        },
+        "utilities_version": {
+          "title": "Utilities Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "utilities_version"
+      ],
+      "title": "Producer",
+      "type": "object"
+    },
+    "Run": {
+      "additionalProperties": false,
+      "description": "CI run context the file was produced under. Audit information only.",
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "run_attempt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Attempt"
+        },
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "workflow": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workflow"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha"
+        }
+      },
+      "title": "Run",
+      "type": "object"
+    },
+    "Scenario": {
+      "additionalProperties": false,
+      "description": "One Gherkin scenario.",
+      "properties": {
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "$ref": "#/$defs/AcLink"
+          },
+          "title": "Acceptance Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "title",
+        "source_ref"
+      ],
+      "title": "Scenario",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "description": "Identifies the one project, and the systems/organizations/repositories, a file documents.",
+      "properties": {
+        "project_id": {
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "systems": {
+          "items": {
+            "enum": [
+              "GitHub",
+              "AzureDevOps"
+            ],
+            "type": "string"
+          },
+          "title": "Systems",
+          "type": "array"
+        },
+        "organizations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Organizations",
+          "type": "array"
+        },
+        "repositories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repositories",
+          "type": "array"
+        },
+        "extraction_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "markdown",
+                "field-map"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extraction Mode"
+        }
+      },
+      "required": [
+        "project_id"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SourceInputEntry": {
+      "additionalProperties": false,
+      "description": "One transform input's provenance and stats (R7). Collector outputs carry none.",
+      "properties": {
+        "schema_version": {
+          "pattern": "^[a-z][a-z-]*-v\\d+\\.\\d+\\.\\d+$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "run": {
+          "$ref": "#/$defs/Run"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "stats": {
+          "$ref": "#/$defs/AuditStats"
+        },
+        "selected_stats": {
+          "$ref": "#/$defs/AuditStats"
+        }
+      },
+      "required": [
+        "schema_version",
+        "producer",
+        "source",
+        "stats",
+        "selected_stats"
+      ],
+      "title": "SourceInputEntry",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "Provenance pointer back to the tracking system an entity or scenario came from.",
+      "properties": {
+        "system": {
+          "enum": [
+            "GitHub",
+            "AzureDevOps"
+          ],
+          "title": "System",
+          "type": "string"
+        },
+        "native_id": {
+          "title": "Native Id",
+          "type": "string"
+        },
+        "native_type": {
+          "title": "Native Type",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "tracker_state": {
+          "title": "Tracker State",
+          "type": "string"
+        },
+        "area_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Area Path"
+        },
+        "iteration_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Iteration Path"
+        }
+      },
+      "required": [
+        "system",
+        "native_id",
+        "native_type",
+        "url",
+        "tracker_state"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Stats": {
+      "additionalProperties": false,
+      "description": "A file's own metadata.stats: cardinality plus field_occupancy keyed by that file's\nown contract paths. schema_export.py enumerates the allowed keys per contract.",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/$defs/Cardinality"
+        },
+        "field_occupancy": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Field Occupancy",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "feature_files[].feature_file",
+              "feature_files[].linked_to_functionality[].entity_id",
+              "feature_files[].linked_to_functionality[].scenarios[].acceptance_criteria[].aspect",
+              "feature_files[].linked_to_functionality[].scenarios[].acceptance_criteria[].id",
+              "feature_files[].linked_to_functionality[].scenarios[].scenario_id",
+              "feature_files[].linked_to_functionality[].scenarios[].source_ref.area_path",
+              "feature_files[].linked_to_functionality[].scenarios[].source_ref.iteration_path",
+              "feature_files[].linked_to_functionality[].scenarios[].source_ref.native_id",
+              "feature_files[].linked_to_functionality[].scenarios[].source_ref.native_type",
+              "feature_files[].linked_to_functionality[].scenarios[].source_ref.system",
+              "feature_files[].linked_to_functionality[].scenarios[].source_ref.tracker_state",
+              "feature_files[].linked_to_functionality[].scenarios[].source_ref.url",
+              "feature_files[].linked_to_functionality[].scenarios[].tags[]",
+              "feature_files[].linked_to_functionality[].scenarios[].title",
+              "feature_files[].linked_to_user_story[].entity_id",
+              "feature_files[].linked_to_user_story[].scenarios[].acceptance_criteria[].aspect",
+              "feature_files[].linked_to_user_story[].scenarios[].acceptance_criteria[].id",
+              "feature_files[].linked_to_user_story[].scenarios[].scenario_id",
+              "feature_files[].linked_to_user_story[].scenarios[].source_ref.area_path",
+              "feature_files[].linked_to_user_story[].scenarios[].source_ref.iteration_path",
+              "feature_files[].linked_to_user_story[].scenarios[].source_ref.native_id",
+              "feature_files[].linked_to_user_story[].scenarios[].source_ref.native_type",
+              "feature_files[].linked_to_user_story[].scenarios[].source_ref.system",
+              "feature_files[].linked_to_user_story[].scenarios[].source_ref.tracker_state",
+              "feature_files[].linked_to_user_story[].scenarios[].source_ref.url",
+              "feature_files[].linked_to_user_story[].scenarios[].tags[]",
+              "feature_files[].linked_to_user_story[].scenarios[].title",
+              "feature_files[].unlinked[].acceptance_criteria[].aspect",
+              "feature_files[].unlinked[].acceptance_criteria[].id",
+              "feature_files[].unlinked[].scenario_id",
+              "feature_files[].unlinked[].source_ref.area_path",
+              "feature_files[].unlinked[].source_ref.iteration_path",
+              "feature_files[].unlinked[].source_ref.native_id",
+              "feature_files[].unlinked[].source_ref.native_type",
+              "feature_files[].unlinked[].source_ref.system",
+              "feature_files[].unlinked[].source_ref.tracker_state",
+              "feature_files[].unlinked[].source_ref.url",
+              "feature_files[].unlinked[].tags[]",
+              "feature_files[].unlinked[].title"
+            ]
+          }
+        }
+      },
+      "required": [
+        "cardinality"
+      ],
+      "title": "Stats",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The ui-test-catalog-v1.0.0 artifact.",
+  "properties": {
+    "schema_version": {
+      "const": "ui-test-catalog-v1.0.0",
+      "default": "ui-test-catalog-v1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/ContractWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "document": {
+      "$ref": "#/$defs/Document"
+    },
+    "feature_files": {
+      "items": {
+        "$ref": "#/$defs/FeatureFileCatalog"
+      },
+      "title": "Feature Files",
+      "type": "array"
+    }
+  },
+  "required": [
+    "metadata",
+    "document"
+  ],
+  "title": "UiTestCatalogResult",
+  "type": "object"
+}

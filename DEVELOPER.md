@@ -217,8 +217,8 @@ Follow these steps whenever a contract model changes:
 make schemas
 ```
 
-This runs `python -m living_doc_utilities.contracts.schema_export`, which overwrites the
-three `*-schema.json` files in place. Commit the result alongside the model change.
+This runs `python -m living_doc_utilities.contracts.schema_export`, which overwrites all
+six `*-schema.json` files in place. Commit the result alongside the model change.
 
 A CI job (`Schema Regeneration Check`) runs the same command and fails the build if the
 regenerated files differ from what is committed, so a forgotten regeneration is caught

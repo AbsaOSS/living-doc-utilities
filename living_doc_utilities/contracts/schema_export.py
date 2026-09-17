@@ -15,8 +15,8 @@
 #
 
 """
-Generates the doc-entities, doc-source and ui-tests JSON Schemas from their pydantic
-models (docs/contracts.md, section 2) and writes them to contracts/schemas/. Run as
+Generates the six contracts' JSON Schemas from their pydantic models (docs/contracts.md,
+section 2) and writes them to contracts/schemas/. Run as
 `python -m living_doc_utilities.contracts.schema_export`, or `make schemas`.
 """
 
@@ -29,7 +29,14 @@ from typing import Any, Iterator, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import doc_entities, doc_source, ui_tests
+from living_doc_utilities.contracts import (
+    coverage_matrix,
+    doc_entities,
+    doc_source,
+    generator_ready,
+    ui_test_catalog,
+    ui_tests,
+)
 from living_doc_utilities.contracts.envelope import Stats
 from living_doc_utilities.logging_config import setup_logging
 
@@ -46,6 +53,9 @@ _CONTRACTS: tuple[tuple[str, type[BaseModel], dict[str, type[BaseModel]]], ...] 
     (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
     (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
     (ui_tests.CONTRACT_ID, ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
+    (generator_ready.CONTRACT_ID, generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
+    (coverage_matrix.CONTRACT_ID, coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
+    (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
 )
 
 

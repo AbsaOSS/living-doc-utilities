@@ -37,8 +37,8 @@ field path in this document.
 | `doc-source-v1.0.0` | `doc-source.json` | `user_stories[]`, `features[]`, `functionalities[]` | the source-scanning collector | transforms |
 | `ui-tests-v1.0.0` | `ui-tests.json` | `scenarios[]` | the source-scanning collector | transforms |
 | `generator-ready-v1.0.0` | `generator-ready.json` | `content.entities[]` | transforms | generators |
-| `coverage-matrix-v1.0.0` | `coverage-matrix.json` | declared in `living_doc_utilities.contracts.coverage_matrix` | transforms | generators |
-| `ui-test-catalog-v1.0.0` | `ui-test-catalog.json` | declared in `living_doc_utilities.contracts.ui_test_catalog` | transforms | generators |
+| `coverage-matrix-v1.0.0` | `coverage-matrix.json` | `entities[]` | transforms | generators |
+| `ui-test-catalog-v1.0.0` | `ui-test-catalog.json` | `feature_files[]` | transforms | generators |
 
 Both issue-tracker collectors — GitHub and Azure DevOps — write `doc-entities.json`. The file
 name is the contract, never the source system; producer identity lives in
@@ -160,8 +160,8 @@ a validated, required part of the data.
 Models use `extra="forbid"`. There are exactly **two** kinds of object in these schemas.
 
 **Record objects** — objects with fixed, named properties: an entity, an acceptance criterion,
-`metadata`, `producer`, `document`, `document.selection_summary`, `stats.cardinality`. These get
-`additionalProperties: false`.
+`metadata`, `producer`, `document`, `document.selection_summary`, `planned_summary`,
+`stats.cardinality`. These get `additionalProperties: false`.
 
 **Maps** — objects whose *keys are data*: `stats.cardinality.entities_by_type`,
 `stats.cardinality.warnings_by_code`, `stats.field_occupancy`. Pydantic emits a `dict[str, int]` as:
@@ -184,6 +184,7 @@ without enumerating them as properties:
 | `stats.cardinality.entities_by_type` | an **`enum`** of the documentation types |
 | `metadata.source_inputs[].stats.field_occupancy` and `selected_stats.field_occupancy` | a **pattern**: `^[a-z][a-z0-9_]*(\[\])?(\.[a-z][a-z0-9_]*(\[\])?)*$` |
 | `stats.cardinality.warnings_by_code` | a **pattern**: `^[A-Z][A-Z0-9_]*$` |
+| `coverage-matrix`'s `planned_summary.by_target_version` | a **pattern**: `^\d+\.\d+\.\d+$` (the version format, "Version format" above) |
 
 The enum-versus-pattern split is the point of the rule. A file's **own** `field_occupancy` keys are
 paths of that file's own contract, so they can be enumerated exactly — and a mistyped path then
@@ -388,7 +389,8 @@ contract, with `[]` marking each array level:
 | `doc-source` | `user_stories[]`, `features[]`, `functionalities[]` |
 | `ui-tests` | `scenarios[]` |
 | `generator-ready` | `content.entities[]` |
-| `coverage-matrix`, `ui-test-catalog` | the record roots declared in `living_doc_utilities.contracts.coverage_matrix` and `living_doc_utilities.contracts.ui_test_catalog` |
+| `coverage-matrix` | `entities[]` |
+| `ui-test-catalog` | `feature_files[]` |
 
 So `entities[].not_in_scope` and `entities[].acceptance_criteria[].not_in_scope` are distinct paths,
 which is the point: the same field name at two levels is two different things to lose.
