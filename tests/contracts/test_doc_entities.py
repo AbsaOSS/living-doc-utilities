@@ -121,6 +121,27 @@ def test_page_ref_forbids_unknown_field():
         PageRef(route="/x", page_object="X.ts", purpose="...", not_a_real_field="nope")
 
 
+def test_feature_with_no_pages_is_valid():
+    result = factories.feature(pages=[])
+
+    assert result.pages == []
+
+
+def test_feature_pages_reject_zero_primary_pages():
+    non_primary = factories.page_ref(is_primary=False)
+
+    with pytest.raises(ValidationError, match="exactly one primary PageRef, found 0"):
+        factories.feature(pages=[non_primary])
+
+
+def test_feature_pages_reject_multiple_primary_pages():
+    first_primary = factories.page_ref(is_primary=True, route="/checkout", page_object="CheckoutPage.ts")
+    second_primary = factories.page_ref(is_primary=True, route="/checkout/summary", page_object="SummaryPage.ts")
+
+    with pytest.raises(ValidationError, match="exactly one primary PageRef, found 2"):
+        factories.feature(pages=[first_primary, second_primary])
+
+
 def test_entity_type_enum_has_the_three_documentation_types():
     schema = Entity.model_json_schema()
 

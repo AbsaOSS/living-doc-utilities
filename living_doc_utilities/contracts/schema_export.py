@@ -125,6 +125,43 @@ def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -
     field_occupancy["propertyNames"] = {"enum": paths}
 
 
+def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
+    """
+    Encodes the model_validator cross-field rules pydantic's own model_json_schema() drops
+    (AcceptanceCriterion._check_version_required_unless_planned,
+    _check_removal_planned_only_when_deprecated, Entity._check_state_origin) as `allOf`
+    if/then/else so a plain jsonschema validator rejects what pydantic rejects. A no-op for
+    a contract whose $defs don't carry that definition (e.g. ui-tests has neither).
+    """
+    defs = schema.get("$defs", {})
+
+    acceptance_criterion_def = defs.get("AcceptanceCriterion")
+    if isinstance(acceptance_criterion_def, dict):
+        acceptance_criterion_def.setdefault("allOf", []).extend(
+            [
+                {
+                    "if": {"properties": {"state": {"const": "planned"}}, "required": ["state"]},
+                    "else": {"properties": {"version": {"type": "string"}}, "required": ["version"]},
+                },
+                {
+                    "if": {"properties": {"state": {"const": "deprecated"}}, "required": ["state"]},
+                    "then": {"properties": {"removal_planned": {"type": "string"}}, "required": ["removal_planned"]},
+                    "else": {"properties": {"removal_planned": {"type": "null"}}},
+                },
+            ]
+        )
+
+    entity_def = defs.get("Entity")
+    if isinstance(entity_def, dict):
+        entity_def.setdefault("allOf", []).append(
+            {
+                "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
+                "then": {"properties": {"state_origin": {"const": "derived"}}},
+                "else": {"properties": {"state_origin": {"const": "authored"}}},
+            }
+        )
+
+
 def find_schema_violations(schema: dict[str, Any]) -> list[str]:
     """
     Walks a generated schema for the one rule R9 leaves no exception to: every object is
@@ -172,6 +209,7 @@ def generate_schema(
     raw_schema = model.model_json_schema()
     _rewrite_pattern_maps(raw_schema)
     _inject_own_field_occupancy_enum(raw_schema, field_occupancy_paths(record_roots))
+    _inject_cross_field_constraints(raw_schema)
 
     schema: dict[str, Any] = {
         "$schema": SCHEMA_DIALECT,

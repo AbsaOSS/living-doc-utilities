@@ -104,7 +104,60 @@
         "description"
       ],
       "title": "AcceptanceCriterion",
-      "type": "object"
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "planned"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "else": {
+            "properties": {
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "version"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "deprecated"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "removal_planned": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "removal_planned"
+            ]
+          },
+          "else": {
+            "properties": {
+              "removal_planned": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "AuditStats": {
       "additionalProperties": false,
@@ -494,7 +547,35 @@
         "state_origin"
       ],
       "title": "Entity",
-      "type": "object"
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "DocumentedFeature"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "state_origin": {
+                "const": "derived"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "state_origin": {
+                "const": "authored"
+              }
+            }
+          }
+        }
+      ]
     },
     "Metadata": {
       "additionalProperties": false,

@@ -36,6 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       python_changed: ${{ steps.changes.outputs.python_changed }}
+      schema_changed: ${{ steps.changes.outputs.schema_changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -63,6 +64,12 @@ jobs:
             echo "python_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "python_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$changed_files" | grep -E '^living_doc_utilities/contracts/schemas/.*\.json$' > /dev/null; then
+            echo "schema_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "schema_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
   static-analysis-and-tests:
@@ -108,7 +115,7 @@ jobs:
   # model change with no regenerated schema must fail here, not downstream.
   schema-regeneration-check:
     needs: detect
-    if: needs.detect.outputs.python_changed == 'true'
+    if: needs.detect.outputs.python_changed == 'true' || needs.detect.outputs.schema_changed == 'true'
     runs-on: ubuntu-latest
     name: Schema Regeneration Check
     steps:
@@ -152,15 +159,20 @@ jobs:
         run: |
           set -euo pipefail
           changed="${{ needs.detect.outputs.python_changed }}"
+          schema_changed="${{ needs.detect.outputs.schema_changed }}"
           test_result="${{ needs.static-analysis-and-tests.result }}"
           schema_result="${{ needs.schema-regeneration-check.result }}"
-          echo "python_changed=$changed | static-analysis-and-tests=$test_result | schema-regeneration-check=$schema_result"
-          if [[ "$changed" != "true" ]]; then
-            echo "No Python-related changes — static analysis & tests not required."
+          echo "python_changed=$changed | schema_changed=$schema_changed | static-analysis-and-tests=$test_result | schema-regeneration-check=$schema_result"
+          if [[ "$changed" != "true" && "$schema_changed" != "true" ]]; then
+            echo "No Python-related or contract-schema changes — checks not required."
             exit 0
           fi
-          if [[ "$test_result" == "success" && "$schema_result" == "success" ]]; then
-            exit 0
+          if [[ "$changed" == "true" && "$test_result" != "success" ]]; then
+            echo "::error::static analysis & tests did not pass (tests: $test_result)."
+            exit 1
           fi
-          echo "::error::static analysis & tests or the schema regeneration check did not pass (tests: $test_result, schemas: $schema_result)."
-          exit 1
+          if [[ "$schema_result" != "success" ]]; then
+            echo "::error::the schema regeneration check did not pass (schemas: $schema_result)."
+            exit 1
+          fi
+          exit 0

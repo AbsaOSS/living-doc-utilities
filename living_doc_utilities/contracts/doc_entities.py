@@ -116,6 +116,15 @@ class Entity(EntityCore):
                 raise ValueError(f"acceptance criterion id '{ac.id}' does not belong to entity '{self.entity_id}'")
         return self
 
+    @model_validator(mode="after")
+    def _check_pages_have_exactly_one_primary(self) -> "Entity":
+        if not self.pages:
+            return self
+        primary_count = sum(1 for page in self.pages if page.is_primary)
+        if primary_count != 1:
+            raise ValueError(f"a non-empty pages list must have exactly one primary PageRef, found {primary_count}")
+        return self
+
 
 class DocEntitiesResult(ContractModel):
     """The doc-entities-v1.0.0 artifact."""

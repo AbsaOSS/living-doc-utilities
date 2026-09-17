@@ -20,6 +20,7 @@ from typing import Union
 
 import jsonschema
 import pytest
+from pydantic import ValidationError
 
 from living_doc_utilities.contracts import doc_entities, doc_source, schema_export, ui_tests
 from living_doc_utilities.contracts.envelope import AUDIT_FIELD_PATH_PATTERN
@@ -44,6 +45,11 @@ def _doc_entities_instance_dict(**metadata_overrides) -> dict:
     result = doc_entities.DocEntitiesResult(
         metadata=factories.metadata(**metadata_overrides), entities=[factories.user_story()]
     )
+    return json.loads(result.model_dump_json())
+
+
+def _instance_dict_with_entities(entities) -> dict:
+    result = doc_entities.DocEntitiesResult(metadata=factories.metadata(), entities=entities)
     return json.loads(result.model_dump_json())
 
 
@@ -200,6 +206,59 @@ def test_another_contracts_path_inside_source_inputs_audit_field_occupancy_passe
 def test_malformed_path_inside_source_inputs_audit_field_occupancy_fails(malformed_path):
     data = _doc_entities_instance_dict(source_inputs=[factories.source_input_entry()])
     data["metadata"]["source_inputs"][0]["stats"]["field_occupancy"] = {malformed_path: 1}
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
+# ---------------------------------------------------------------------------
+# Cross-field model_validator rules, mirrored into the schema as allOf if/then/else
+# (_inject_cross_field_constraints): each invalid payload must be rejected by both
+# Pydantic and a plain jsonschema validator, not just by Pydantic.
+# ---------------------------------------------------------------------------
+
+
+def test_deprecated_ac_without_removal_planned_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="removal_planned is required"):
+        factories.acceptance_criterion(state="deprecated", removal_planned=None)
+
+    entity = factories.user_story(acceptance_criteria=[factories.acceptance_criterion(state="active", version="1.0.0")])
+    data = _instance_dict_with_entities([entity])
+    data["entities"][0]["acceptance_criteria"][0]["state"] = "deprecated"
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
+def test_non_planned_ac_without_version_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="version is required"):
+        factories.acceptance_criterion(state="active", version=None)
+
+    entity = factories.user_story(acceptance_criteria=[factories.acceptance_criterion(state="planned", version=None)])
+    data = _instance_dict_with_entities([entity])
+    data["entities"][0]["acceptance_criteria"][0]["state"] = "active"
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
+def test_feature_with_authored_state_origin_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="state_origin must be 'derived'"):
+        factories.feature(state_origin="authored")
+
+    data = _instance_dict_with_entities([factories.feature()])
+    data["entities"][0]["state_origin"] = "authored"
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
+def test_user_story_with_derived_state_origin_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="state_origin must be 'authored'"):
+        factories.user_story(state_origin="derived")
+
+    data = _instance_dict_with_entities([factories.user_story()])
+    data["entities"][0]["state_origin"] = "derived"
 
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))

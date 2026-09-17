@@ -27,8 +27,9 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 # Version fields never carry a leading "v" - see docs/contracts.md, "Version format".
 VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
 
-# An AC id is its parent entity's id plus a two-digit sequence, e.g. "US-001-01" - living-doc's
-# tools/examples_check.py AC_HEADER_RE, commit bfcc402ff998085cbf7bb91a7fd55ea8ac12c911.
+# An AC id is its parent entity's id plus a sequence number, conventionally zero-padded to two
+# digits, e.g. "US-001-01" - mirrors living-doc's tools/examples_check.py AC_HEADER_RE / AC_TAG_RE
+# (commit bfcc402ff998085cbf7bb91a7fd55ea8ac12c911), which does not itself fix the digit width.
 AC_ID_PATTERN = r"^[A-Z]+-\d+-\d+$"
 
 # A placeholder name from the AC-block grammar's placeholder_values, e.g. "<user_role>".
