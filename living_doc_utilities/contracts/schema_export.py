@@ -139,9 +139,20 @@ def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
     """
     Encodes the model_validator cross-field rules pydantic's own model_json_schema() drops
     (AcceptanceCriterion._check_version_required_unless_planned,
-    _check_removal_planned_only_when_deprecated, Entity._check_state_origin) as `allOf`
+    _check_removal_planned_only_when_deprecated; Entity._check_state_origin,
+    _check_stub_reason_is_feature_only, _check_pages_have_exactly_one_primary) as `allOf`
     if/then/else so a plain jsonschema validator rejects what pydantic rejects. A no-op for
     a contract whose $defs don't carry that definition (e.g. ui-tests has neither).
+
+    Two model_validator rules are deliberately not encoded here, because plain JSON Schema
+    has no keyword that can express them: Entity._check_acceptance_criteria_belong_to_this_entity
+    and CoverageMatrixResult._check_acceptance_criteria_belong_to_this_entity both require an
+    id field's value to be used as a runtime prefix pattern against a sibling/ancestor
+    field's value, which JSON Schema cannot cross-reference. A consumer validating raw JSON
+    against the generated schema alone (not through these Pydantic models) will not catch a
+    misowned acceptance-criterion id; this is a documented, accepted schema limitation, not
+    an oversight - the same is true of GeneratorReadyResult's SelectionSummary entity-total
+    identity (see generator_ready.SelectionSummary docstring).
     """
     defs = schema.get("$defs", {})
 
@@ -163,12 +174,33 @@ def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
 
     entity_def = defs.get("Entity")
     if isinstance(entity_def, dict):
-        entity_def.setdefault("allOf", []).append(
-            {
-                "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
-                "then": {"properties": {"state_origin": {"const": "derived"}}},
-                "else": {"properties": {"state_origin": {"const": "authored"}}},
-            }
+        entity_def.setdefault("allOf", []).extend(
+            [
+                {
+                    "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
+                    "then": {"properties": {"state_origin": {"const": "derived"}}},
+                    "else": {"properties": {"state_origin": {"const": "authored"}}},
+                },
+                {
+                    # stub_reason only ever describes a Feature (Entity._check_stub_reason_is_feature_only).
+                    "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
+                    "else": {"properties": {"stub_reason": {"type": "null"}}},
+                },
+                {
+                    # a non-empty pages list has exactly one primary PageRef
+                    # (Entity._check_pages_have_exactly_one_primary).
+                    "if": {"properties": {"pages": {"minItems": 1}}},
+                    "then": {
+                        "properties": {
+                            "pages": {
+                                "contains": {"properties": {"is_primary": {"const": True}}},
+                                "minContains": 1,
+                                "maxContains": 1,
+                            }
+                        }
+                    },
+                },
+            ]
         )
 
 

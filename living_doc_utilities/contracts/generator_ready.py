@@ -23,7 +23,7 @@ AcceptanceCriterion models are reused directly rather than redeclared here.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from living_doc_utilities.contracts.common import ContractModel, View
 from living_doc_utilities.contracts.doc_entities import Entity
@@ -34,7 +34,18 @@ CONTRACT_ID: Literal["generator-ready-v1.0.0"] = "generator-ready-v1.0.0"
 
 class SelectionSummary(ContractModel):
     """Counts of what the transform's view filter kept and dropped (docs/contracts.md,
-    section 4). A record: exactly these six named properties, nothing else."""
+    section 4). A record: exactly these six named properties, nothing else.
+
+    `total_entities == included_entities + excluded_entities` always holds: the producer
+    derives `excluded_entities` as `total_entities - included_entities` over one fixed
+    entity set, so it is a guaranteed identity, not a coincidence - the same check does not
+    apply to the three acceptance-criteria fields, because the producer only reports
+    view-filtered criteria for entities it kept and never tallies criteria belonging to a
+    dropped entity, so those three fields are not established as a disjoint partition. This
+    identity is Pydantic-only: JSON Schema has no keyword for a sum across sibling
+    properties, so a consumer validating raw JSON against the generated schema alone (not
+    through this model) cannot catch a violation.
+    """
 
     total_entities: int = Field(ge=0)
     included_entities: int = Field(ge=0)
@@ -42,6 +53,12 @@ class SelectionSummary(ContractModel):
     total_acceptance_criteria: int = Field(ge=0)
     included_acceptance_criteria: int = Field(ge=0)
     excluded_acceptance_criteria: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _check_entity_total(self) -> "SelectionSummary":
+        if self.total_entities != self.included_entities + self.excluded_entities:
+            raise ValueError("total_entities must equal included_entities + excluded_entities")
+        return self
 
 
 class Document(ContractModel):

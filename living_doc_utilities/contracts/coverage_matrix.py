@@ -26,7 +26,7 @@ from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
-from living_doc_utilities.contracts.common import VERSION_PATTERN, ContractModel, View
+from living_doc_utilities.contracts.common import VERSION_PATTERN, ContractModel, LifecycleState, View
 from living_doc_utilities.contracts.envelope import ContractWarning, Metadata
 
 CONTRACT_ID: Literal["coverage-matrix-v1.0.0"] = "coverage-matrix-v1.0.0"
@@ -59,12 +59,19 @@ class AcCoverage(ContractModel):
 
 
 class EntityCoverage(ContractModel):
-    """A User Story or Functionality's acceptance criteria, each with its coverage row."""
+    """A User Story or Functionality's acceptance criteria, each with its coverage row.
+
+    `state` is the entity's own lifecycle state, which is independent of which of its
+    acceptance criteria are counted (docs/contracts.md, "Coverage": counting is decided per
+    AC, "in both views" - never by the parent entity's state). A `planned`/`in_review`
+    entity can still own `active`/`deprecated` acceptance criteria that must be counted, so
+    this is the full `LifecycleState`, not `CountedState`.
+    """
 
     entity_id: str
     type: Literal["DocumentedUserStory", "DocumentedFunctionality"]
     title: str
-    state: CountedState
+    state: LifecycleState
     acceptance_criteria: list[AcCoverage] = Field(default_factory=list)
 
 
@@ -74,8 +81,8 @@ class PlannedSummary(ContractModel):
 
     total: int = Field(ge=0)
     backlog: int = Field(ge=0)
-    by_target_version: dict[Annotated[str, StringConstraints(pattern=VERSION_PATTERN)], int] = Field(
-        default_factory=dict
+    by_target_version: dict[Annotated[str, StringConstraints(pattern=VERSION_PATTERN)], Annotated[int, Field(ge=0)]] = (
+        Field(default_factory=dict)
     )
 
 

@@ -275,6 +275,28 @@ def test_user_story_with_derived_state_origin_is_rejected_by_pydantic_and_jsonsc
         jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
 
 
+def test_stub_reason_on_a_non_feature_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="stub_reason is only valid on a Feature"):
+        factories.user_story(stub_reason="surface not yet instrumented")
+
+    data = _instance_dict_with_entities([factories.user_story()])
+    data["entities"][0]["stub_reason"] = "surface not yet instrumented"
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
+def test_pages_without_exactly_one_primary_is_rejected_by_pydantic_and_jsonschema():
+    with pytest.raises(ValidationError, match="exactly one primary PageRef"):
+        factories.feature(pages=[factories.page_ref(is_primary=False)])
+
+    data = _instance_dict_with_entities([factories.feature()])
+    data["entities"][0]["pages"][0]["is_primary"] = False
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+
+
 # ---------------------------------------------------------------------------
 # Cross-cutting envelope facts.
 # ---------------------------------------------------------------------------

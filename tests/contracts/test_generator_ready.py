@@ -202,3 +202,23 @@ def test_the_mapping_covers_every_field_of_both_toolkit_models():
         "filtered_user_stories",
         "filtered_acceptance_criteria",
     }
+
+
+# ---------------------------------------------------------------------------
+# SelectionSummary.total_entities is a guaranteed identity of the producer (the toolkit
+# derives excluded_entities as total_entities - included_entities); the same identity does
+# not hold for the three acceptance-criteria fields, since the producer never tallies
+# criteria belonging to a dropped entity.
+# ---------------------------------------------------------------------------
+
+
+def test_selection_summary_enforces_total_entities_equals_included_plus_excluded():
+    with pytest.raises(ValidationError, match="total_entities must equal included_entities \\+ excluded_entities"):
+        factories.selection_summary(total_entities=10, included_entities=7, excluded_entities=2)
+
+
+def test_selection_summary_does_not_enforce_the_same_relationship_for_acceptance_criteria():
+    # Not a disjoint partition (docs/contracts.md, section 4) - must not raise.
+    factories.selection_summary(
+        total_acceptance_criteria=20, included_acceptance_criteria=15, excluded_acceptance_criteria=1
+    )

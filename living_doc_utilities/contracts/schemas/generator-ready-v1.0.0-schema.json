@@ -622,6 +622,49 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "DocumentedFeature"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "else": {
+            "properties": {
+              "stub_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "pages": {
+                "minItems": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pages": {
+                "contains": {
+                  "properties": {
+                    "is_primary": {
+                      "const": true
+                    }
+                  }
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            }
+          }
         }
       ]
     },
@@ -826,7 +869,7 @@
     },
     "SelectionSummary": {
       "additionalProperties": false,
-      "description": "Counts of what the transform's view filter kept and dropped (docs/contracts.md,\nsection 4). A record: exactly these six named properties, nothing else.",
+      "description": "Counts of what the transform's view filter kept and dropped (docs/contracts.md,\nsection 4). A record: exactly these six named properties, nothing else.\n\n`total_entities == included_entities + excluded_entities` always holds: the producer\nderives `excluded_entities` as `total_entities - included_entities` over one fixed\nentity set, so it is a guaranteed identity, not a coincidence - the same check does not\napply to the three acceptance-criteria fields, because the producer only reports\nview-filtered criteria for entities it kept and never tallies criteria belonging to a\ndropped entity, so those three fields are not established as a disjoint partition. This\nidentity is Pydantic-only: JSON Schema has no keyword for a sum across sibling\nproperties, so a consumer validating raw JSON against the generated schema alone (not\nthrough this model) cannot catch a violation.",
       "properties": {
         "total_entities": {
           "minimum": 0,

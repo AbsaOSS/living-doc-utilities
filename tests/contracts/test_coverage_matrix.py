@@ -102,6 +102,21 @@ def test_by_target_version_keys_must_be_a_version_string():
         factories.planned_summary(by_target_version={"v1.5": 1})
 
 
+def test_by_target_version_values_must_be_nonnegative():
+    with pytest.raises(ValidationError):
+        factories.planned_summary(by_target_version={"1.5.0": -1})
+
+
+def test_entity_coverage_state_is_the_full_lifecycle_state_not_just_counted_states():
+    # A User Story can still be `in_review` overall while one of its acceptance criteria is
+    # already `active` and must be counted (docs/contracts.md, "Coverage": counting is
+    # decided per AC, in both views, never by the parent entity's state).
+    row = factories.entity_coverage(state="in_review", acceptance_criteria=[factories.ac_coverage()])
+
+    assert row.state == "in_review"
+    assert row.acceptance_criteria[0].state == "active"
+
+
 def test_acceptance_criterion_id_must_belong_to_its_entity():
     with pytest.raises(ValidationError, match="does not belong to entity"):
         _result(entities=[factories.entity_coverage(entity_id="US-001", acceptance_criteria=[factories.ac_coverage(parent_id="US-002")])])
