@@ -27,7 +27,13 @@ python3 --version
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e . --no-deps
 ```
+
+The editable install of the package itself (not just its dependencies) is required: some
+of the code (e.g. `compat.installed_utilities_version()`) reads this package's own version
+via `importlib.metadata`, which only finds it once it's installed.
+
 ---
 ## Quality Gates (`make`)
 

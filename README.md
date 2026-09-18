@@ -54,8 +54,31 @@ schema = load_schema("doc-entities-v1.0.0")  # loaded via importlib.resources
 The transform-output contracts build directly on the shared metadata envelope and reuse the
 `doc-entities` entity and acceptance-criterion models rather than redeclaring them —
 `generator-ready`'s `content.entities[]` carries the exact same `Entity` model as `doc-entities`'
-`entities[]`. The runtime read/validate helpers are not implemented yet; they land in a later
-release.
+`entities[]`.
+
+`living_doc_utilities.contracts.io.read_artifact()` and `write_artifact()` are the only sanctioned
+way to read or write a contract artifact anywhere in the ecosystem (docs/contracts.md, R12):
+`read_artifact` runs the R5 compatibility check (`schema_version` parses, names a contract the
+caller accepts, and validates against the bundled schema) before returning a typed model;
+`write_artifact` fills in `metadata.stats` and `metadata.producer.utilities_version`, validates the
+result in memory, and only then writes it — to a temporary file in the destination's own directory,
+then an atomic rename — so a crash mid-write never leaves a partial or corrupt artifact behind:
+
+```python
+from living_doc_utilities.contracts.io import read_artifact, write_artifact
+from living_doc_utilities.contracts.codes import ContractError
+
+try:
+    result = read_artifact("doc-entities.json", expected={"doc-entities", "doc-source"})
+except ContractError as error:
+    print(error.code, error.message)  # e.g. CONTRACT_MISMATCH, SCHEMA_VALIDATION_FAILED
+
+write_artifact(result, "out/doc-entities.json")  # stats + producer version filled in for you
+```
+
+Every error and warning code either of these — or any other component in the ecosystem — can
+raise or emit is registered once, with its kind and its emitting component, in
+`living_doc_utilities.contracts.codes.ALL_CODES`.
 
 ## Authoring normalisation and the acceptance-criterion grammar
 
