@@ -93,8 +93,32 @@ def test_cross_reference_header_produces_no_entity_but_a_page_ref():
     assert result.entity is None
     assert result.parent_feat == "FEAT-042"
     assert result.page_ref.is_primary is False
+    assert result.page_ref.owners == ["Platform Team"]
     assert result.page_ref.functionalities == ["FUNC-005"]
     assert result.page_ref.page_object == "AccountSetupWizardProfilePage.ts"
+
+
+def test_jsdoc_block_after_the_header_does_not_leak_into_it():
+    # A method-level JSDoc block below the header can carry its own "*"-prefixed lines;
+    # one that happens to look like "route: ..." must never overwrite the header's own
+    # value, since it belongs to a different comment block entirely.
+    text = (
+        _FULL_HEADER
+        + "\n"
+        + "export class AccountSetupWizardPage {\n"
+        + "  /**\n"
+        + "   * route: /somewhere/unrelated\n"
+        + "   * owners: Someone Else\n"
+        + "   */\n"
+        + "  async goto(): Promise<void> {}\n"
+        + "}\n"
+    )
+    result, warnings = parse_page_object(text)
+
+    assert warnings == []
+    assert result.entity is not None
+    assert result.entity.owners == ["Platform Team"]
+    assert result.page_ref.route == "/app/accounts/setup"
 
 
 def test_unrecognised_key_produces_ignored_authored_key():

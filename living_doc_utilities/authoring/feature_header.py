@@ -33,6 +33,7 @@ from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 _BANNER_RE = re.compile(r"^#\s*=+\s*$")
+_FEATURE_DECLARATION_RE = re.compile(r"^Feature:\s*.*$")
 _COMMENT_PREFIX_RE = re.compile(r"^#\s?")
 _AC_HEADER_LOOKALIKE_RE = re.compile(r"^AC:\S+\s*\(")
 _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z_][a-zA-Z0-9_]*):\s*(?P<val>.*)$")
@@ -83,8 +84,13 @@ def _strip_comment_prefix(line: str) -> str:
 def _extract_header_block(lines: list[str]) -> list[str]:
     """The banner (`# ===...===`) brackets the whole header block, but also appears a
     second time right after the title line (framing it on its own) - so the block runs
-    from the *first* banner to the *last*, not the first two."""
-    banner_indices = [i for i, ln in enumerate(lines) if _BANNER_RE.match(ln)]
+    from the *first* banner to the *last*, not the first two. Banner search is bounded to
+    before the `Feature:` declaration - the Gherkin body below it (scenarios, `# AC:`
+    documentation comments) can otherwise contain its own banner-shaped comment lines,
+    which would push the block past the header's own closing banner and re-parse
+    scenario-body content as header fields / AC blocks."""
+    feature_idx = next((i for i, ln in enumerate(lines) if _FEATURE_DECLARATION_RE.match(ln.strip())), len(lines))
+    banner_indices = [i for i, ln in enumerate(lines[:feature_idx]) if _BANNER_RE.match(ln)]
     if len(banner_indices) < 2:
         return []
     return lines[banner_indices[0] + 1 : banner_indices[-1]]

@@ -73,6 +73,31 @@ def test_malformed_ac_tag_produces_a_warning_and_no_link():
     assert [w.code for w in warnings] == [MALFORMED_AC]
 
 
+def test_tag_before_a_non_scenario_construct_does_not_leak_onto_a_later_scenario():
+    # A tag can precede a construct other than `Scenario:`/`Scenario Outline:` - here an
+    # `Examples:` table belonging to the outline above it. That tag must not survive past
+    # the table and attach itself to the next, untagged, `Scenario:`.
+    body = (
+        "Feature: Sample\n\n"
+        "  @AC:US-001-01\n"
+        "  Scenario Outline: Something with <value>\n"
+        "    Given a step with <value>\n\n"
+        "    @DataSetTag\n"
+        "    Examples:\n"
+        "      | value |\n"
+        "      | 1     |\n\n"
+        "  Scenario: Untagged follow-up\n"
+        "    Given a step\n"
+    )
+    scenarios, warnings = parse_scenarios(body, "DocumentedUserStory")
+
+    assert warnings == []
+    assert [link.id for link in scenarios[0].acceptance_criteria] == ["US-001-01"]
+    assert scenarios[1].title == "Untagged follow-up"
+    assert scenarios[1].tags == []
+    assert scenarios[1].acceptance_criteria == []
+
+
 def test_en_dash_comment_is_normalized_before_parsing():
     body = (
         "Feature: Sample\n\n"

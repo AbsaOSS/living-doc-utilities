@@ -93,6 +93,40 @@ def test_missing_title_line_produces_missing_entity_id():
     assert [w.code for w in warnings] == ["MISSING_ENTITY_ID"]
 
 
+def test_banner_shaped_comment_in_scenario_body_is_not_absorbed_into_header():
+    # A "# ===...===" comment pair in the Gherkin body (a human habit, e.g. separating
+    # scenario groups with a divider that itself brackets a documentation-only "# AC:"
+    # line) must never be mistaken for the header's own block: the header ends at the
+    # "Feature:" declaration, full stop. Before the fix, the *last* banner-shaped line
+    # anywhere in the file closed the header block, so this divider's own "AC:US-004-01"
+    # line was re-parsed as a second (duplicate) acceptance criterion.
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — US-004 · Divider Story\n"
+        "# =============================================================================\n"
+        "# status:          active\n"
+        "#\n"
+        "# acceptance_criteria:\n"
+        "#\n"
+        "#   AC:US-004-01 (v1.0.0 - active)\n"
+        "#     - desc\n"
+        "# =============================================================================\n"
+        "\n@US_ID:US-004\nFeature: Divider Story\n"
+        "\n# =============================================================================\n"
+        "# AC:US-004-01 (v1.0.0 - active)\n"
+        "#   - duplicate, must not be parsed as a header field\n"
+        "# =============================================================================\n"
+        "  Scenario: Something\n"
+        "    Given a step\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.entity_id == "US-004"
+    assert [ac.id for ac in entity.acceptance_criteria] == ["US-004-01"]
+    assert len(entity.acceptance_criteria) == 1
+
+
 def test_en_dash_input_is_normalized_before_ac_grammar_runs():
     text = (
         "# =============================================================================\n"

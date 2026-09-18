@@ -35,6 +35,8 @@ from living_doc_utilities.contracts.envelope import ContractWarning
 _LINE_RE = re.compile(r"^\s*\*\s?(?P<content>.*)$")
 _BANNER_CONTENT_RE = re.compile(r"^=+\s*(\*/)?\s*$")
 _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*(?P<val>.*)$")
+_COMMENT_OPEN_RE = re.compile(r"^\s*/\*")
+_COMMENT_CLOSE_RE = re.compile(r".*\*/\s*$")
 
 # A glossary-defined key that maps to no model field, with the reason it is dropped rather
 # than stored (docs/contracts.md, "State and `state_origin`") - a documented drop, not a
@@ -83,9 +85,23 @@ class PageObjectResult:
     parent_feat: Optional[str] = None
 
 
+def _header_comment_lines(lines: list[str]) -> list[str]:
+    """The file's leading `/* ... */` block comment - the Living Doc header - and nothing
+    past its closing `*/`. A later JSDoc block (e.g. above a class method) is never part
+    of this block, so a `key: value`-shaped line inside one can't be mistaken for a header
+    field and silently overwrite it."""
+    start = next((i for i, ln in enumerate(lines) if _COMMENT_OPEN_RE.match(ln)), None)
+    if start is None:
+        return []
+    end = next((i for i in range(start, len(lines)) if _COMMENT_CLOSE_RE.match(lines[i])), None)
+    if end is None:
+        return []
+    return lines[start : end + 1]
+
+
 def _content_lines(lines: list[str]) -> list[str]:
     contents = []
-    for raw in lines:
+    for raw in _header_comment_lines(lines):
         line_m = _LINE_RE.match(raw)
         if line_m:
             contents.append(line_m.group("content").rstrip())
@@ -194,7 +210,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
             is_primary=False,
             route=values.get("route", ""),
             page_object=values.get("page-object", ""),
-            owners=[],
+            owners=_split_list(values.get("owners")),
             purpose=values.get("purpose", ""),
             functionalities=_split_list(values.get("functionalities")),
         )

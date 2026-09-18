@@ -84,6 +84,10 @@ def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenari
 
         scenario_m = _SCENARIO_RE.match(stripped)
         if scenario_m is None:
+            # Any other construct (`Rule:`, a step, an `Examples:` table, ...) invalidates
+            # a pending tag block - it only ever links the *next* `Scenario:`/`Scenario
+            # Outline:` line, never one further down past something else.
+            pending_tags = []
             continue
 
         ac_links, ac_warnings = _tags_to_ac_links(pending_tags)
