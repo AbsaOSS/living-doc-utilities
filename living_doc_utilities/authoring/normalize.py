@@ -307,13 +307,12 @@ def compute_fence_flags(lines: list[str]) -> list[bool]:
     for line in lines:
         if fence_char is None:
             m = _FENCE_OPEN_RE.match(line)
-            is_valid_opener = m and not (m.group("fence")[0] == "`" and "`" in m.group("info"))
-            if is_valid_opener:
+            if m is None or (m.group("fence")[0] == "`" and "`" in m.group("info")):
+                flags.append(False)
+            else:
                 fence_char = m.group("fence")[0]
                 fence_len = len(m.group("fence"))
                 flags.append(True)
-            else:
-                flags.append(False)
             continue
 
         m = _FENCE_CLOSE_RE.match(line)

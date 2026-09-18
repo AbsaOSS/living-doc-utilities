@@ -73,8 +73,11 @@ _SECTION_BANNER_RE = re.compile(r"^=+$")
 # comment-leader-stripped one: `_COMMENT_LEADER_RE` would strip a heading's own "##"
 # indistinguishably from a feature-header block's single-"#" comment prefix, so the
 # minimum of two "#" here is what keeps this from firing on every feature-header/
-# scenario-file AC-block line (those never use a doubled leader).
-_MD_SECTION_HEADING_RE = re.compile(r"^#{2,6}\s+\S")
+# scenario-file AC-block line (those never use a doubled leader). The " {0,3}" mirrors
+# `_FENCE_OPEN_RE`/`_FENCE_CLOSE_RE` in normalize.py (CommonMark: at most three leading
+# spaces before a construct still counts as "unindented") - four or more is an indented
+# code block, never a heading, so it must not terminate the AC block early.
+_MD_SECTION_HEADING_RE = re.compile(r"^ {0,3}#{2,6}\s+\S")
 
 _REMOVAL_PLANNED_RE = re.compile(r"^removal planned (?P<version>\S+)$")
 _BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
@@ -231,9 +234,7 @@ def _build_ac(
 
     is_legacy_descoped = state == _LEGACY_DESCOPED_STATE
     if is_legacy_descoped:
-        legacy_shape_valid = (
-            removal_planned is None and version is not None and _VERSION_RE.match(version) is not None
-        )
+        legacy_shape_valid = removal_planned is None and version is not None and _VERSION_RE.match(version) is not None
         if not legacy_shape_valid:
             warnings.append(
                 ContractWarning(
@@ -377,7 +378,7 @@ def parse_acceptance_criteria(
             candidate = cleaned_lines[cursor].strip()
             if _AC_PREFIX_RE.match(candidate) or _SECTION_BANNER_RE.match(candidate):
                 break
-            if _MD_SECTION_HEADING_RE.match(raw_lines[cursor].strip()):
+            if _MD_SECTION_HEADING_RE.match(raw_lines[cursor]):
                 break
             if candidate != "":
                 block.append(cleaned_lines[cursor])
