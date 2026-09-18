@@ -175,6 +175,71 @@ def test_canonical_header_round_trips_through_normalize_and_ac_grammar_again(inn
     assert acs_again[0].canonical_header() == header
 
 
+def test_fenced_ac_example_is_never_parsed_as_a_real_criterion():
+    text = (
+        "AC:US-001-01 (v1.0.0 - active)\n"
+        "- desc\n"
+        "\n"
+        "```\n"
+        "AC:US-999-01 (v9.9.9 - active)\n"
+        "- this is a quoted example, not a real AC\n"
+        "```\n"
+    )
+    acs, warnings = _parse_one(text)
+
+    assert [ac.id for ac in acs] == ["US-001-01"]
+    assert warnings == []
+
+
+@pytest.mark.parametrize("inner", ["V1.0.0 - active", "1.0.0 - active"], ids=["uppercase_v", "missing_v"])
+def test_non_canonical_version_prefix_is_malformed(inner):
+    acs, warnings = _parse_one(f"AC:US-001-01 ({inner})\n- desc\n")
+
+    assert acs == []
+    assert [w.code for w in warnings] == [MALFORMED_AC]
+
+
+@pytest.mark.integration
+def test_complete_feature_file_stops_at_the_closing_banner():
+    # Regression case for a full living-doc-header-types.md-shaped .feature file: the
+    # last AC's block must end at the closing "# ====...====" banner, not absorb the
+    # Feature: declaration, tags and scenario body that follow it in the same file.
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — FUNC-1 · Password Strength\n"
+        "# =============================================================================\n"
+        "# status: active\n"
+        "# parent: FEAT-1\n"
+        "# func_type: field_validation\n"
+        "#\n"
+        "# acceptance_criteria:\n"
+        "#\n"
+        "#   AC:FUNC-1-01 (v1.0.0 - active)\n"
+        "#     - rejects a weak password\n"
+        "# =============================================================================\n"
+        "\n"
+        "@FUNC_ID:FUNC-1\n"
+        "Feature: Password Strength\n"
+        "\n"
+        "  # AC:FUNC-1-01 (v1.0.0 - active) - rejects a weak password\n"
+        "  @AC:FUNC-1-01\n"
+        "  Scenario: weak password rejected\n"
+        "    Given a weak password\n"
+        "    When submitted\n"
+        "    Then it is rejected\n"
+    )
+    normalized = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedFunctionality")
+
+    acs, warnings = parse_acceptance_criteria(normalized.text, entity_id="FUNC-1")
+
+    assert len(acs) == 1
+    ac = acs[0]
+    assert ac.id == "FUNC-1-01"
+    assert ac.state == "active"
+    assert ac.description == "rejects a weak password"
+    assert warnings == []
+
+
 def test_agentic_toolkit_descope_fixture_round_trips_with_only_legacy_warning():
     raw_text = FIXTURE_PATH.read_text(encoding="utf-8")
     # Strip the file's own provenance comment (an HTML comment block, not AC content).

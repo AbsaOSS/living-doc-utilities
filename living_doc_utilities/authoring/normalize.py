@@ -274,21 +274,48 @@ def _record_title_dash(dm: "re.Match[str]", changes: list[Change]) -> str:
 # --- per-format handlers -------------------------------------------------------------
 
 _MD_HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.*)$")
-_FENCE_RE = re.compile(r"^\s*```")
+_FENCE_OPEN_RE = re.compile(r"^\s{0,3}(?P<fence>`{3,}|~{3,})")
+
+
+def compute_fence_flags(lines: list[str]) -> list[bool]:
+    """True for a line that opens, closes or lies inside a fenced code block. A fence
+    opens with 3+ backticks or 3+ tildes and is only closed by a line consisting of that
+    same character repeated at least as many times - so a `~~~` fence is recognised, and
+    a shorter or differently-charactered run nested inside a longer fence does not close
+    it early. The one fence-tracking rule shared by `_normalize_markdown` (which must
+    never touch fenced content) and `ac_grammar.py` (which must never parse an `AC:...`
+    example quoted inside one).
+    """
+    flags: list[bool] = []
+    fence_char: Optional[str] = None
+    fence_len = 0
+    for line in lines:
+        if fence_char is None:
+            m = _FENCE_OPEN_RE.match(line)
+            if m:
+                fence_char = m.group("fence")[0]
+                fence_len = len(m.group("fence"))
+                flags.append(True)
+            else:
+                flags.append(False)
+            continue
+
+        stripped = line.strip()
+        if len(stripped) >= fence_len and set(stripped) == {fence_char}:
+            fence_char = None
+            fence_len = 0
+        flags.append(True)
+    return flags
 
 
 def _normalize_markdown(lines: list[str], profile: TypeProfile, changes: list[Change]) -> list[str]:
     out_lines: list[str] = []
     current_section: Optional[str] = None
     in_ac_block = False
-    in_fence = False
+    fence_flags = compute_fence_flags(lines)
 
-    for raw in lines:
-        if _FENCE_RE.match(raw):
-            in_fence = not in_fence
-            out_lines.append(raw)
-            continue
-        if in_fence:
+    for line_idx, raw in enumerate(lines):
+        if fence_flags[line_idx]:
             out_lines.append(raw)
             continue
 

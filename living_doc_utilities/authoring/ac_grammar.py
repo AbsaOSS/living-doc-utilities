@@ -35,6 +35,7 @@ from living_doc_utilities.contracts.common import (
     AcceptanceCriterion,
     LifecycleState,
 )
+from living_doc_utilities.authoring.normalize import compute_fence_flags
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 MALFORMED_AC = "MALFORMED_AC"
@@ -57,7 +58,15 @@ _COMMENT_LEADER_RE = re.compile(r"^[#*]+\s*")
 
 _AC_HEADER_RE = re.compile(r"^AC:(?P<id>\S*)\s*\((?P<inner>.*)\)\s*$")
 _AC_PREFIX_RE = re.compile(r"^AC:")
-_FENCE_RE = re.compile(r"^\s*```")
+
+# The "# ====...====" rule that opens and closes a feature-header entity block (living-
+# doc's docs/guides/living-doc-header-types.md, every worked header example). Once
+# comment-leaders are stripped this is a line of nothing but "=" - a hard boundary for
+# an AC's block, the same way a fresh "AC:" header already is. Without it, the last AC in
+# a complete `.feature` file would otherwise absorb the closing banner, the `Feature:`
+# declaration and the entire scenario body into its own block.
+_SECTION_BANNER_RE = re.compile(r"^=+$")
+
 _REMOVAL_PLANNED_RE = re.compile(r"^removal planned (?P<version>\S+)$")
 _BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
 _SUBLIST_KEY_RE = re.compile(r"^(?P<key>preconditions|not_in_scope):\s*$")
@@ -68,8 +77,13 @@ _LEGACY_DESCOPED_REASON_RE = re.compile(r"^descoped_reason:\s*(?P<text>.+)$")
 _LEGACY_DISCARD_RE = re.compile(r"^(?:descoped_at|future_release):\s*.+$")
 
 
-def _strip_leading_v(token: str) -> str:
-    return token[1:] if token[:1] in ("v", "V") else token
+def _strip_leading_v(token: str) -> Optional[str]:
+    """Strips the canonical lowercase 'v' prefix `normalize`'s `_reshape_version_form`
+    always emits. `None` means the token is not in that canonical form (e.g. an
+    uppercase 'V' or a bare digit string) - the caller reports that as MALFORMED_AC
+    rather than tolerating a version form this module does not own.
+    """
+    return token[1:] if token[:1] == "v" else None
 
 
 def _slug_placeholder_name(name: str) -> str:
@@ -88,13 +102,20 @@ def _parse_header_inner(inner: str) -> tuple[Optional[str], Optional[str], Optio
         return segments[0], None, None
     if len(segments) == 2:
         version_raw, state = segments
-        return state, _strip_leading_v(version_raw), None
+        version = _strip_leading_v(version_raw)
+        if version is None:
+            return None, None, None
+        return state, version, None
     if len(segments) == 3:
         version_raw, state, removal_clause = segments
         removal_m = _REMOVAL_PLANNED_RE.match(removal_clause)
         if removal_m is None:
             return None, None, None
-        return state, _strip_leading_v(version_raw), _strip_leading_v(removal_m.group("version"))
+        version = _strip_leading_v(version_raw)
+        removal_version = _strip_leading_v(removal_m.group("version"))
+        if version is None or removal_version is None:
+            return None, None, None
+        return state, version, removal_version
     return None, None, None
 
 
@@ -182,22 +203,6 @@ def _parse_extensions(
         )
 
     return result, warnings
-
-
-def _compute_fence_flags(lines: list[str]) -> list[bool]:
-    """True for a line that opens, closes or lies inside a fenced code block, mirroring
-    normalize.py's `_FENCE_RE` toggle. Keeps quoted `AC:...` examples inside a fence from
-    ever being read as a real acceptance-criterion header.
-    """
-    flags: list[bool] = []
-    in_fence = False
-    for line in lines:
-        if _FENCE_RE.match(line):
-            in_fence = not in_fence
-            flags.append(True)
-            continue
-        flags.append(in_fence)
-    return flags
 
 
 def _build_ac(
@@ -309,7 +314,7 @@ def parse_acceptance_criteria(
     """
     raw_lines = text.splitlines()
     cleaned_lines = [_COMMENT_LEADER_RE.sub("", line) for line in raw_lines]
-    fence_flags = _compute_fence_flags(raw_lines)
+    fence_flags = compute_fence_flags(raw_lines)
 
     results: list[AcceptanceCriterion] = []
     warnings: list[ContractWarning] = []
@@ -348,7 +353,7 @@ def parse_acceptance_criteria(
                 cursor += 1
                 continue
             candidate = cleaned_lines[cursor].strip()
-            if _AC_PREFIX_RE.match(candidate):
+            if _AC_PREFIX_RE.match(candidate) or _SECTION_BANNER_RE.match(candidate):
                 break
             if candidate != "":
                 block.append(cleaned_lines[cursor])

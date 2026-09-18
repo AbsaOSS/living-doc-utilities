@@ -435,6 +435,28 @@
     ```
   note: A fenced code block is never touched, even though it contains the word "active".
 
+- id: never_touched_tilde_fenced_code_block_issue_body
+  rule: none
+  format: issue_body
+  entity_type: DocumentedFunctionality
+  input: |
+    ## Description
+
+    Example AC header shown as a worked example:
+
+    ~~~
+    AC:US-999-01 (v9.9.9 - active)
+    ~~~
+  expected: |
+    ## Description
+
+    Example AC header shown as a worked example:
+
+    ~~~
+    AC:US-999-01 (v9.9.9 - active)
+    ~~~
+  note: A "~~~"-fenced code block is never touched either - not only the backtick form.
+
 - id: never_touched_prose_en_dash_issue_body
   rule: none
   format: issue_body
