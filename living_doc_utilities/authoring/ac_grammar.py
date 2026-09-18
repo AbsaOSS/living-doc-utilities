@@ -145,6 +145,21 @@ def _parse_extensions(
     warnings: list[ContractWarning] = []
     pending_sublist_key: Optional[str] = None
     seen_description = False
+    # Where a following non-bullet line's hard-wrapped text is appended: a scalar `result`
+    # key, or the last entry of a list-valued one - a wrapped comment-block description or
+    # rationale (e.g. living-doc's own .feature-header examples) spans several physical
+    # lines, and only the first carries the "-" bullet marker.
+    continuation_key: Optional[str] = None
+    continuation_list: Optional[list] = None
+
+    def _unparsed(raw_line: str) -> None:
+        warnings.append(
+            ContractWarning(
+                code=UNPARSED_AC_LINE,
+                message="Acceptance-criterion block line could not be assigned to any known field.",
+                context=f"{context} line={raw_line.strip()!r}",
+            )
+        )
 
     for raw_line in block_lines:
         stripped = raw_line.strip()
@@ -154,49 +169,55 @@ def _parse_extensions(
         sublist_m = _SUBLIST_KEY_RE.match(stripped)
         if sublist_m:
             pending_sublist_key = sublist_m.group("key")
+            continuation_key, continuation_list = None, None
             continue
 
         bullet_m = _BULLET_RE.match(stripped)
         if not bullet_m:
-            warnings.append(
-                ContractWarning(
-                    code=UNPARSED_AC_LINE,
-                    message="Acceptance-criterion block line could not be assigned to any known field.",
-                    context=f"{context} line={raw_line.strip()!r}",
-                )
-            )
+            if continuation_list is not None:
+                continuation_list[-1] = f"{continuation_list[-1]} {stripped}".strip()
+            elif continuation_key is not None:
+                result[continuation_key] = f"{result[continuation_key]} {stripped}".strip()
+            else:
+                _unparsed(raw_line)
             continue
 
         text = bullet_m.group("text").strip()
 
         if pending_sublist_key is not None:
             result[pending_sublist_key].append(text)
+            continuation_key, continuation_list = None, result[pending_sublist_key]
             continue
 
         if not seen_description:
             result["description"] = text
             seen_description = True
+            continuation_key, continuation_list = "description", None
             continue
 
         if is_legacy_descoped:
             legacy_reason_m = _LEGACY_DESCOPED_REASON_RE.match(text)
             if legacy_reason_m:
                 result["rationale"] = legacy_reason_m.group("text").strip()
+                continuation_key, continuation_list = "rationale", None
                 continue
             if _LEGACY_DISCARD_RE.match(text):
                 # descoped_at / future_release: no home in the canon model (there is no
                 # descoped state any more), silently dropped as part of the one legacy
                 # conversion path.
+                continuation_key, continuation_list = None, None
                 continue
 
         aspect_m = _ASPECT_RE.match(text)
         if aspect_m:
             result["aspect"] = [v.strip() for v in aspect_m.group("values").split(",")]
+            continuation_key, continuation_list = None, None
             continue
 
         rationale_m = _RATIONALE_RE.match(text)
         if rationale_m:
             result["rationale"] = rationale_m.group("text").strip()
+            continuation_key, continuation_list = "rationale", None
             continue
 
         placeholder_m = _PLACEHOLDER_BULLET_RE.match(text)
@@ -204,15 +225,11 @@ def _parse_extensions(
             name = _slug_placeholder_name(placeholder_m.group("name"))
             if _PLACEHOLDER_NAME_RE.match(name):
                 result["placeholder_values"][name] = [v.strip() for v in placeholder_m.group("values").split(",")]
+                continuation_key, continuation_list = None, None
                 continue
 
-        warnings.append(
-            ContractWarning(
-                code=UNPARSED_AC_LINE,
-                message="Acceptance-criterion block line could not be assigned to any known field.",
-                context=f"{context} line={raw_line.strip()!r}",
-            )
-        )
+        _unparsed(raw_line)
+        continuation_key, continuation_list = None, None
 
     return result, warnings
 
@@ -325,6 +342,13 @@ def _build_ac(
         return None, warnings
 
     return acceptance_criterion, warnings
+
+
+def is_valid_ac_id(candidate: str) -> bool:
+    """Whether `candidate` matches the AC id shape (`AC_ID_PATTERN`) - the one place every
+    other module should check this (e.g. a scenario's `@AC:<id>` tag), instead of
+    re-deriving the pattern itself."""
+    return _AC_ID_RE.match(candidate) is not None
 
 
 def parse_acceptance_criteria(
