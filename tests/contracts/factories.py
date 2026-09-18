@@ -259,7 +259,10 @@ def generator_ready_document(**overrides: Any) -> GeneratorReadyDocument:
 
 
 def aspect_coverage(**overrides: Any) -> AspectCoverage:
-    status = overrides.get("status", "covered")
+    if "scenario_ids" in overrides and "status" not in overrides:
+        status = "covered" if overrides["scenario_ids"] else "not_covered"
+    else:
+        status = overrides.get("status", "covered")
     fields: dict[str, Any] = {
         "aspect": "checkout",
         "status": status,
