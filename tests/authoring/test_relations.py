@@ -79,6 +79,19 @@ def test_no_warnings_for_a_consistent_relation_set():
     assert warnings == []
 
 
+def test_relation_mismatch_when_feature_claims_a_functionality_parented_elsewhere():
+    # FUNC-002's real parent is FEAT-003, which correctly lists it back - so the
+    # Functionality-side check alone finds nothing wrong. FEAT-001's own claim on
+    # FUNC-002 is still stale/incorrect and must be caught from the Feature side.
+    feature = _feature(entity_id="FEAT-001", functionalities=["FUNC-002"])
+    real_parent = _feature(entity_id="FEAT-003", functionalities=["FUNC-002"])
+    func = _func(entity_id="FUNC-002", parent="FEAT-003")
+
+    warnings = check_relations([feature, real_parent, func])
+
+    assert [w.code for w in warnings] == [RELATION_MISMATCH]
+
+
 def test_no_mismatch_when_feature_declares_no_functionalities_list_at_all():
     # Linked purely via `parent`, with the Feature carrying no `functionalities` list of
     # its own (empty list means "nothing declared", not "declared as empty").

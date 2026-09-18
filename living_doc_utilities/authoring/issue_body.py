@@ -176,7 +176,12 @@ def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
 _BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
 
 
-def _extract_bullets(lines: list[str]) -> list[str]:
+def extract_bullets(lines: list[str]) -> list[str]:
+    """Extracts a `- ...` list's items from already-normalised `lines`, joining a
+    following non-bullet line onto the previous item as its hard-wrap continuation.
+    Shared by every authoring-format parser that carries a bullet section (issue-body
+    `##` sections here, feature-header `key:` sections in `feature_header.py`) - the one
+    place this join rule is implemented."""
     items: list[str] = []
     for raw in lines:
         stripped = raw.strip()
@@ -196,7 +201,7 @@ def _extract_prose(lines: list[str]) -> Optional[str]:
 
 
 def _extract_prose_bullet(lines: list[str]) -> Optional[str]:
-    items = _extract_bullets(lines)
+    items = extract_bullets(lines)
     return " ".join(items) if items else None
 
 
@@ -210,7 +215,7 @@ def _extract_id_list(lines: list[str]) -> list[str]:
 _EXTRACTORS = {
     _KIND_PROSE: _extract_prose,
     _KIND_SCALAR: _extract_prose,
-    _KIND_BULLETS: _extract_bullets,
+    _KIND_BULLETS: extract_bullets,
     _KIND_PROSE_BULLET: _extract_prose_bullet,
     _KIND_ID_LIST: _extract_id_list,
 }

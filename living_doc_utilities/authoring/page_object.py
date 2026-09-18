@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from living_doc_utilities.authoring.identity import MISSING_ENTITY_ID, derive_entity_id
+from living_doc_utilities.authoring.identity import MISSING_ENTITY_ID, derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEY, ParsedEntity
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
 from living_doc_utilities.contracts.doc_entities import PageRef
@@ -34,7 +34,6 @@ from living_doc_utilities.contracts.envelope import ContractWarning
 
 _LINE_RE = re.compile(r"^\s*\*\s?(?P<content>.*)$")
 _BANNER_CONTENT_RE = re.compile(r"^=+\s*(\*/)?\s*$")
-_LIVING_DOC_TITLE_RE = re.compile(r"LIVING DOC\s*—\s*(?P<title>.+?)\s*$")
 _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*(?P<val>.*)$")
 
 # A glossary-defined key that maps to no model field, with the reason it is dropped rather
@@ -94,14 +93,12 @@ def _content_lines(lines: list[str]) -> list[str]:
 
 
 def _extract_title(contents: list[str]) -> Optional[str]:
-    for content in contents:
-        title_m = _LIVING_DOC_TITLE_RE.search(content)
-        if title_m:
-            title = title_m.group("title").strip()
-            # Strip an optional "[cross-reference]" suffix - `parent-feat:` is the
-            # authoritative format signal, this is just cosmetic on the title line.
-            return re.sub(r"\s*\[cross-reference]\s*$", "", title)
-    return None
+    title = extract_living_doc_title(contents)
+    if title is None:
+        return None
+    # Strip an optional "[cross-reference]" suffix - `parent-feat:` is the authoritative
+    # format signal, this is just cosmetic on the title line.
+    return re.sub(r"\s*\[cross-reference]\s*$", "", title)
 
 
 def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, str], list[str]]:

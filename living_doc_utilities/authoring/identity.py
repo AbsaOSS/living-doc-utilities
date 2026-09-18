@@ -34,6 +34,22 @@ MISSING_ENTITY_ID = "MISSING_ENTITY_ID"
 # "US", not a digit), so the search naturally lands on "US-001".
 _ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
 
+# The `.feature`-banner / PageObject-banner title marker (living-doc's docs/guides/
+# living-doc-header-types.md) - the one place both formats' title lines are recognised,
+# so neither parser re-derives this pattern for itself.
+_LIVING_DOC_TITLE_RE = re.compile(r"LIVING DOC\s*—\s*(?P<title>.+?)\s*$")
+
+
+def extract_living_doc_title(lines: list[str]) -> Optional[str]:
+    """Finds the 'LIVING DOC — ...' title text among `lines` (a `.feature` banner's
+    comment lines, or a PageObject banner's `*`-content lines) and returns it stripped
+    of surrounding whitespace. `None` when no such line is present."""
+    for line in lines:
+        title_m = _LIVING_DOC_TITLE_RE.search(line)
+        if title_m:
+            return title_m.group("title").strip()
+    return None
+
 
 def derive_entity_id(title: str) -> tuple[Optional[str], list[ContractWarning]]:
     """Extracts the leading entity id from `title`. Returns `(None, [MISSING_ENTITY_ID])`

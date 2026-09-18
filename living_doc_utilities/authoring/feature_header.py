@@ -26,17 +26,15 @@ import re
 from typing import Any, Optional
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
-from living_doc_utilities.authoring.identity import MISSING_ENTITY_ID, derive_entity_id
-from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEY, ParsedEntity
+from living_doc_utilities.authoring.identity import MISSING_ENTITY_ID, derive_entity_id, extract_living_doc_title
+from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEY, ParsedEntity, extract_bullets
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
 from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 _BANNER_RE = re.compile(r"^#\s*=+\s*$")
-_LIVING_DOC_TITLE_RE = re.compile(r"LIVING DOC\s*—\s*(?P<title>.+?)\s*$")
 _COMMENT_PREFIX_RE = re.compile(r"^#\s?")
 _AC_HEADER_LOOKALIKE_RE = re.compile(r"^AC:\S+\s*\(")
-_BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
 _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z_][a-zA-Z0-9_]*):\s*(?P<val>.*)$")
 
 _KIND_SCALAR = "scalar"
@@ -82,20 +80,6 @@ def _strip_comment_prefix(line: str) -> str:
     return _COMMENT_PREFIX_RE.sub("", line, count=1)
 
 
-def _extract_bullets(lines: list[str]) -> list[str]:
-    items: list[str] = []
-    for raw in lines:
-        stripped = raw.strip()
-        if not stripped:
-            continue
-        bullet_m = _BULLET_RE.match(stripped)
-        if bullet_m:
-            items.append(bullet_m.group("text").strip())
-        elif items:
-            items[-1] = f"{items[-1]} {stripped}".strip()
-    return items
-
-
 def _extract_header_block(lines: list[str]) -> list[str]:
     """The banner (`# ===...===`) brackets the whole header block, but also appears a
     second time right after the title line (framing it on its own) - so the block runs
@@ -106,14 +90,6 @@ def _extract_header_block(lines: list[str]) -> list[str]:
     return lines[banner_indices[0] + 1 : banner_indices[-1]]
 
 
-def _extract_title(lines: list[str]) -> Optional[str]:
-    for line in lines:
-        title_m = _LIVING_DOC_TITLE_RE.search(line)
-        if title_m:
-            return title_m.group("title").strip()
-    return None
-
-
 def _parse_keys(header_lines: list[str], key_specs: dict[str, _KeySpec]) -> tuple[dict[str, Any], list[str]]:
     key_re = re.compile(
         r"^(?P<key>" + "|".join(re.escape(k) for k in sorted(key_specs, key=len, reverse=True)) + r"):\s*(?P<val>.*)$"
@@ -121,12 +97,26 @@ def _parse_keys(header_lines: list[str], key_specs: dict[str, _KeySpec]) -> tupl
     raw_values: dict[str, list[str]] = {}
     current_key: Optional[str] = None
     unrecognised: list[str] = []
+    # Once the first "AC:" header is seen, every following line belongs to that AC's own
+    # block (ac_grammar.py's grammar, e.g. a nested `preconditions:` sub-list) until the
+    # closing "====" banner - never to an entity-level key of the same name.
+    in_ac_block = False
 
     for raw_line in header_lines:
         content = _strip_comment_prefix(raw_line)
         stripped = content.strip()
-        if stripped == "" or _AC_HEADER_LOOKALIKE_RE.match(stripped) or set(stripped) == {"="}:
+        if set(stripped) == {"="}:
             current_key = None
+            in_ac_block = False
+            continue
+        if stripped == "":
+            current_key = None
+            continue
+        if _AC_HEADER_LOOKALIKE_RE.match(stripped):
+            current_key = None
+            in_ac_block = True
+            continue
+        if in_ac_block:
             continue
 
         key_m = key_re.match(stripped)
@@ -154,9 +144,9 @@ def _parse_keys(header_lines: list[str], key_specs: dict[str, _KeySpec]) -> tupl
             continue
         content_lines = raw_values[key]
         if spec.kind == _KIND_BULLETS:
-            values[spec.field_name] = _extract_bullets(content_lines)
+            values[spec.field_name] = extract_bullets(content_lines)
         elif spec.kind == _KIND_PROSE_BULLET:
-            bullets = _extract_bullets(content_lines)
+            bullets = extract_bullets(content_lines)
             values[spec.field_name] = " ".join(bullets) if bullets else None
         else:  # _KIND_SCALAR
             parts = [ln.strip() for ln in content_lines if ln.strip()]
@@ -173,7 +163,7 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
     normalized = normalize(text, SourceFormat.FEATURE_HEADER, entity_type)
     header_lines = _extract_header_block(normalized.lines)
 
-    title = _extract_title(header_lines) or _extract_title(normalized.lines)
+    title = extract_living_doc_title(header_lines) or extract_living_doc_title(normalized.lines)
     if title is None:
         return None, [
             ContractWarning(

@@ -49,8 +49,17 @@ def check_relations(entities: list[ParsedEntity]) -> list[ContractWarning]:
                 if us_id not in by_id:
                     warnings.append(_unresolved(entity, us_id, "user_stories"))
             for func_id in entity.functionalities:
-                if func_id not in by_id:
+                func = by_id.get(func_id)
+                if func is None:
                     warnings.append(_unresolved(entity, func_id, "functionalities"))
+                elif func.parent is not None and func.parent != entity.entity_id:
+                    warnings.append(
+                        ContractWarning(
+                            code=RELATION_MISMATCH,
+                            message="Feature's declared functionality does not list it back as its own parent.",
+                            context=f"entity_id={entity.entity_id!r} functionality={func_id!r}",
+                        )
+                    )
 
         if entity.type == "DocumentedFunctionality" and entity.parent is not None:
             parent = by_id.get(entity.parent)

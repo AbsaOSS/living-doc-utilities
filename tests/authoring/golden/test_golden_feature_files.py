@@ -46,6 +46,11 @@ def test_us_001_feature_header_matches_its_issue_body_golden_entity():
         for ac in expected["acceptance_criteria"]
     ]
 
+    # AC:US-001-01's own nested `preconditions:` sub-list must never leak into the
+    # entity-level field of the same name (this fixture carries no entity-level
+    # `preconditions:` key of its own).
+    assert entity.preconditions == []
+
     # The one extension this corpus assigns only to the .feature-header form.
     by_id = {ac.id: ac for ac in entity.acceptance_criteria}
     assert by_id["US-001-01"].preconditions == ["A registered customer account exists and is not locked."]
