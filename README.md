@@ -53,6 +53,34 @@ The transform-output contracts (`generator-ready`, `coverage-matrix`, `ui-test-c
 runtime read/validate helpers are not implemented yet; they build on this envelope in later
 releases.
 
+## Authoring normalisation and the acceptance-criterion grammar
+
+`living_doc_utilities.authoring` is the one place that reconciles the small formatting variance
+real authors introduce — dash style, bullet marker, case, spacing, version form — across the five
+authoring surfaces a collector reads (a GitHub issue body, a `.feature` file's header comment
+block and its scenario body, a PageObject header, and Azure DevOps' HTML-converted markdown), and
+the one grammar for an acceptance-criterion header and its extensions. Both are pure `text -> data`
+functions with no I/O, and never touch code, Gherkin step text, or free prose:
+
+```python
+from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
+
+normalized = normalize(issue_body_text, SourceFormat.ISSUE_BODY, "DocumentedUserStory")
+acceptance_criteria, warnings = parse_acceptance_criteria(normalized.text, entity_id="US-001")
+
+# AcceptanceCriterion.canonical_header() renders "AC:<id> (v<x.y.z> - <state>)" (or
+# "AC:<id> (planned)" for a version-less backlog item) without importing this package again.
+acceptance_criteria[0].canonical_header()
+```
+
+The four acceptance-criterion states and every warning code (`MALFORMED_AC`, `LEGACY_AC_STATE`,
+`UNPARSED_AC_LINE`, …) are defined normatively in [Documentation contracts](docs/contracts.md).
+The seven normalisation rules (plus one for an entity id's title separator) implement the
+canonical form established in `AbsaOSS/living-doc`'s `docs/guides/living-doc-glossary.md` and
+`docs/guides/living-doc-header-types.md`; `living_doc_utilities/authoring/normalisation_cases.yaml`
+is both the normalisation rules' test data and a worked example of every rule and source format.
+
 ## Usage
 
 ### Prerequisites

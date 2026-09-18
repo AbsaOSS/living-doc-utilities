@@ -136,6 +136,24 @@ def test_source_ref_forbids_unknown_field():
         )
 
 
+def test_canonical_header_renders_version_and_state():
+    ac = factories.acceptance_criterion(state="active", version="1.2.0")
+
+    assert ac.canonical_header() == "AC:US-001-01 (v1.2.0 - active)"
+
+
+def test_canonical_header_renders_version_less_planned():
+    ac = factories.acceptance_criterion(state="planned", version=None)
+
+    assert ac.canonical_header() == "AC:US-001-01 (planned)"
+
+
+def test_canonical_header_renders_deprecated_with_removal_planned():
+    ac = factories.acceptance_criterion(state="deprecated", version="1.0.0", removal_planned="2.0.0")
+
+    assert ac.canonical_header() == "AC:US-001-01 (v1.0.0 - deprecated - removal planned v2.0.0)"
+
+
 def test_timestamps_default_to_none():
     timestamps = Timestamps()
 
