@@ -25,7 +25,7 @@ instead of re-implementing.
 - Must treat every public class and function as an import surface — there is no `main.py` / `run()`.
 - Must keep the library AI-free — deterministic Python only, no LLM call anywhere.
 - Must keep environment access confined to `logging_config.setup_logging()` and `github/utils.get_action_input()`; Must keep the models, factory, and serde free of environment reads.
-- Must treat `contracts/` as pydantic-based and deliberately different from `model/`/`factory/`/`exporter/` — the shared, typed doc-entities/doc-source/ui-tests contract models (see `docs/contracts.md`), not the legacy hand-rolled `to_dict()`/`from_dict()` pattern.
+- Must treat `contracts/` as pydantic-based and deliberately different from `model/`/`factory/`/`exporter/` — the shared, typed doc-entities/doc-source/ui-tests/generator-ready/coverage-matrix/ui-test-catalog contract models (see `docs/contracts.md`), not the legacy hand-rolled `to_dict()`/`from_dict()` pattern.
 
 ## Repo specifics
 
@@ -47,7 +47,8 @@ Module map — the `living_doc_utilities/` package:
 | `model/project_status.py` | `ProjectStatus` — per-issue GitHub Project fields (`project_title` / `status` / `priority` / `size` / `moscow`), `to_dict()` / `from_dict()` |
 | `contracts/common.py` | `ContractModel` (`extra="forbid"` pydantic base every contract model extends), `AcceptanceCriterion` (plus its `canonical_header()` renderer), `EntityCore`, `SourceRef`, `Timestamps` |
 | `contracts/envelope.py` | The shared metadata envelope — `Metadata`, `Producer`, `Run`, `Source`, `Cardinality`, `Stats` / `AuditStats`, `SourceInputEntry`, `ContractWarning` — one model imported unchanged by every contract |
-| `contracts/doc_entities.py`, `contracts/doc_source.py`, `contracts/ui_tests.py` | The `doc-entities` / `doc-source` / `ui-tests` contract result models (`Entity`, `PageRef`, `Scenario`, `AcLink`) and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
+| `contracts/doc_entities.py`, `contracts/doc_source.py`, `contracts/ui_tests.py` | The `doc-entities` / `doc-source` / `ui-tests` collector-output contract result models (`Entity`, `PageRef`, `Scenario`, `AcLink`) and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
+| `contracts/generator_ready.py`, `contracts/coverage_matrix.py`, `contracts/ui_test_catalog.py` | The `generator-ready` / `coverage-matrix` / `ui-test-catalog` transform-output contract result models — reuse `doc_entities.Entity` / `common.AcceptanceCriterion` / `ui_tests.Scenario` directly rather than redeclaring them — and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
 | `contracts/schema_export.py` | Generates `contracts/schemas/*.json` from the models — `python -m living_doc_utilities.contracts.schema_export`, or `make schemas` |
 | `authoring/normalize.py` | `normalize(text, fmt, entity_type)` and `normalize_title(title)` — rewrites non-canonical dashes, bullet markers, case, version form and whitespace per `SourceFormat`, never touching code, Gherkin step text, or free prose; `TYPE_PROFILES` is the only place holding which of an entity type's sections are bullet sections |
 | `authoring/ac_grammar.py` | `parse_acceptance_criteria(text, entity_id)` — the one acceptance-criterion header and extension grammar, canonical form only; the only module that validates the AC state vocabulary and version shape |

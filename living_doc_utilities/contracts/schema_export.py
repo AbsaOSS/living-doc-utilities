@@ -15,8 +15,8 @@
 #
 
 """
-Generates the doc-entities, doc-source and ui-tests JSON Schemas from their pydantic
-models (docs/contracts.md, section 2) and writes them to contracts/schemas/. Run as
+Generates the six contracts' JSON Schemas from their pydantic models (docs/contracts.md,
+section 2) and writes them to contracts/schemas/. Run as
 `python -m living_doc_utilities.contracts.schema_export`, or `make schemas`.
 """
 
@@ -29,7 +29,14 @@ from typing import Any, Iterator, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import doc_entities, doc_source, ui_tests
+from living_doc_utilities.contracts import (
+    coverage_matrix,
+    doc_entities,
+    doc_source,
+    generator_ready,
+    ui_test_catalog,
+    ui_tests,
+)
 from living_doc_utilities.contracts.envelope import Stats
 from living_doc_utilities.logging_config import setup_logging
 
@@ -46,6 +53,15 @@ _CONTRACTS: tuple[tuple[str, type[BaseModel], dict[str, type[BaseModel]]], ...] 
     (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
     (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
     (ui_tests.CONTRACT_ID, ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
+    (generator_ready.CONTRACT_ID, generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
+    (coverage_matrix.CONTRACT_ID, coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
+    (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
+)
+
+# The three contracts written by a transform (docs/contracts.md, section 1 table): R7 requires
+# metadata.source_inputs[] to carry at least one entry on these, never on a collector output.
+_TRANSFORM_CONTRACT_IDS = frozenset(
+    {generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID}
 )
 
 
@@ -125,13 +141,35 @@ def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -
     field_occupancy["propertyNames"] = {"enum": paths}
 
 
-def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
+def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) -> None:
     """
     Encodes the model_validator cross-field rules pydantic's own model_json_schema() drops
     (AcceptanceCriterion._check_version_required_unless_planned,
-    _check_removal_planned_only_when_deprecated, Entity._check_state_origin) as `allOf`
-    if/then/else so a plain jsonschema validator rejects what pydantic rejects. A no-op for
-    a contract whose $defs don't carry that definition (e.g. ui-tests has neither).
+    _check_removal_planned_only_when_deprecated; Entity._check_state_origin,
+    _check_stub_reason_is_feature_only, _check_pages_have_exactly_one_primary;
+    AspectCoverage._check_status_matches_scenario_ids; AcCoverage._check_status_matches_aspects,
+    incl. its no-aspects scenario_ids tie-in) as `allOf` if/then/else so a plain jsonschema
+    validator rejects what pydantic rejects. A no-op for a contract whose $defs don't carry
+    that definition (e.g. ui-tests has neither).
+
+    metadata.source_inputs[] additionally gets a `minItems: 1` constraint (R7), but only for
+    the three transform contracts named by `_TRANSFORM_CONTRACT_IDS` - a collector output's
+    `Metadata` def legitimately allows the empty list, and each contract's own generated
+    schema carries its own private copy of the `Metadata` def, so this cannot leak across
+    contracts.
+
+    Three model_validator rules are deliberately not encoded here, because plain JSON Schema
+    has no keyword that can express them: Entity._check_acceptance_criteria_belong_to_this_entity
+    and CoverageMatrixResult._check_acceptance_criteria_belong_to_this_entity both require an
+    id field's value to be used as a runtime prefix pattern against a sibling/ancestor
+    field's value, which JSON Schema cannot cross-reference; PlannedSummary's
+    _check_total_equals_backlog_plus_targeted sums the values of a dynamic-keyed map
+    (by_target_version), which JSON Schema has no arithmetic/aggregation keyword for. A
+    consumer validating raw JSON against the generated schema alone (not through these
+    Pydantic models) will not catch a misowned acceptance-criterion id or an inconsistent
+    planned-summary total; this is a documented, accepted schema limitation, not an oversight -
+    the same is true of GeneratorReadyResult's SelectionSummary entity-total identity (see
+    generator_ready.SelectionSummary docstring).
     """
     defs = schema.get("$defs", {})
 
@@ -153,13 +191,101 @@ def _inject_cross_field_constraints(schema: dict[str, Any]) -> None:
 
     entity_def = defs.get("Entity")
     if isinstance(entity_def, dict):
-        entity_def.setdefault("allOf", []).append(
+        entity_def.setdefault("allOf", []).extend(
+            [
+                {
+                    "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
+                    "then": {"properties": {"state_origin": {"const": "derived"}}},
+                    "else": {"properties": {"state_origin": {"const": "authored"}}},
+                },
+                {
+                    # stub_reason only ever describes a Feature (Entity._check_stub_reason_is_feature_only).
+                    "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
+                    "else": {"properties": {"stub_reason": {"type": "null"}}},
+                },
+                {
+                    # a non-empty pages list has exactly one primary PageRef
+                    # (Entity._check_pages_have_exactly_one_primary).
+                    "if": {"properties": {"pages": {"minItems": 1}}},
+                    "then": {
+                        "properties": {
+                            "pages": {
+                                "contains": {
+                                    "properties": {"is_primary": {"const": True}},
+                                    "required": ["is_primary"],
+                                },
+                                "minContains": 1,
+                                "maxContains": 1,
+                            }
+                        }
+                    },
+                },
+            ]
+        )
+
+    aspect_coverage_def = defs.get("AspectCoverage")
+    if isinstance(aspect_coverage_def, dict):
+        # status is evidence-backed by scenario_ids, never independently authored
+        # (AspectCoverage._check_status_matches_scenario_ids).
+        aspect_coverage_def.setdefault("allOf", []).append(
             {
-                "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
-                "then": {"properties": {"state_origin": {"const": "derived"}}},
-                "else": {"properties": {"state_origin": {"const": "authored"}}},
+                "if": {"properties": {"status": {"const": "covered"}}, "required": ["status"]},
+                "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
+                "else": {"properties": {"scenario_ids": {"maxItems": 0}}},
             }
         )
+
+    ac_coverage_def = defs.get("AcCoverage")
+    if isinstance(ac_coverage_def, dict):
+        # An aspect that failed coverage (AcCoverage._check_status_matches_aspects).
+        not_covered_aspect = {"properties": {"status": {"const": "not_covered"}}, "required": ["status"]}
+        no_aspects = {"properties": {"aspects": {"maxItems": 0}}}
+        ac_coverage_def.setdefault("allOf", []).extend(
+            [
+                {
+                    "if": no_aspects,
+                    "then": {"properties": {"status": {"enum": ["covered", "not_covered"]}}},
+                },
+                {
+                    # without aspects, status is evidence-backed by the AC's own scenario_ids
+                    # (same rule as AspectCoverage, applied at the AC level).
+                    "if": {**no_aspects, "properties": {**no_aspects["properties"], "status": {"const": "covered"}}},
+                    "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
+                },
+                {
+                    "if": {
+                        **no_aspects,
+                        "properties": {**no_aspects["properties"], "status": {"const": "not_covered"}},
+                    },
+                    "then": {"properties": {"scenario_ids": {"maxItems": 0}}},
+                },
+                {
+                    "if": {
+                        "properties": {"aspects": {"minItems": 1}},
+                        "not": {"properties": {"aspects": {"contains": not_covered_aspect}}},
+                    },
+                    "then": {"properties": {"status": {"const": "covered"}}},
+                },
+                {
+                    "if": {
+                        "properties": {"aspects": {"minItems": 1, "contains": not_covered_aspect}},
+                        "required": ["aspects"],
+                    },
+                    "then": {"properties": {"status": {"const": "partially_covered"}}},
+                },
+            ]
+        )
+
+    if contract_id in _TRANSFORM_CONTRACT_IDS:
+        metadata_def = defs.get("Metadata")
+        if isinstance(metadata_def, dict):
+            source_inputs = metadata_def.get("properties", {}).get("source_inputs")
+            if not isinstance(source_inputs, dict):
+                raise ValueError("expected a 'source_inputs' property on the Metadata definition")
+            source_inputs["minItems"] = 1
+            required = metadata_def.setdefault("required", [])
+            if "source_inputs" not in required:
+                required.append("source_inputs")
 
 
 def find_schema_violations(schema: dict[str, Any]) -> list[str]:
@@ -209,7 +335,7 @@ def generate_schema(
     raw_schema = model.model_json_schema()
     _rewrite_pattern_maps(raw_schema)
     _inject_own_field_occupancy_enum(raw_schema, field_occupancy_paths(record_roots))
-    _inject_cross_field_constraints(raw_schema)
+    _inject_cross_field_constraints(raw_schema, contract_id)
 
     schema: dict[str, Any] = {
         "$schema": SCHEMA_DIALECT,

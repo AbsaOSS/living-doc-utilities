@@ -43,6 +43,11 @@ DocType = Literal["DocumentedUserStory", "DocumentedFeature", "DocumentedFunctio
 # state_origin").
 LifecycleState = Literal["planned", "in_review", "active", "deprecated"]
 
+# A transform-output document's declared presentation (docs/contracts.md, section 4): shared by
+# every contract that carries a `document` block (generator-ready, coverage-matrix,
+# ui-test-catalog).
+View = Literal["inner", "release"]
+
 
 class ContractModel(BaseModel):
     """Shared base for every contract model: unknown fields are rejected (R9)."""

@@ -1,0 +1,788 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://absaoss.github.io/living-doc-utilities/schemas/coverage-matrix-v1.0.0-schema.json",
+  "$defs": {
+    "AcCoverage": {
+      "additionalProperties": false,
+      "description": "One acceptance criterion's resolved coverage row.",
+      "properties": {
+        "ac_id": {
+          "pattern": "^[A-Z]+-\\d+-\\d+$",
+          "title": "Ac Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "active",
+            "deprecated"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "covered",
+            "partially_covered",
+            "not_covered"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "aspects": {
+          "items": {
+            "$ref": "#/$defs/AspectCoverage"
+          },
+          "title": "Aspects",
+          "type": "array"
+        },
+        "scenario_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scenario Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ac_id",
+        "state",
+        "status"
+      ],
+      "title": "AcCoverage",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "maxItems": 0
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "covered",
+                  "not_covered"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "maxItems": 0
+              },
+              "status": {
+                "const": "covered"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "scenario_ids": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "scenario_ids"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "maxItems": 0
+              },
+              "status": {
+                "const": "not_covered"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "scenario_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "minItems": 1
+              }
+            },
+            "not": {
+              "properties": {
+                "aspects": {
+                  "contains": {
+                    "properties": {
+                      "status": {
+                        "const": "not_covered"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "covered"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "aspects": {
+                "minItems": 1,
+                "contains": {
+                  "properties": {
+                    "status": {
+                      "const": "not_covered"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "aspects"
+            ]
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "partially_covered"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AspectCoverage": {
+      "additionalProperties": false,
+      "description": "One aspect of an acceptance criterion's per-aspect breakdown.",
+      "properties": {
+        "aspect": {
+          "title": "Aspect",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "covered",
+            "not_covered"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "scenario_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scenario Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "aspect",
+        "status"
+      ],
+      "title": "AspectCoverage",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "covered"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scenario_ids": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "scenario_ids"
+            ]
+          },
+          "else": {
+            "properties": {
+              "scenario_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AuditStats": {
+      "additionalProperties": false,
+      "description": "The stats carried per input inside metadata.source_inputs[] (R7): an audit record of\nanother contract's paths, so field_occupancy is pattern-checked rather than enumerated.",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/$defs/Cardinality"
+        },
+        "field_occupancy": {
+          "title": "Field Occupancy",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*(\\[\\])?(\\.[a-z][a-z0-9_]*(\\[\\])?)*$"
+          }
+        }
+      },
+      "required": [
+        "cardinality"
+      ],
+      "title": "AuditStats",
+      "type": "object"
+    },
+    "Cardinality": {
+      "additionalProperties": false,
+      "description": "Fixed record counts carried in metadata.stats.cardinality (R11).",
+      "properties": {
+        "entities": {
+          "default": 0,
+          "title": "Entities",
+          "type": "integer"
+        },
+        "entities_by_type": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "DocumentedUserStory",
+              "DocumentedFeature",
+              "DocumentedFunctionality"
+            ]
+          },
+          "title": "Entities By Type",
+          "type": "object"
+        },
+        "acceptance_criteria": {
+          "default": 0,
+          "title": "Acceptance Criteria",
+          "type": "integer"
+        },
+        "scenarios": {
+          "default": 0,
+          "title": "Scenarios",
+          "type": "integer"
+        },
+        "warnings_by_code": {
+          "title": "Warnings By Code",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          }
+        },
+        "sources_configured": {
+          "default": 0,
+          "title": "Sources Configured",
+          "type": "integer"
+        },
+        "sources_failed": {
+          "default": 0,
+          "title": "Sources Failed",
+          "type": "integer"
+        },
+        "unresolved_refs": {
+          "default": 0,
+          "title": "Unresolved Refs",
+          "type": "integer"
+        },
+        "entities_skipped": {
+          "default": 0,
+          "title": "Entities Skipped",
+          "type": "integer"
+        }
+      },
+      "title": "Cardinality",
+      "type": "object"
+    },
+    "ContractWarning": {
+      "additionalProperties": false,
+      "description": "One entry of an artifact's top-level warnings[] array.",
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ContractWarning",
+      "type": "object"
+    },
+    "Document": {
+      "additionalProperties": false,
+      "description": "What the generator filters by.",
+      "properties": {
+        "view": {
+          "enum": [
+            "inner",
+            "release"
+          ],
+          "title": "View",
+          "type": "string"
+        }
+      },
+      "required": [
+        "view"
+      ],
+      "title": "Document",
+      "type": "object"
+    },
+    "EntityCoverage": {
+      "additionalProperties": false,
+      "description": "A User Story or Functionality's acceptance criteria, each with its coverage row.\n\n`state` is the entity's own lifecycle state, which is independent of which of its\nacceptance criteria are counted (docs/contracts.md, \"Coverage\": counting is decided per\nAC, \"in both views\" - never by the parent entity's state). A `planned`/`in_review`\nentity can still own `active`/`deprecated` acceptance criteria that must be counted, so\nthis is the full `LifecycleState`, not `CountedState`.",
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "DocumentedUserStory",
+            "DocumentedFunctionality"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "planned",
+            "in_review",
+            "active",
+            "deprecated"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "$ref": "#/$defs/AcCoverage"
+          },
+          "title": "Acceptance Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_id",
+        "type",
+        "title",
+        "state"
+      ],
+      "title": "EntityCoverage",
+      "type": "object"
+    },
+    "Metadata": {
+      "additionalProperties": false,
+      "description": "The envelope every contract artifact carries under its top-level metadata key.",
+      "properties": {
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "run": {
+          "$ref": "#/$defs/Run"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/$defs/Stats"
+        },
+        "source_inputs": {
+          "items": {
+            "$ref": "#/$defs/SourceInputEntry"
+          },
+          "title": "Source Inputs",
+          "type": "array",
+          "minItems": 1
+        }
+      },
+      "required": [
+        "producer",
+        "source",
+        "generated_at",
+        "stats",
+        "source_inputs"
+      ],
+      "title": "Metadata",
+      "type": "object"
+    },
+    "PlannedSummary": {
+      "additionalProperties": false,
+      "description": "Planned (not-yet-implemented) acceptance-criteria totals, rendered only in the inner\nview (docs/contracts.md, \"Coverage\").",
+      "properties": {
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "backlog": {
+          "minimum": 0,
+          "title": "Backlog",
+          "type": "integer"
+        },
+        "by_target_version": {
+          "title": "By Target Version",
+          "type": "object",
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          }
+        }
+      },
+      "required": [
+        "total",
+        "backlog"
+      ],
+      "title": "PlannedSummary",
+      "type": "object"
+    },
+    "Producer": {
+      "additionalProperties": false,
+      "description": "Identifies the tool that wrote this specific file (R6).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "build": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Build"
+        },
+        "utilities_version": {
+          "title": "Utilities Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "utilities_version"
+      ],
+      "title": "Producer",
+      "type": "object"
+    },
+    "Run": {
+      "additionalProperties": false,
+      "description": "CI run context the file was produced under. Audit information only.",
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "run_attempt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Attempt"
+        },
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "workflow": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workflow"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha"
+        }
+      },
+      "title": "Run",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "description": "Identifies the one project, and the systems/organizations/repositories, a file documents.",
+      "properties": {
+        "project_id": {
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "systems": {
+          "items": {
+            "enum": [
+              "GitHub",
+              "AzureDevOps"
+            ],
+            "type": "string"
+          },
+          "title": "Systems",
+          "type": "array"
+        },
+        "organizations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Organizations",
+          "type": "array"
+        },
+        "repositories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repositories",
+          "type": "array"
+        },
+        "extraction_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "markdown",
+                "field-map"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extraction Mode"
+        }
+      },
+      "required": [
+        "project_id"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SourceInputEntry": {
+      "additionalProperties": false,
+      "description": "One transform input's provenance and stats (R7). Collector outputs carry none.",
+      "properties": {
+        "schema_version": {
+          "pattern": "^[a-z][a-z-]*-v\\d+\\.\\d+\\.\\d+$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/Producer"
+        },
+        "run": {
+          "$ref": "#/$defs/Run"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "stats": {
+          "$ref": "#/$defs/AuditStats"
+        },
+        "selected_stats": {
+          "$ref": "#/$defs/AuditStats"
+        }
+      },
+      "required": [
+        "schema_version",
+        "producer",
+        "source",
+        "stats",
+        "selected_stats"
+      ],
+      "title": "SourceInputEntry",
+      "type": "object"
+    },
+    "Stats": {
+      "additionalProperties": false,
+      "description": "A file's own metadata.stats: cardinality plus field_occupancy keyed by that file's\nown contract paths. schema_export.py enumerates the allowed keys per contract.",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/$defs/Cardinality"
+        },
+        "field_occupancy": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Field Occupancy",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "entities[].acceptance_criteria[].ac_id",
+              "entities[].acceptance_criteria[].aspects[].aspect",
+              "entities[].acceptance_criteria[].aspects[].scenario_ids[]",
+              "entities[].acceptance_criteria[].aspects[].status",
+              "entities[].acceptance_criteria[].scenario_ids[]",
+              "entities[].acceptance_criteria[].state",
+              "entities[].acceptance_criteria[].status",
+              "entities[].entity_id",
+              "entities[].state",
+              "entities[].title",
+              "entities[].type"
+            ]
+          }
+        }
+      },
+      "required": [
+        "cardinality"
+      ],
+      "title": "Stats",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The coverage-matrix-v1.0.0 artifact.",
+  "properties": {
+    "schema_version": {
+      "const": "coverage-matrix-v1.0.0",
+      "default": "coverage-matrix-v1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/ContractWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "document": {
+      "$ref": "#/$defs/Document"
+    },
+    "entities": {
+      "items": {
+        "$ref": "#/$defs/EntityCoverage"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "planned_summary": {
+      "$ref": "#/$defs/PlannedSummary"
+    }
+  },
+  "required": [
+    "metadata",
+    "document",
+    "planned_summary"
+  ],
+  "title": "CoverageMatrixResult",
+  "type": "object"
+}
