@@ -27,7 +27,7 @@ import tempfile
 from pathlib import Path
 from typing import Union, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from living_doc_utilities.contracts import (
     compat,
@@ -81,7 +81,13 @@ def read_artifact(path: Union[str, Path], expected: Union[str, set[str]]) -> Con
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     contract_id = compat.check_input(payload, expected)
     model_cls, _ = _CONTRACTS[contract_id]
-    return cast(ContractResult, model_cls.model_validate(payload))
+    try:
+        return cast(ContractResult, model_cls.model_validate(payload))
+    except ValidationError as exc:
+        raise ContractError(
+            Code.SCHEMA_VALIDATION_FAILED,
+            f"{contract_id}: payload passed schema validation but failed model validation: {exc}",
+        ) from exc
 
 
 def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
@@ -99,7 +105,7 @@ def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
     contract_id = result.schema_version
     if contract_id not in _CONTRACTS:
         raise ContractError(Code.INVALID_CONTRACT_ID, f"unknown schema_version {contract_id!r}")
-    _, record_roots = _CONTRACTS[contract_id]
+    model_cls, record_roots = _CONTRACTS[contract_id]
 
     filled = result.model_copy(deep=True)
     reported_cardinality = filled.metadata.stats.cardinality
@@ -111,6 +117,13 @@ def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
     errors = validation.validate(payload, schema)
     if errors:
         raise compat.schema_validation_error(errors, payload)
+    try:
+        model_cls.model_validate(payload)
+    except ValidationError as exc:
+        raise ContractError(
+            Code.SCHEMA_VALIDATION_FAILED,
+            f"{contract_id}: payload passed schema validation but failed model validation: {exc}",
+        ) from exc
 
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)

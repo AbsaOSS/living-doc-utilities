@@ -28,7 +28,7 @@ import jsonschema
 from jsonschema.exceptions import ValidationError
 
 
-def validate(payload: dict[str, Any], schema: dict[str, Any]) -> list[ValidationError]:
+def validate(payload: Any, schema: dict[str, Any]) -> list[ValidationError]:
     """
     Structurally validates `payload` against `schema`, selecting the validator class from
     the schema's own declared dialect (R1/R10) rather than a hardcoded draft.

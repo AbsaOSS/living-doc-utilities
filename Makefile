@@ -19,6 +19,7 @@ help: ## Show this help.
 
 install: ## Install runtime and development dependencies.
 	$(PIP) install -r requirements.txt
+	$(PIP) install -e . --no-deps
 
 qa: format-check lint types coverage ## Run the full quality gate (format, lint, types, tests + coverage).
 

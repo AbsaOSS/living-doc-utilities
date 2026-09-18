@@ -54,6 +54,19 @@ def _valid_doc_entities_result(**metadata_overrides) -> DocEntitiesResult:
     return DocEntitiesResult(metadata=factories.metadata(**metadata_overrides), entities=[factories.user_story()])
 
 
+def _doc_entities_result_with_misowned_ac(**metadata_overrides) -> DocEntitiesResult:
+    # Entity._check_acceptance_criteria_belong_to_this_entity is a cross-field rule plain JSON
+    # Schema cannot express (schema_export._inject_cross_field_constraints), so swapping in a
+    # mismatched-but-otherwise-valid AC via model_copy(update=...) - which, unlike the model's
+    # own __init__, does not re-run validators - is the only way to build a payload that passes
+    # compat.check_input's structural check yet still fails DocEntitiesResult.model_validate.
+    result = _valid_doc_entities_result(**metadata_overrides)
+    misowned_entity = result.entities[0].model_copy(
+        update={"acceptance_criteria": [factories.acceptance_criterion(parent_id="US-999")]}
+    )
+    return result.model_copy(update={"entities": [misowned_entity]})
+
+
 def _matching_producer():
     # The natural/default case: the file's own producer.utilities_version equals what's
     # actually installed in this process, so no pin-alignment hint is expected.
@@ -130,6 +143,18 @@ def test_read_artifact_structurally_invalid_payload_raises_schema_validation_fai
     payload = json.loads(_valid_doc_entities_result().model_dump_json())
     del payload["metadata"]["source"]
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ContractError) as excinfo:
+        io.read_artifact(path, "doc-entities")
+
+    assert excinfo.value.code == Code.SCHEMA_VALIDATION_FAILED
+
+
+def test_read_artifact_schema_valid_but_model_invalid_payload_raises_schema_validation_failed(tmp_path):
+    # read_artifact must not let a raw pydantic.ValidationError escape uncaught when a payload
+    # passes schema validation but still fails the typed model's own cross-field rules.
+    path = tmp_path / "doc-entities.json"
+    path.write_text(_doc_entities_result_with_misowned_ac().model_dump_json(), encoding="utf-8")
 
     with pytest.raises(ContractError) as excinfo:
         io.read_artifact(path, "doc-entities")
@@ -237,6 +262,23 @@ def test_write_artifact_schema_validation_failure_omits_hint_when_versions_match
     assert excinfo.value.code == Code.SCHEMA_VALIDATION_FAILED
     assert f"utilities {compat.installed_utilities_version()!r}" in excinfo.value.message
     assert "the components run different utilities versions" not in excinfo.value.message
+    assert not destination.exists()
+    assert _leftover_tmp_files(tmp_path) == []
+
+
+def test_write_artifact_schema_valid_but_model_invalid_payload_raises_schema_validation_failed(tmp_path):
+    # write_artifact's own mutations (filling producer.utilities_version and metadata.stats)
+    # never invalidate an already-valid result, but the pre-write model re-validation must
+    # still catch a result whose cross-field rules were bypassed before it ever reached
+    # write_artifact (model_copy(update=...) does not re-run validators) rather than silently
+    # writing a file only the bundled JSON Schema would have accepted.
+    destination = tmp_path / "doc-entities.json"
+    result = _doc_entities_result_with_misowned_ac(producer=_matching_producer())
+
+    with pytest.raises(ContractError) as excinfo:
+        io.write_artifact(result, destination)
+
+    assert excinfo.value.code == Code.SCHEMA_VALIDATION_FAILED
     assert not destination.exists()
     assert _leftover_tmp_files(tmp_path) == []
 
