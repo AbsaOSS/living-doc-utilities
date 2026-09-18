@@ -714,6 +714,7 @@ with the input named in its context.
 | `ORPHAN_FEATURE` | warning; state set to `active` | a Feature with no Functionality and no User Story in the run |
 | `RELATION_MISMATCH` | warning | a Functionality's declared parent and its Feature's declared children disagree |
 | `UNRESOLVED_RELATION` | warning | a relation points outside the collected set |
+| `RELATION_TYPE_MISMATCH` | warning | a relation resolves inside the collected set but the target is not of the field's expected type — `user_stories` expects `DocumentedUserStory`, `functionalities` expects `DocumentedFunctionality`, `parent` expects `DocumentedFeature`, `superseded_by` expects the declaring entity's own type. Context names the declaring entity's id, the field, the target id, the target's actual type and the expected type |
 | `NO_SOURCE_URL` | warning | a source file outside a git checkout, so no URL can be derived |
 | `HTML_CONTENT_DROPPED` | warning (Azure DevOps) | HTML-to-markdown conversion dropped an image, script or unknown tag |
 | `DUPLICATE_AC_SOURCE` | warning (Azure DevOps) | an AC present in both the description and a dedicated field |
