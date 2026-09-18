@@ -74,7 +74,7 @@ def _row(case: dict[str, Any]) -> str:
         case["entity_type"],
         _cell(case["input"]),
         _cell(case["expected"]),
-        case.get("note", "").strip(),
+        case.get("note", "").strip().replace("|", "\\|"),
     ]
     return "| " + " | ".join(str(cell) for cell in cells) + " |"
 

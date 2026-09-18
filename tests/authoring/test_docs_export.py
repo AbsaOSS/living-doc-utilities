@@ -23,7 +23,7 @@ notices when the cases file and the committed table disagree (so the CI job woul
 stale table, not just a missing one).
 """
 
-from living_doc_utilities.authoring.docs_export import _DOC_FILE, _load_cases, regenerate, render_table
+from living_doc_utilities.authoring.docs_export import _DOC_FILE, _load_cases, _row, regenerate, render_table
 
 
 def test_committed_doc_matches_a_fresh_regeneration():
@@ -61,3 +61,20 @@ def test_a_stale_table_is_detected_as_different_from_a_fresh_regeneration():
 
     assert stale_table != fresh_table
     assert fresh_table not in stale_table
+
+
+def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
+    case = {
+        "id": "case-x",
+        "rule": "rule-x",
+        "format": "format-x",
+        "entity_type": "entity-x",
+        "input": "in",
+        "expected": "out",
+        "note": "| aspect: this looks like a table cell |",
+    }
+
+    row = _row(case)
+
+    assert "\\|" in row
+    assert row.replace("\\|", "").count("|") == 8  # 7 cells => 8 delimiters, none from the note

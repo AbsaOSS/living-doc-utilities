@@ -51,6 +51,18 @@ def safe_href(href: str) -> Optional[str]:
     return href
 
 
+def sanitized_tag_allowlist() -> frozenset[str]:
+    """The exact set of tags `sanitize_html_fragment` keeps - nh3's own default allow-list,
+    minus `img` (stripped separately, see `sanitize_html_fragment`). Shared with
+    `html_to_markdown._DropCountingParser` so its drop counts reflect the same policy nh3
+    actually applies, rather than a second, hand-maintained copy that can drift from it.
+    Imports `nh3` lazily, same as `sanitize_html_fragment`.
+    """
+    import nh3  # pylint: disable=import-outside-toplevel
+
+    return frozenset(nh3.ALLOWED_TAGS - {"img"})
+
+
 def sanitize_html_fragment(html: str) -> str:
     """Strips `<img>` tags entirely and drops any `href` attribute `safe_href` rejects,
     keeping the rest of a broad, conservative set of formatting tags (nh3's own default
@@ -68,7 +80,7 @@ def sanitize_html_fragment(html: str) -> str:
 
     return nh3.clean(
         html,
-        tags=nh3.ALLOWED_TAGS - {"img"},
+        tags=sanitized_tag_allowlist(),
         attribute_filter=_attribute_filter,
         link_rel=None,
     )

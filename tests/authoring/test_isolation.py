@@ -103,7 +103,9 @@ def test_contracts_imports_nothing_from_authoring():
 def _imported_module_names(node: "ast.Import | ast.ImportFrom") -> list[str]:
     if isinstance(node, ast.Import):
         return [alias.name for alias in node.names]
-    return [node.module or ""]
+    if node.module:
+        return [node.module]
+    return [alias.name for alias in node.names]
 
 
 def test_authoring_imports_nothing_github_or_azure_devops_specific():
@@ -119,6 +121,16 @@ def test_authoring_imports_nothing_github_or_azure_devops_specific():
                     offenders.append((path.name, name))
 
     assert offenders == [], f"authoring must stay source-agnostic, but found: {offenders}"
+
+
+def test_module_less_relative_import_is_still_named_not_reported_as_empty():
+    # `from . import azure_devops` has no `node.module` (it's a bare relative import), so
+    # naively falling back to `node.module or ""` would report it as "" - invisible to the
+    # `"azure" in lowered` check above. Confirm it now surfaces the imported name instead.
+    tree = ast.parse("from . import azure_devops")
+    (node,) = [n for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+
+    assert _imported_module_names(node) == ["azure_devops"]
 
 
 def _has_enclosing_function(tree: ast.AST, target: ast.AST) -> bool:

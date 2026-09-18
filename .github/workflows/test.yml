@@ -73,7 +73,7 @@ jobs:
             echo "schema_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if echo "$changed_files" | grep -E '^(living_doc_utilities/authoring/(normalisation_cases\.yaml|docs_export\.py)|docs/authoring\.md)$' > /dev/null; then
+          if echo "$changed_files" | grep -E '^(living_doc_utilities/authoring/(normalisation_cases\.yaml|docs_export\.py)|docs/authoring\.md|Makefile)$' > /dev/null; then
             echo "authoring_docs_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "authoring_docs_changed=false" >> "$GITHUB_OUTPUT"

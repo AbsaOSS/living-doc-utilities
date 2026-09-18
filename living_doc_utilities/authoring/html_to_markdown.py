@@ -25,12 +25,14 @@ turns markup into text, it never derives an entity id or a field.
 Handles headings, paragraphs, `<div>`/`<br>`, lists, tables, links and inline code. Two
 passes run over the input: one (`_DropCountingParser`) counts, on the *original* markup,
 every construct this pipeline drops - a `<script>`/`<style>` tag, an event-handler
-attribute, an `<img>` tag, a link `url_policy.safe_href` rejects - and a second sanitises
-the input with `url_policy.sanitize_html_fragment` (the same vetted policy a future
-PDF-generator text filter will reuse) before walking the result into Markdown, counting any
-remaining tag this converter has no Markdown form for as `unknown_tag`. Every drop, of
-whichever kind, is folded into one `HTML_CONTENT_DROPPED` warning carrying the per-kind
-counts - never one warning per drop.
+attribute, an `<img>` tag, a link `url_policy.safe_href` rejects, or any other tag
+`url_policy.sanitized_tag_allowlist()` won't keep (an `<iframe>`, a `<form>`, ...), counted
+as `unsupported_tag` - and a second sanitises the input with `url_policy.sanitize_html_fragment`
+(the same vetted policy a future PDF-generator text filter will reuse, and the same
+allow-list the first pass counts against, so the two passes can't drift apart) before
+walking the result into Markdown, counting any remaining tag this converter has no Markdown
+form for as `unknown_tag`. Every drop, of whichever kind, is folded into one
+`HTML_CONTENT_DROPPED` warning carrying the per-kind counts - never one warning per drop.
 
 Handling the specific quirks of a real Azure DevOps rich-text editor's HTML output is out of
 scope for this PR - that is a later Azure-DevOps-collector task's job, once real editor
@@ -42,7 +44,7 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from typing import Optional
 
-from living_doc_utilities.authoring.url_policy import safe_href, sanitize_html_fragment
+from living_doc_utilities.authoring.url_policy import safe_href, sanitize_html_fragment, sanitized_tag_allowlist
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 HTML_CONTENT_DROPPED = "HTML_CONTENT_DROPPED"
@@ -85,6 +87,7 @@ class _DropCountingParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.counts: dict[str, int] = {}
+        self._tag_allowlist = sanitized_tag_allowlist()
 
     def _count(self, key: str) -> None:
         self.counts[key] = self.counts.get(key, 0) + 1
@@ -99,7 +102,12 @@ class _DropCountingParser(HTMLParser):
             self._count("style_tag")
         elif tag == "img":
             self._count("img_tag")
-        elif tag == "a":
+        elif tag not in self._tag_allowlist:
+            # Anything else `sanitize_html_fragment` won't keep - an `<iframe>`, `<form>`,
+            # `<svg>`, ... - derived from the same allow-list it actually sanitises against,
+            # not a second, hand-maintained copy that can drift from it.
+            self._count("unsupported_tag")
+        if tag == "a":
             href = dict(attrs).get("href")
             if href is not None and safe_href(href) is None:
                 self._count("unsafe_href")

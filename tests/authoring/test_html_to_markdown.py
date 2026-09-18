@@ -134,6 +134,14 @@ def test_hostile_input_folds_every_drop_kind_into_one_warning():
     assert "javascript:" not in text
 
 
+def test_tag_outside_the_sanitizer_allowlist_is_counted_not_silently_dropped():
+    text, warnings = convert_html_to_markdown('<p>keep</p><iframe src="https://evil.example">hijacked</iframe>')
+
+    assert "keep" in text
+    assert len(warnings) == 1
+    assert "unsupported_tag=1" in warnings[0].context
+
+
 def test_en_dash_bullet_in_div_is_normalized_to_a_plain_bullet():
     html = "<h2>Business Value</h2><div>&ndash; Registered customers can reach their account area.</div>"
 
