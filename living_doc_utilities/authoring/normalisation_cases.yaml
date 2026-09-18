@@ -1,7 +1,8 @@
 # Cases for `living_doc_utilities.authoring.normalize`. This file is normalize's only
 # test data (`tests/authoring/test_normalize_cases.py` runs every row) and doubles as
-# documentation of the seven rules (plus 5b) and the five source formats (docs/
-# contracts.md; canon established in AbsaOSS/living-doc PRs #25/#26).
+# documentation of the seven rules (plus 5b) and the five source formats - canon
+# established in AbsaOSS/living-doc's docs/guides/living-doc-glossary.md and
+# docs/guides/living-doc-header-types.md (PRs #25/#26).
 #
 # Columns:
 #   id          - unique, stable case name

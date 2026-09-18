@@ -15,8 +15,9 @@
 #
 
 """
-The one normalisation layer over the five authoring source formats (docs/contracts.md;
-canon established in AbsaOSS/living-doc PRs #25/#26). `normalize` rewrites non-canonical
+The one normalisation layer over the five authoring source formats. Canon established in
+AbsaOSS/living-doc's docs/guides/living-doc-glossary.md and docs/guides/living-doc-header-types.md
+(PRs #25/#26). `normalize` rewrites non-canonical
 dashes, bullet markers, case, version form and whitespace per format, and never touches
 fenced or inline code, Gherkin step text, TypeScript, or free prose. `normalize_title`
 applies the entity-name/title rules (5, 5b) shared by a GitHub issue title, a `.feature`
@@ -37,8 +38,9 @@ from typing import NamedTuple, Optional
 
 from living_doc_utilities.contracts.common import DocType
 
-# Rule names (docs/contracts.md's authoring rules 1-7 plus 5b), used both as the `rule`
-# field of a Change and as the `rule` column of normalisation_cases.yaml.
+# Rule names (authoring rules 1-7 plus 5b, per AbsaOSS/living-doc's docs/specs/issues/
+# P35-UT1b1-prompt.md), used both as the `rule` field of a Change and as the `rule`
+# column of normalisation_cases.yaml.
 RULE_BULLET_MARKER = "bullet_marker"
 RULE_AC_HEADER_SEPARATOR = "ac_header_separator"
 RULE_STATE_CASING = "state_casing"
@@ -78,13 +80,9 @@ class TypeProfile:
 
 
 TYPE_PROFILES: dict[DocType, TypeProfile] = {
-    "DocumentedUserStory": TypeProfile(
-        bullet_sections=frozenset({"business_value", "preconditions", "not_in_scope"})
-    ),
+    "DocumentedUserStory": TypeProfile(bullet_sections=frozenset({"business_value", "preconditions", "not_in_scope"})),
     "DocumentedFeature": TypeProfile(bullet_sections=frozenset()),
-    "DocumentedFunctionality": TypeProfile(
-        bullet_sections=frozenset({"rationale", "preconditions", "not_in_scope"})
-    ),
+    "DocumentedFunctionality": TypeProfile(bullet_sections=frozenset({"rationale", "preconditions", "not_in_scope"})),
 }
 
 
@@ -109,7 +107,7 @@ class NormalizedSource:
 _BULLET_START_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>[–—*•+])(?P<sp>\s)(?P<rest>.*)$")
 _DASH_SEP_CAP_RE = re.compile(r"(\s*[-–—]\s*)")
 _VERSION_RESHAPE_RE = re.compile(r"^[vV]?(\d+)(?:\.(\d+))?(?:\.(\d+))?$")
-_REMOVAL_PLANNED_CLAUSE_RE = re.compile(r"^removal[  \t]+planned[  \t]+(\S+)$", re.IGNORECASE)
+_REMOVAL_PLANNED_CLAUSE_RE = re.compile(r"^removal[ \t]+planned[ \t]+(\S+)$", re.IGNORECASE)
 _AC_HEADER_FULL_RE = re.compile(r"^(?P<lead>[#*]{0,3}\s*)AC:(?P<id>\S+)\s*\((?P<inner>[^)]*)\)(?P<trail>.*)$")
 _AC_TRAIL_DESC_RE = re.compile(r"^\s*[-–—]\s*(?P<desc>.+)$")
 
@@ -138,12 +136,16 @@ def _canonicalize_token_case(token: str) -> tuple[str, bool]:
     return canon, canon != token
 
 
+_NBSP = chr(0xA0)  # kept out of string literals - formatters fold \u00A0 escapes into a literal, invisible byte
+_INDENT_WS_RE = re.compile("^[ \t" + _NBSP + "]*")
+
+
 def _fix_indentation_whitespace(line: str) -> tuple[str, bool]:
-    m = re.match(r"^[ \t ]*", line)
+    m = _INDENT_WS_RE.match(line)
     lead = m.group(0) if m else ""
-    if not lead or ("\t" not in lead and " " not in lead):
+    if not lead or ("\t" not in lead and _NBSP not in lead):
         return line, False
-    new_lead = lead.replace("\t", " ").replace(" ", " ")
+    new_lead = lead.replace("\t", " ").replace(_NBSP, " ")
     new_line = new_lead + line[len(lead) :]
     return new_line, True
 
@@ -195,9 +197,9 @@ def _rewrite_ac_header_inner(inner: str) -> tuple[str, set[str]]:
     return " - ".join(norm_segments), fired
 
 
-def _rewrite_ac_header_content(m: "re.Match[str]", inline_description: bool, bullet_indent: str) -> tuple[
-    list[str], set[str]
-]:
+def _rewrite_ac_header_content(
+    m: "re.Match[str]", inline_description: bool, bullet_indent: str
+) -> tuple[list[str], set[str]]:
     """Rewrites one AC header's content (no comment-wrapper prefix). Returns the
     produced content line(s) - two when rule 7 splits an inline description onto its
     own bullet - and the set of rules that fired."""

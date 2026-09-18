@@ -16,7 +16,8 @@
 
 """
 The authoring normalisation layer: `normalize` rewrites non-canonical dashes, bullet
-markers, case, version form and whitespace per source format (docs/contracts.md), and
+markers, case, version form and whitespace per source format (canon: AbsaOSS/living-doc's
+docs/guides/living-doc-glossary.md and docs/guides/living-doc-header-types.md), and
 `ac_grammar` parses the resulting canonical acceptance-criterion header and its
 extensions into `contracts.common.AcceptanceCriterion`. Pure text in, model and
 warnings out - no I/O, and nothing GitHub- or Azure-DevOps-specific.

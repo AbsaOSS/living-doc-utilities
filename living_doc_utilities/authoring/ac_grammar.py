@@ -281,7 +281,9 @@ def _build_ac(
     return acceptance_criterion, warnings
 
 
-def parse_acceptance_criteria(text: str, entity_id: str = "") -> tuple[list[AcceptanceCriterion], list[ContractWarning]]:
+def parse_acceptance_criteria(
+    text: str, entity_id: str = ""
+) -> tuple[list[AcceptanceCriterion], list[ContractWarning]]:
     """Parses every `AC:<id> (...)` block found in already-normalised `text` into
     `AcceptanceCriterion` instances plus a `list[ContractWarning]`. `entity_id` is
     carried into warning context only; this function never checks that an id belongs
