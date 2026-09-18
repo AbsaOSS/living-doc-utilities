@@ -574,6 +574,52 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "DocumentedFeature"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "else": {
+            "properties": {
+              "stub_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "pages": {
+                "minItems": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "pages": {
+                "contains": {
+                  "properties": {
+                    "is_primary": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "is_primary"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            }
+          }
         }
       ]
     },

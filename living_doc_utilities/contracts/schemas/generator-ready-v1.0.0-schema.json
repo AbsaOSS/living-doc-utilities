@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://absaoss.github.io/living-doc-utilities/schemas/doc-entities-v1.0.0-schema.json",
+  "$id": "https://absaoss.github.io/living-doc-utilities/schemas/generator-ready-v1.0.0-schema.json",
   "$defs": {
     "AcceptanceCriterion": {
       "additionalProperties": false,
@@ -250,6 +250,21 @@
       "title": "Cardinality",
       "type": "object"
     },
+    "Content": {
+      "additionalProperties": false,
+      "description": "The transform's selected entities, each carried at its full authored shape.",
+      "properties": {
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/Entity"
+          },
+          "title": "Entities",
+          "type": "array"
+        }
+      },
+      "title": "Content",
+      "type": "object"
+    },
     "ContractWarning": {
       "additionalProperties": false,
       "description": "One entry of an artifact's top-level warnings[] array.",
@@ -281,6 +296,39 @@
         "message"
       ],
       "title": "ContractWarning",
+      "type": "object"
+    },
+    "Document": {
+      "additionalProperties": false,
+      "description": "What the generator titles and filters by (docs/contracts.md, \"The metadata envelope\").",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "view": {
+          "enum": [
+            "inner",
+            "release"
+          ],
+          "title": "View",
+          "type": "string"
+        },
+        "selection_summary": {
+          "$ref": "#/$defs/SelectionSummary"
+        }
+      },
+      "required": [
+        "title",
+        "version",
+        "view",
+        "selection_summary"
+      ],
+      "title": "Document",
       "type": "object"
     },
     "Entity": {
@@ -649,14 +697,16 @@
             "$ref": "#/$defs/SourceInputEntry"
           },
           "title": "Source Inputs",
-          "type": "array"
+          "type": "array",
+          "minItems": 1
         }
       },
       "required": [
         "producer",
         "source",
         "generated_at",
-        "stats"
+        "stats",
+        "source_inputs"
       ],
       "title": "Metadata",
       "type": "object"
@@ -820,6 +870,52 @@
         }
       },
       "title": "Run",
+      "type": "object"
+    },
+    "SelectionSummary": {
+      "additionalProperties": false,
+      "description": "Counts of what the transform's view filter kept and dropped (docs/contracts.md,\nsection 4). A record: exactly these six named properties, nothing else.\n\n`total_entities == included_entities + excluded_entities` always holds: the producer\nderives `excluded_entities` as `total_entities - included_entities` over one fixed\nentity set, so it is a guaranteed identity, not a coincidence - the same check does not\napply to the three acceptance-criteria fields, because the producer only reports\nview-filtered criteria for entities it kept and never tallies criteria belonging to a\ndropped entity, so those three fields are not established as a disjoint partition. This\nidentity is Pydantic-only: JSON Schema has no keyword for a sum across sibling\nproperties, so a consumer validating raw JSON against the generated schema alone (not\nthrough this model) cannot catch a violation.",
+      "properties": {
+        "total_entities": {
+          "minimum": 0,
+          "title": "Total Entities",
+          "type": "integer"
+        },
+        "included_entities": {
+          "minimum": 0,
+          "title": "Included Entities",
+          "type": "integer"
+        },
+        "excluded_entities": {
+          "minimum": 0,
+          "title": "Excluded Entities",
+          "type": "integer"
+        },
+        "total_acceptance_criteria": {
+          "minimum": 0,
+          "title": "Total Acceptance Criteria",
+          "type": "integer"
+        },
+        "included_acceptance_criteria": {
+          "minimum": 0,
+          "title": "Included Acceptance Criteria",
+          "type": "integer"
+        },
+        "excluded_acceptance_criteria": {
+          "minimum": 0,
+          "title": "Excluded Acceptance Criteria",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_entities",
+        "included_entities",
+        "excluded_entities",
+        "total_acceptance_criteria",
+        "included_acceptance_criteria",
+        "excluded_acceptance_criteria"
+      ],
+      "title": "SelectionSummary",
       "type": "object"
     },
     "Source": {
@@ -992,57 +1088,57 @@
           "type": "object",
           "propertyNames": {
             "enum": [
-              "entities[].acceptance_criteria[].aspect[]",
-              "entities[].acceptance_criteria[].description",
-              "entities[].acceptance_criteria[].id",
-              "entities[].acceptance_criteria[].not_in_scope[]",
-              "entities[].acceptance_criteria[].placeholder_values",
-              "entities[].acceptance_criteria[].preconditions[]",
-              "entities[].acceptance_criteria[].rationale",
-              "entities[].acceptance_criteria[].removal_planned",
-              "entities[].acceptance_criteria[].state",
-              "entities[].acceptance_criteria[].version",
-              "entities[].business_value[]",
-              "entities[].deprecated_at",
-              "entities[].deprecation_reason",
-              "entities[].entity_id",
-              "entities[].external_dependencies[]",
-              "entities[].func_type",
-              "entities[].functionalities[]",
-              "entities[].narrative",
-              "entities[].not_in_scope[]",
-              "entities[].owners[]",
-              "entities[].pages[].functionalities[]",
-              "entities[].pages[].is_primary",
-              "entities[].pages[].owners[]",
-              "entities[].pages[].page_object",
-              "entities[].pages[].purpose",
-              "entities[].pages[].route",
-              "entities[].parent",
-              "entities[].preconditions[]",
-              "entities[].purpose",
-              "entities[].rationale",
-              "entities[].source",
-              "entities[].source_ref.area_path",
-              "entities[].source_ref.iteration_path",
-              "entities[].source_ref.native_id",
-              "entities[].source_ref.native_type",
-              "entities[].source_ref.system",
-              "entities[].source_ref.tracker_state",
-              "entities[].source_ref.url",
-              "entities[].state",
-              "entities[].state_origin",
-              "entities[].stub_reason",
-              "entities[].superseded_by",
-              "entities[].surface_type",
-              "entities[].tags[]",
-              "entities[].timestamps.closed_at",
-              "entities[].timestamps.created_at",
-              "entities[].timestamps.updated_at",
-              "entities[].title",
-              "entities[].type",
-              "entities[].user_stories[]",
-              "entities[].wizard_steps[]"
+              "content.entities[].acceptance_criteria[].aspect[]",
+              "content.entities[].acceptance_criteria[].description",
+              "content.entities[].acceptance_criteria[].id",
+              "content.entities[].acceptance_criteria[].not_in_scope[]",
+              "content.entities[].acceptance_criteria[].placeholder_values",
+              "content.entities[].acceptance_criteria[].preconditions[]",
+              "content.entities[].acceptance_criteria[].rationale",
+              "content.entities[].acceptance_criteria[].removal_planned",
+              "content.entities[].acceptance_criteria[].state",
+              "content.entities[].acceptance_criteria[].version",
+              "content.entities[].business_value[]",
+              "content.entities[].deprecated_at",
+              "content.entities[].deprecation_reason",
+              "content.entities[].entity_id",
+              "content.entities[].external_dependencies[]",
+              "content.entities[].func_type",
+              "content.entities[].functionalities[]",
+              "content.entities[].narrative",
+              "content.entities[].not_in_scope[]",
+              "content.entities[].owners[]",
+              "content.entities[].pages[].functionalities[]",
+              "content.entities[].pages[].is_primary",
+              "content.entities[].pages[].owners[]",
+              "content.entities[].pages[].page_object",
+              "content.entities[].pages[].purpose",
+              "content.entities[].pages[].route",
+              "content.entities[].parent",
+              "content.entities[].preconditions[]",
+              "content.entities[].purpose",
+              "content.entities[].rationale",
+              "content.entities[].source",
+              "content.entities[].source_ref.area_path",
+              "content.entities[].source_ref.iteration_path",
+              "content.entities[].source_ref.native_id",
+              "content.entities[].source_ref.native_type",
+              "content.entities[].source_ref.system",
+              "content.entities[].source_ref.tracker_state",
+              "content.entities[].source_ref.url",
+              "content.entities[].state",
+              "content.entities[].state_origin",
+              "content.entities[].stub_reason",
+              "content.entities[].superseded_by",
+              "content.entities[].surface_type",
+              "content.entities[].tags[]",
+              "content.entities[].timestamps.closed_at",
+              "content.entities[].timestamps.created_at",
+              "content.entities[].timestamps.updated_at",
+              "content.entities[].title",
+              "content.entities[].type",
+              "content.entities[].user_stories[]",
+              "content.entities[].wizard_steps[]"
             ]
           }
         }
@@ -1102,11 +1198,11 @@
     }
   },
   "additionalProperties": false,
-  "description": "The doc-entities-v1.0.0 artifact.",
+  "description": "The generator-ready-v1.0.0 artifact.",
   "properties": {
     "schema_version": {
-      "const": "doc-entities-v1.0.0",
-      "default": "doc-entities-v1.0.0",
+      "const": "generator-ready-v1.0.0",
+      "default": "generator-ready-v1.0.0",
       "title": "Schema Version",
       "type": "string"
     },
@@ -1120,17 +1216,18 @@
       "title": "Warnings",
       "type": "array"
     },
-    "entities": {
-      "items": {
-        "$ref": "#/$defs/Entity"
-      },
-      "title": "Entities",
-      "type": "array"
+    "document": {
+      "$ref": "#/$defs/Document"
+    },
+    "content": {
+      "$ref": "#/$defs/Content"
     }
   },
   "required": [
-    "metadata"
+    "metadata",
+    "document",
+    "content"
   ],
-  "title": "DocEntitiesResult",
+  "title": "GeneratorReadyResult",
   "type": "object"
 }

@@ -147,3 +147,14 @@ class ContractWarning(ContractModel):
     code: str = Field(pattern=WARNING_CODE_PATTERN)
     message: str
     context: Optional[str] = None
+
+
+def check_transform_source_inputs(metadata: Metadata) -> None:
+    """R7: a transform output's metadata.source_inputs[] always has at least one entry - a
+    transform always has at least its documentation input. Only a collector output (which
+    has no artifact input) legitimately carries an empty list, so this is called by each
+    transform-output result model (generator-ready, coverage-matrix, ui-test-catalog), never
+    by Metadata itself.
+    """
+    if not metadata.source_inputs:
+        raise ValueError("metadata.source_inputs must have at least one entry for a transform output (R7)")
