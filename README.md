@@ -64,7 +64,10 @@ real authors introduce — dash style, bullet marker, case, spacing, version for
 authoring surfaces a collector reads (a GitHub issue body, a `.feature` file's header comment
 block and its scenario body, a PageObject header, and Azure DevOps' HTML-converted markdown), and
 the one grammar for an acceptance-criterion header and its extensions. Both are pure `text -> data`
-functions with no I/O, and never touch code, Gherkin step text, or free prose:
+functions with no I/O, and never touch code, Gherkin step text, or free prose. Normalisation (per
+rule), the acceptance-criterion grammar, every parser's accepted layout, entity-identity
+derivation, status derivation and the URL policy are all defined normatively in
+[Authoring](docs/authoring.md):
 
 ```python
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
@@ -109,11 +112,26 @@ entities, status_warnings = derive_statuses([parsed, ...])  # run once, over eve
 | `identity` | `entity_id` from a title (`derive_entity_id`) |
 | `status` | Final `state`/`state_origin` for every entity in a run (`derive_statuses`) |
 | `relations` | Cross-entity relation checks (`UNRESOLVED_RELATION`, `RELATION_MISMATCH`) |
+| `url_policy` | Which links survive into rendered documentation (`safe_href`, `sanitize_html_fragment`) |
+| `html_to_markdown` | Azure DevOps rich-text HTML into the same Markdown-like text the other parsers understand (`convert_html_to_markdown`) |
 
 `tests/fixtures/golden/` holds this project's own three canonical example documents (copied
 verbatim from `AbsaOSS/living-doc`'s `docs/examples/`) alongside hand-written expected-entity JSON
 files. They are the reference other repos' parsers (`living-doc-collector-gh`, `living-doc-toolkit`,
 `living-doc-collector-ad`) compare their own output against.
+
+`html_to_markdown` needs the optional `html` extra (`pip install living-doc-utilities[html]`) for
+its `nh3`-based HTML sanitiser — nothing else in this package requires it:
+
+```python
+from living_doc_utilities.authoring.html_to_markdown import convert_html_to_markdown
+from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.authoring.issue_body import parse_issue_body
+
+markdown_text, html_warnings = convert_html_to_markdown(azure_devops_html)
+normalized = normalize(markdown_text, SourceFormat.HTML_MARKDOWN, "DocumentedUserStory")
+parsed, warnings = parse_issue_body(normalized.text, issue_title, "DocumentedUserStory")
+```
 
 ## Usage
 

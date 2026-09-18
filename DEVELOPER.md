@@ -8,6 +8,7 @@
 - [Run Unit Test](#run-unit-test)
 - [Code Coverage](#code-coverage)
 - [Regenerate Contract Schemas](#regenerate-contract-schemas)
+- [Regenerate Authoring Docs](#regenerate-authoring-docs)
 - [How to Release](#how-to-release)
 
 ## Project Setup
@@ -49,6 +50,7 @@ failing gate. The individual targets are also available while iterating:
 | `make test` | pytest, unit tests only | pass |
 | `make coverage` | pytest with the coverage gate | `--cov-fail-under=80` |
 | `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
+| `make docs` | regenerates `docs/authoring.md`'s worked-examples table from `normalisation_cases.yaml` | committed table byte-for-byte up to date |
 
 The sections below explain each tool in more detail and how to scope it to a single file.
 
@@ -223,6 +225,34 @@ six `*-schema.json` files in place. Commit the result alongside the model change
 A CI job (`Schema Regeneration Check`) runs the same command and fails the build if the
 regenerated files differ from what is committed, so a forgotten regeneration is caught
 before review rather than downstream.
+
+---
+
+## Regenerate Authoring Docs
+
+[`docs/authoring.md`](docs/authoring.md)'s "Worked examples" table is generated from
+`living_doc_utilities/authoring/normalisation_cases.yaml` — the same file
+`tests/authoring/test_normalize_cases.py` runs every row of — so the table a reader sees can
+never drift from what the test suite actually proves. The rest of the document is hand-maintained
+prose; only the table between its `<!-- BEGIN GENERATED -->` / `<!-- END GENERATED -->` markers is
+overwritten.
+
+Follow these steps whenever `normalisation_cases.yaml` changes:
+
+- Perform the [setup of python venv](#set-up-python-environment).
+
+### Run the docs export
+
+```shell
+make docs
+```
+
+This runs `python -m living_doc_utilities.authoring.docs_export`, which rewrites the generated
+table in place. Commit the result alongside the cases-file change.
+
+A CI job (`Authoring Docs Regeneration Check`) runs the same command and fails the build if the
+regenerated table differs from what is committed, so a forgotten regeneration is caught before
+review rather than downstream.
 
 ---
 

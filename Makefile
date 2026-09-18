@@ -11,7 +11,7 @@ PYLINT_MIN  ?= 9.5
 COV_MIN     ?= 80
 
 .DEFAULT_GOAL := help
-.PHONY: help install qa lint format format-check types test coverage test-unit test-integration schemas
+.PHONY: help install qa lint format format-check types test coverage test-unit test-integration schemas docs
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -50,3 +50,6 @@ test-integration: ## Run only integration tests (cross-authoring-module, still s
 
 schemas: ## Regenerate the contract JSON Schemas from the pydantic models (docs/contracts.md).
 	$(PYTHON) -m living_doc_utilities.contracts.schema_export
+
+docs: ## Regenerate docs/authoring.md's worked-examples table from normalisation_cases.yaml.
+	$(PYTHON) -m living_doc_utilities.authoring.docs_export

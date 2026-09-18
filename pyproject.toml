@@ -10,6 +10,16 @@ dependencies = [
     "pydantic>=2.13,<3",
 ]
 
+[project.optional-dependencies]
+# `living_doc_utilities.authoring.html_to_markdown` and
+# `living_doc_utilities.authoring.url_policy.sanitize_html_fragment` need this to sanitise
+# Azure DevOps rich-text HTML (docs/authoring.md, "URL policy"). Nothing else in the
+# package imports it, and importing either module never requires it - only calling
+# `sanitize_html_fragment` (directly, or via `convert_html_to_markdown`) does.
+html = [
+    "nh3>=0.2,<1",
+]
+
 [project.urls]
 Repository = "https://github.com/AbsaOSS/living-doc-utilities"
 
