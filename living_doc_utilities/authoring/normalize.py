@@ -373,7 +373,14 @@ def _normalize_feature_header(lines: list[str], profile: TypeProfile, changes: l
         prefix, content = _split_comment_prefix(raw)
         stripped = content.strip()
 
-        if stripped == "" or (stripped and set(stripped) == {"="}):
+        if stripped == "":
+            # A blank line does not end an AC block, mirroring `_normalize_markdown`:
+            # issue-body-style headings are conventionally followed by one blank line
+            # before their own bullets.
+            out_lines.append(raw)
+            continue
+
+        if set(stripped) == {"="}:
             out_lines.append(raw)
             in_ac_block = False
             continue

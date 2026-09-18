@@ -56,6 +56,8 @@ _PLACEHOLDER_NAME_RE = re.compile(PLACEHOLDER_NAME_PATTERN)
 _COMMENT_LEADER_RE = re.compile(r"^[#*]+\s*")
 
 _AC_HEADER_RE = re.compile(r"^AC:(?P<id>\S*)\s*\((?P<inner>.*)\)\s*$")
+_AC_PREFIX_RE = re.compile(r"^AC:")
+_FENCE_RE = re.compile(r"^\s*```")
 _REMOVAL_PLANNED_RE = re.compile(r"^removal planned (?P<version>\S+)$")
 _BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
 _SUBLIST_KEY_RE = re.compile(r"^(?P<key>preconditions|not_in_scope):\s*$")
@@ -182,6 +184,22 @@ def _parse_extensions(
     return result, warnings
 
 
+def _compute_fence_flags(lines: list[str]) -> list[bool]:
+    """True for a line that opens, closes or lies inside a fenced code block, mirroring
+    normalize.py's `_FENCE_RE` toggle. Keeps quoted `AC:...` examples inside a fence from
+    ever being read as a real acceptance-criterion header.
+    """
+    flags: list[bool] = []
+    in_fence = False
+    for line in lines:
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+            flags.append(True)
+            continue
+        flags.append(in_fence)
+    return flags
+
+
 def _build_ac(
     entity_id: str, raw_id: str, raw_inner: str, block_lines: list[str], raw_header_line: str
 ) -> tuple[Optional[AcceptanceCriterion], list[ContractWarning]]:
@@ -291,6 +309,7 @@ def parse_acceptance_criteria(
     """
     raw_lines = text.splitlines()
     cleaned_lines = [_COMMENT_LEADER_RE.sub("", line) for line in raw_lines]
+    fence_flags = _compute_fence_flags(raw_lines)
 
     results: list[AcceptanceCriterion] = []
     warnings: list[ContractWarning] = []
@@ -298,19 +317,38 @@ def parse_acceptance_criteria(
     index = 0
     line_count = len(raw_lines)
     while index < line_count:
-        header_m = _AC_HEADER_RE.match(cleaned_lines[index].strip())
+        if fence_flags[index]:
+            index += 1
+            continue
+
+        stripped_line = cleaned_lines[index].strip()
+        if not _AC_PREFIX_RE.match(stripped_line):
+            index += 1
+            continue
+
+        header_m = _AC_HEADER_RE.match(stripped_line)
         if header_m is None:
+            warnings.append(
+                ContractWarning(
+                    code=MALFORMED_AC,
+                    message="Acceptance-criterion header is malformed.",
+                    context=f"entity={entity_id!r} header={raw_lines[index].strip()!r}",
+                )
+            )
             index += 1
             continue
 
         # A blank line is skipped, not a terminator: issue-body AC headings are
         # conventionally followed by one blank line before their own bullets. Only the
-        # next AC header (or end of input) ends this one's block.
+        # next "AC:"-prefixed line (or end of input) ends this one's block.
         block: list[str] = []
         cursor = index + 1
         while cursor < line_count:
+            if fence_flags[cursor]:
+                cursor += 1
+                continue
             candidate = cleaned_lines[cursor].strip()
-            if _AC_HEADER_RE.match(candidate):
+            if _AC_PREFIX_RE.match(candidate):
                 break
             if candidate != "":
                 block.append(cleaned_lines[cursor])
