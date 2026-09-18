@@ -85,6 +85,36 @@ canonical form established in `AbsaOSS/living-doc`'s `docs/guides/living-doc-glo
 `docs/guides/living-doc-header-types.md`; `living_doc_utilities/authoring/normalisation_cases.yaml`
 is both the normalisation rules' test data and a worked example of every rule and source format.
 
+## Authoring parsers
+
+Built on top of normalisation and the acceptance-criterion grammar, `living_doc_utilities.authoring`
+also parses every authoring surface into entity data. Every parser returns `(parsed, warnings)`
+without ever raising on malformed input, and none of them fills `source_ref` — that is always the
+calling collector's job, since a parser only ever sees document text:
+
+```python
+from living_doc_utilities.authoring.issue_body import parse_issue_body
+from living_doc_utilities.authoring.status import derive_statuses
+
+parsed, warnings = parse_issue_body(issue_body_text, issue_title, "DocumentedUserStory")
+entities, status_warnings = derive_statuses([parsed, ...])  # run once, over every entity in a run
+```
+
+| Module | Parses |
+|---|---|
+| `issue_body` | A GitHub issue body's `##` sections into a `ParsedEntity` |
+| `feature_header` | A `.feature` file's header comment block for a User Story / Functionality |
+| `page_object` | A PageObject file's header for a Feature (full or cross-reference) |
+| `scenario` | A `.feature` file's `Scenario:`/`Scenario Outline:` blocks and their `@AC:` tags |
+| `identity` | `entity_id` from a title (`derive_entity_id`) |
+| `status` | Final `state`/`state_origin` for every entity in a run (`derive_statuses`) |
+| `relations` | Cross-entity relation checks (`UNRESOLVED_RELATION`, `RELATION_MISMATCH`) |
+
+`tests/fixtures/golden/` holds this project's own three canonical example documents (copied
+verbatim from `AbsaOSS/living-doc`'s `docs/examples/`) alongside hand-written expected-entity JSON
+files. They are the reference other repos' parsers (`living-doc-collector-gh`, `living-doc-toolkit`,
+`living-doc-collector-ad`) compare their own output against.
+
 ## Usage
 
 ### Prerequisites

@@ -1,0 +1,83 @@
+{
+  "entity_id": "US-001",
+  "type": "DocumentedUserStory",
+  "title": "US-001 · Customer Login",
+  "state": "active",
+  "state_origin": "authored",
+  "tags": [],
+  "timestamps": { "created_at": null, "updated_at": null, "closed_at": null },
+  "narrative": "As a registered customer, I can sign in with my email and password, so that I can reach my account area.",
+  "purpose": null,
+  "source": null,
+  "business_value": [
+    "Registered customers can reach their account area, so returning users convert without friction."
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "US-001-01",
+      "state": "active",
+      "version": "1.0.0",
+      "description": "A customer who submits valid credentials lands on the account dashboard.",
+      "aspect": [],
+      "preconditions": [],
+      "not_in_scope": [],
+      "removal_planned": null,
+      "rationale": null,
+      "placeholder_values": {}
+    },
+    {
+      "id": "US-001-02",
+      "state": "active",
+      "version": "1.0.0",
+      "description": "An inline error is shown when the customer submits invalid credentials, without leaving the login screen.",
+      "aspect": [],
+      "preconditions": [],
+      "not_in_scope": [],
+      "removal_planned": null,
+      "rationale": null,
+      "placeholder_values": {}
+    },
+    {
+      "id": "US-001-03",
+      "state": "planned",
+      "version": "1.1.0",
+      "description": "A customer who forgot the password can request a reset link from the login screen.",
+      "aspect": [],
+      "preconditions": [],
+      "not_in_scope": [],
+      "removal_planned": null,
+      "rationale": null,
+      "placeholder_values": {}
+    },
+    {
+      "id": "US-001-04",
+      "state": "deprecated",
+      "version": "1.0.0",
+      "description": "A \"Remember me\" choice keeps the customer signed in across browser restarts.",
+      "aspect": [],
+      "preconditions": [],
+      "not_in_scope": [],
+      "removal_planned": "2.0.0",
+      "rationale": null,
+      "placeholder_values": {}
+    }
+  ],
+  "preconditions": [],
+  "not_in_scope": [
+    "Social-identity (OAuth) sign-in — tracked separately as US-002."
+  ],
+  "deprecated_at": null,
+  "deprecation_reason": null,
+  "superseded_by": null,
+  "surface_type": null,
+  "owners": [],
+  "user_stories": [],
+  "functionalities": [],
+  "external_dependencies": [],
+  "stub_reason": null,
+  "wizard_steps": [],
+  "pages": [],
+  "parent": null,
+  "func_type": null,
+  "rationale": null
+}
