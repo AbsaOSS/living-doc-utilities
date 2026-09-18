@@ -15,12 +15,17 @@
 #
 
 """
-Two package-shape guarantees that are cheap to break silently:
+Package-shape guarantees that are cheap to break silently:
 
 - `ac_grammar.py` is the only module in `authoring/` that knows what a *valid*
   acceptance-criterion state or version looks like - `normalize.py` only reshapes
   tokens by position, never validates them (docs/contracts.md).
 - `contracts` never imports from `authoring` (the dependency runs one way only).
+- `authoring` is source-agnostic: nothing in it imports a GitHub- or Azure-DevOps-specific
+  module (docs/authoring.md) - a parser only ever sees document text, never a tracker SDK.
+- `nh3` (the optional `html` extra `url_policy.py`/`html_to_markdown.py` need) is imported
+  only inside the functions that actually call it, never at module load time - so importing
+  any `authoring` module never requires that extra to be installed.
 """
 
 import ast
@@ -93,3 +98,62 @@ def test_contracts_imports_nothing_from_authoring():
                 offenders.append((path.name, names))
 
     assert offenders == [], f"contracts must not import from authoring, but found: {offenders}"
+
+
+def _imported_module_names(node: "ast.Import | ast.ImportFrom") -> list[str]:
+    if isinstance(node, ast.Import):
+        return [alias.name for alias in node.names]
+    if node.module:
+        return [node.module]
+    return [alias.name for alias in node.names]
+
+
+def test_authoring_imports_nothing_github_or_azure_devops_specific():
+    offenders = []
+    for path in sorted(AUTHORING_DIR.glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            for name in _imported_module_names(node):
+                lowered = name.lower()
+                if "github" in lowered or "azure" in lowered:
+                    offenders.append((path.name, name))
+
+    assert offenders == [], f"authoring must stay source-agnostic, but found: {offenders}"
+
+
+def test_module_less_relative_import_is_still_named_not_reported_as_empty():
+    # `from . import azure_devops` has no `node.module` (it's a bare relative import), so
+    # naively falling back to `node.module or ""` would report it as "" - invisible to the
+    # `"azure" in lowered` check above. Confirm it now surfaces the imported name instead.
+    tree = ast.parse("from . import azure_devops")
+    (node,) = [n for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+
+    assert _imported_module_names(node) == ["azure_devops"]
+
+
+def _has_enclosing_function(tree: ast.AST, target: ast.AST) -> bool:
+    """True when `target` is nested inside a `def`/`async def` somewhere under `tree`."""
+    for candidate in ast.walk(tree):
+        if not isinstance(candidate, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for descendant in ast.walk(candidate):
+            if descendant is target:
+                return True
+    return False
+
+
+def test_nh3_is_imported_only_inside_a_function_that_needs_it():
+    offenders = []
+    for path in sorted(AUTHORING_DIR.glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            if "nh3" not in _imported_module_names(node):
+                continue
+            if not _has_enclosing_function(tree, node):
+                offenders.append((path.name, node.lineno))
+
+    assert offenders == [], f"'nh3' must only be imported inside a function, but found at module level: {offenders}"

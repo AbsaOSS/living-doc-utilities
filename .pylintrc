@@ -25,7 +25,9 @@ clear-cache-post-run=no
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code.
-extension-pkg-allow-list=
+# nh3 (living_doc_utilities/authoring/url_policy.py) is a compiled Rust extension with no
+# statically-inferable members - pylint must actually import it to see `clean`/`ALLOWED_TAGS`.
+extension-pkg-allow-list=nh3
 
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may

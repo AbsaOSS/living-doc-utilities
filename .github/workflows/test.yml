@@ -37,6 +37,7 @@ jobs:
     outputs:
       python_changed: ${{ steps.changes.outputs.python_changed }}
       schema_changed: ${{ steps.changes.outputs.schema_changed }}
+      authoring_docs_changed: ${{ steps.changes.outputs.authoring_docs_changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -70,6 +71,12 @@ jobs:
             echo "schema_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "schema_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$changed_files" | grep -E '^(living_doc_utilities/authoring/(normalisation_cases\.yaml|docs_export\.py)|docs/authoring\.md|Makefile)$' > /dev/null; then
+            echo "authoring_docs_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "authoring_docs_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
   static-analysis-and-tests:
@@ -146,10 +153,45 @@ jobs:
             exit 1
           fi
 
+  # Owner-side regeneration gate (docs/authoring.md, "Worked examples"): a
+  # normalisation_cases.yaml change with no regenerated table must fail here, not downstream.
+  docs-regeneration-check:
+    needs: detect
+    if: needs.detect.outputs.python_changed == 'true' || needs.detect.outputs.authoring_docs_changed == 'true'
+    runs-on: ubuntu-latest
+    name: Authoring Docs Regeneration Check
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Regenerate the authoring docs worked-examples table
+        run: make docs
+
+      - name: Fail if the regenerated table differs from what is committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code -- docs/authoring.md; then
+            echo "::error::docs/authoring.md's worked-examples table is out of date. Run 'make docs' and commit the result."
+            exit 1
+          fi
+
   # Single required status check. Always runs, so it always reports; passes when
   # the matrix succeeded or was skipped (no Python changes), fails otherwise.
   qa-gate:
-    needs: [ detect, static-analysis-and-tests, schema-regeneration-check ]
+    needs: [ detect, static-analysis-and-tests, schema-regeneration-check, docs-regeneration-check ]
     if: always()
     runs-on: ubuntu-latest
     name: QA Gate
@@ -160,19 +202,25 @@ jobs:
           set -euo pipefail
           changed="${{ needs.detect.outputs.python_changed }}"
           schema_changed="${{ needs.detect.outputs.schema_changed }}"
+          authoring_docs_changed="${{ needs.detect.outputs.authoring_docs_changed }}"
           test_result="${{ needs.static-analysis-and-tests.result }}"
           schema_result="${{ needs.schema-regeneration-check.result }}"
-          echo "python_changed=$changed | schema_changed=$schema_changed | static-analysis-and-tests=$test_result | schema-regeneration-check=$schema_result"
-          if [[ "$changed" != "true" && "$schema_changed" != "true" ]]; then
-            echo "No Python-related or contract-schema changes — checks not required."
+          docs_result="${{ needs.docs-regeneration-check.result }}"
+          echo "python_changed=$changed | schema_changed=$schema_changed | authoring_docs_changed=$authoring_docs_changed | static-analysis-and-tests=$test_result | schema-regeneration-check=$schema_result | docs-regeneration-check=$docs_result"
+          if [[ "$changed" != "true" && "$schema_changed" != "true" && "$authoring_docs_changed" != "true" ]]; then
+            echo "No Python-related, contract-schema, or authoring-docs changes — checks not required."
             exit 0
           fi
           if [[ "$changed" == "true" && "$test_result" != "success" ]]; then
             echo "::error::static analysis & tests did not pass (tests: $test_result)."
             exit 1
           fi
-          if [[ "$schema_result" != "success" ]]; then
+          if [[ "$schema_changed" == "true" || "$changed" == "true" ]] && [[ "$schema_result" != "success" ]]; then
             echo "::error::the schema regeneration check did not pass (schemas: $schema_result)."
+            exit 1
+          fi
+          if [[ "$authoring_docs_changed" == "true" || "$changed" == "true" ]] && [[ "$docs_result" != "success" ]]; then
+            echo "::error::the authoring docs regeneration check did not pass (docs: $docs_result)."
             exit 1
           fi
           exit 0
