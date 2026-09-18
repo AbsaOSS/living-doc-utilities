@@ -105,6 +105,19 @@ class AcceptanceCriterion(ContractModel):
             raise ValueError("removal_planned is only valid when state is 'deprecated'")
         return self
 
+    def canonical_header(self) -> str:
+        """Renders this AC's canonical header text (docs/contracts.md, "AC header"):
+        `AC:<id> (v<x.y.z> - <state>)`, or `AC:<id> (planned)` for a version-less
+        backlog item - adding the leading `v` back, so a downstream generator never
+        needs to import `authoring` just to render an acceptance-criterion header.
+        """
+        if self.version is None:
+            return f"AC:{self.id} ({self.state})"
+        inner = f"v{self.version} - {self.state}"
+        if self.state == "deprecated" and self.removal_planned is not None:
+            inner += f" - removal planned v{self.removal_planned}"
+        return f"AC:{self.id} ({inner})"
+
 
 class EntityCore(ContractModel):
     """Identity, provenance and lifecycle fields shared by every documented entity."""

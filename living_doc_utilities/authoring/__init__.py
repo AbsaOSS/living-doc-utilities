@@ -1,0 +1,24 @@
+#
+# Copyright 2025 ABSA Group Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+"""
+The authoring normalisation layer: `normalize` rewrites non-canonical dashes, bullet
+markers, case, version form and whitespace per source format (canon: AbsaOSS/living-doc's
+docs/guides/living-doc-glossary.md and docs/guides/living-doc-header-types.md), and
+`ac_grammar` parses the resulting canonical acceptance-criterion header and its
+extensions into `contracts.common.AcceptanceCriterion`. Pure text in, model and
+warnings out - no I/O, and nothing GitHub- or Azure-DevOps-specific.
+"""

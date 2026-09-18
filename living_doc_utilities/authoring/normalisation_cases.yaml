@@ -1,0 +1,488 @@
+# Cases for `living_doc_utilities.authoring.normalize`. This file is normalize's only
+# test data (`tests/authoring/test_normalize_cases.py` runs every row) and doubles as
+# documentation of the seven rules (plus 5b) and the five source formats - canon
+# established in AbsaOSS/living-doc's docs/guides/living-doc-glossary.md and
+# docs/guides/living-doc-header-types.md (PRs #25/#26).
+#
+# Columns:
+#   id          - unique, stable case name
+#   rule        - the normalize.RULE_* constant this case is about, or "none" for a
+#                 case that must come out of normalize byte-for-byte unchanged
+#   format      - a living_doc_utilities.authoring.normalize.SourceFormat value
+#   entity_type - a living_doc_utilities.contracts.common.DocType value
+#   input       - the raw text given to normalize()
+#   expected    - the exact text normalize() must produce (joined with "\n")
+#   note        - why this case exists
+
+- id: rule1_bullet_marker_en_dash_business_value
+  rule: bullet_marker
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ## Business Value
+
+    – Registered customers can reach their account area.
+  expected: |
+    ## Business Value
+
+    - Registered customers can reach their account area.
+  note: >
+    An en-dash bullet in a bullet section (the glossary/agentic-toolkit form) is
+    silently corrected, not dropped - the defect this package replaces.
+
+- id: rule1_bullet_marker_star_rationale_feature_header
+  rule: bullet_marker
+  format: feature_header
+  entity_type: DocumentedFunctionality
+  input: |
+    # rationale:
+    #   * Password strength is checked client-side for immediate feedback.
+  expected: |
+    # rationale:
+    #   - Password strength is checked client-side for immediate feedback.
+  note: A "*" bullet inside a bullet section becomes "-"; the "#" comment prefix stays.
+
+- id: rule1_bullet_marker_plus_not_in_scope_feature_header
+  rule: bullet_marker
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: |
+    # not_in_scope:
+    #   + Social-identity (OAuth) sign-in.
+  expected: |
+    # not_in_scope:
+    #   - Social-identity (OAuth) sign-in.
+  note: A "+" bullet is also corrected, matching rule 1's marker set.
+
+- id: rule1_bullet_marker_bullet_dot_ac_block
+  rule: bullet_marker
+  format: issue_body
+  entity_type: DocumentedFunctionality
+  input: |
+    ### AC:FUNC-001-01 (v1.0.0 - active)
+
+    • Returns valid=false when the candidate password fails a complexity rule.
+  expected: |
+    ### AC:FUNC-001-01 (v1.0.0 - active)
+
+    - Returns valid=false when the candidate password fails a complexity rule.
+  note: A "•" bullet inside an AC block is corrected, independent of TYPE_PROFILES.
+
+- id: rule2_ac_header_separator_en_dash_issue_body
+  rule: ac_header_separator
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-01 (v1.0.0 – active)
+
+    - A customer who submits valid credentials lands on the account dashboard.
+  expected: |
+    ### AC:US-001-01 (v1.0.0 - active)
+
+    - A customer who submits valid credentials lands on the account dashboard.
+  note: An en-dash separator inside an AC header's parentheses becomes " - ".
+
+- id: rule2_ac_header_separator_em_dash_feature_header
+  rule: ac_header_separator
+  format: feature_header
+  entity_type: DocumentedFunctionality
+  input: |
+    #   AC:FUNC-001-01 (v1.0.0 — active)
+    #     - Returns valid=false when the candidate password fails a complexity rule.
+  expected: |
+    #   AC:FUNC-001-01 (v1.0.0 - active)
+    #     - Returns valid=false when the candidate password fails a complexity rule.
+  note: An em-dash separator is corrected the same way as an en-dash.
+
+- id: rule3_state_casing_status_heading_issue_body
+  rule: state_casing
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ## Status
+
+    ACTIVE
+  expected: |
+    ## Status
+
+    active
+  note: A "## Status" value's case is normalised even with no dash/hyphen to collapse.
+
+- id: rule3_state_casing_status_key_feature_header
+  rule: state_casing
+  format: feature_header
+  entity_type: DocumentedFunctionality
+  input: |
+    # status:          In Review
+  expected: |
+    # status:          in_review
+  note: "\"In Review\" collapses to \"in_review\" in a \"# status:\" value."
+
+- id: rule3_state_casing_ac_header_issue_body
+  rule: state_casing
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-01 (v1.0.0 - ACTIVE)
+
+    - desc
+  expected: |
+    ### AC:US-001-01 (v1.0.0 - active)
+
+    - desc
+  note: The AC header's own state token is lowercased the same way.
+
+- id: rule3_state_casing_removal_planned_keyword
+  rule: state_casing
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-04 (v1.0.0 - deprecated - Removal Planned v2.0.0)
+
+    - desc
+  expected: |
+    ### AC:US-001-04 (v1.0.0 - deprecated - removal planned v2.0.0)
+
+    - desc
+  note: "\"Removal Planned\" is lowercased to the fixed keyword phrase \"removal planned\"."
+
+- id: rule4_version_form_short_issue_body
+  rule: version_form
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-03 (v1.1 - planned)
+
+    - A customer who forgot the password can request a reset link.
+  expected: |
+    ### AC:US-001-03 (v1.1.0 - planned)
+
+    - A customer who forgot the password can request a reset link.
+  note: "vX.Y becomes vX.Y.0."
+
+- id: rule4_version_form_bare_numeric_feature_header
+  rule: version_form
+  format: feature_header
+  entity_type: DocumentedFunctionality
+  input: |
+    #   AC:FUNC-001-02 (1.0.0 - active)
+    #     - Returns valid=true when the candidate password satisfies every rule.
+  expected: |
+    #   AC:FUNC-001-02 (v1.0.0 - active)
+    #     - Returns valid=true when the candidate password satisfies every rule.
+  note: A bare "1.2.0" gains the canonical leading "v".
+
+- id: rule4_version_form_capital_v_issue_body
+  rule: version_form
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-01 (V1.0.0 - active)
+
+    - desc
+  expected: |
+    ### AC:US-001-01 (v1.0.0 - active)
+
+    - desc
+  note: "\"V1.2.0\" is lowercased to \"v1.2.0\"."
+
+- id: rule4_version_form_v1_left_as_is
+  rule: none
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-01 (v1 - active)
+
+    - desc
+  expected: |
+    ### AC:US-001-01 (v1 - active)
+
+    - desc
+  note: >
+    "v1" alone has no digit to infer a patch version from - normalize leaves it
+    unchanged (a malformed-acceptance-criterion error for ac_grammar, not normalize).
+
+- id: rule5_entity_name_dash_functionality_title
+  rule: entity_name_dash
+  format: feature_header
+  entity_type: DocumentedFunctionality
+  input: |
+    # =============================================================================
+    # LIVING DOC — FUNC-001 · Login Page–Validate Password Strength
+    # =============================================================================
+    # status:    active
+  expected: |
+    # =============================================================================
+    # LIVING DOC — FUNC-001 · Login Page - Validate Password Strength
+    # =============================================================================
+    # status:    active
+  note: An en-dash between the two halves of a Functionality name becomes " - ".
+
+- id: rule5b_title_id_separator_hyphen_feature_header
+  rule: title_id_separator
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: |
+    # =============================================================================
+    # LIVING DOC — US-001 - Customer Login
+    # =============================================================================
+    # status:    active
+  expected: |
+    # =============================================================================
+    # LIVING DOC — US-001 · Customer Login
+    # =============================================================================
+    # status:    active
+  note: The character right after the entity id becomes " · ", even a plain hyphen.
+
+- id: rule5b_title_id_separator_colon_page_object
+  rule: title_id_separator
+  format: page_object
+  entity_type: DocumentedFeature
+  input: |
+    /* =============================================================================
+     * LIVING DOC — FEAT-001: Login Page
+     * =============================================================================
+     * surface_type:          UI
+     * ============================================================================= */
+  expected: |
+    /* =============================================================================
+     * LIVING DOC — FEAT-001 · Login Page
+     * =============================================================================
+     * surface_type:          UI
+     * ============================================================================= */
+  note: A colon right after the entity id in a PageObject banner also becomes " · ".
+
+- id: rule6_whitespace_crlf_issue_body
+  rule: whitespace
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: "## Status\r\n\r\nactive\r\n"
+  expected: "## Status\n\nactive\n"
+  note: CRLF line endings become LF.
+
+- id: rule6_whitespace_tab_indentation_page_object
+  rule: whitespace
+  format: page_object
+  entity_type: DocumentedFeature
+  input: "/* =============================================================================\n *\tsurface_type:          UI\n * ============================================================================= */\n"
+  expected: "/* =============================================================================\n * surface_type:          UI\n * ============================================================================= */\n"
+  note: A tab used to indent a field's value becomes a plain space; the value itself is untouched.
+
+- id: rule7_inline_ac_description_issue_body_split
+  rule: inline_ac_description
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-01 (v1.0.0 - active) — customer places an order with a saved payment method
+  expected: |
+    ### AC:US-001-01 (v1.0.0 - active)
+    - customer places an order with a saved payment method
+  note: An inline description on the header line moves onto its own bullet.
+
+- id: rule7_inline_ac_description_feature_header_split
+  rule: inline_ac_description
+  format: feature_header
+  entity_type: DocumentedFunctionality
+  input: |
+    #   AC:FUNC-001-01 (v1.0.0 - active) - rejects a weak password
+  expected: |
+    #   AC:FUNC-001-01 (v1.0.0 - active)
+    #     - rejects a weak password
+  note: Same split for a feature-header AC block, keeping the "#" comment prefix.
+
+- id: rule7_inline_ac_description_scenario_file_inline
+  rule: inline_ac_description
+  format: scenario_file
+  entity_type: DocumentedUserStory
+  input: |
+    # AC:US-001-01 (v1.0.0 - active) — valid credentials land on the account dashboard
+    @AC:US-001-01
+    Scenario: Customer signs in with valid credentials
+  expected: |
+    # AC:US-001-01 (v1.0.0 - active) - valid credentials land on the account dashboard
+    @AC:US-001-01
+    Scenario: Customer signs in with valid credentials
+  note: >
+    A "# AC:" comment keeps its description inline - only the separator before it is
+    canonicalised, no line is inserted.
+
+- id: rule2_rule3_rule4_scenario_file_combined
+  rule: ac_header_separator
+  format: scenario_file
+  entity_type: DocumentedFunctionality
+  input: |
+    # AC:FUNC-001-01 (v1.0 – ACTIVE) - rejects a weak password | aspect: minimum length
+    @AC:FUNC-001-01/aspect:minimum-length
+  expected: |
+    # AC:FUNC-001-01 (v1.0.0 - active) - rejects a weak password | aspect: minimum length
+    @AC:FUNC-001-01/aspect:minimum-length
+  note: >
+    Rules 2, 3 and 4 all fire on one scenario-file "# AC:" line; the "| aspect: ..."
+    suffix is free text and stays untouched.
+
+- id: html_markdown_ac_header_defect_corrected
+  rule: ac_header_separator
+  format: html_markdown
+  entity_type: DocumentedUserStory
+  input: |
+    ### AC:US-001-01 (v1.0.0 – active)
+
+    - A customer who submits valid credentials lands on the account dashboard.
+  expected: |
+    ### AC:US-001-01 (v1.0.0 - active)
+
+    - A customer who submits valid credentials lands on the account dashboard.
+  note: html_markdown (Azure DevOps HTML converted to markdown) uses the same rules.
+
+- id: agentic_toolkit_descope_fixture
+  rule: bullet_marker
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    AC:US-042-03 (v1.2.0 – descoped)
+       – Promo codes can be stacked and applied in defined priority order.
+       – descoped_at: 2026-05-15
+       – descoped_reason: Promo stacking rule deferred — too complex for current sprint
+       – future_release: sprint-52
+  expected: |
+    AC:US-042-03 (v1.2.0 - descoped)
+       - Promo codes can be stacked and applied in defined priority order.
+       - descoped_at: 2026-05-15
+       - descoped_reason: Promo stacking rule deferred — too complex for current sprint
+       - future_release: sprint-52
+  note: >
+    tests/fixtures/agentic_toolkit_descope.md's AC block (agentic-toolkit@c479c80,
+    skills/living-doc-update/SKILL.md lines 156-160), bare "AC:" line and all - a
+    header with no markdown "###" wrapper is still recognised. The prose em-dash inside
+    "deferred — too complex" is untouched: it is not a structural position.
+
+- id: never_touched_page_object_metadata
+  rule: none
+  format: page_object
+  entity_type: DocumentedFeature
+  input: |
+    /* =============================================================================
+     * LIVING DOC — FEAT-001 · Login Page
+     * =============================================================================
+     * surface_type:          UI
+     * route:                 /login
+     * owners:                Identity Team
+     * stub-reason:           Login template carries no test-id attributes yet;
+     *                        surface documented from the interface spec - discovered 2026-09-08.
+     * purpose:               The screen where a registered customer enters an email and password to sign in.
+     * user_stories:          US-001
+     * functionalities:       FUNC-001
+     * external_dependencies: auth-api
+     * page-object:           LoginPage.ts
+     * ============================================================================= */
+  expected: |
+    /* =============================================================================
+     * LIVING DOC — FEAT-001 · Login Page
+     * =============================================================================
+     * surface_type:          UI
+     * route:                 /login
+     * owners:                Identity Team
+     * stub-reason:           Login template carries no test-id attributes yet;
+     *                        surface documented from the interface spec - discovered 2026-09-08.
+     * purpose:               The screen where a registered customer enters an email and password to sign in.
+     * user_stories:          US-001
+     * functionalities:       FUNC-001
+     * external_dependencies: auth-api
+     * page-object:           LoginPage.ts
+     * ============================================================================= */
+  note: >
+    A naive bullet-character rule over raw text would corrupt every " * key: value"
+    line here (each starts with "*"); normalize leaves every field, and the already-
+    canonical title line, byte-for-byte unchanged.
+
+- id: never_touched_gherkin_star_steps
+  rule: none
+  format: scenario_file
+  entity_type: DocumentedUserStory
+  input: |
+    Scenario: Customer signs in with valid credentials
+      * a registered customer is on the login screen
+      * the customer submits valid credentials
+      * the account dashboard is displayed
+  expected: |
+    Scenario: Customer signs in with valid credentials
+      * a registered customer is on the login screen
+      * the customer submits valid credentials
+      * the account dashboard is displayed
+  note: >
+    Gherkin's "*" step keyword is never touched - only "# AC:" comment lines are
+    content in a scenario file.
+
+- id: never_touched_fenced_code_block_issue_body
+  rule: none
+  format: issue_body
+  entity_type: DocumentedFunctionality
+  input: |
+    ## Description
+
+    Example payload:
+
+    ```json
+    {"status": "active", "items": ["a", "b"]}
+    ```
+  expected: |
+    ## Description
+
+    Example payload:
+
+    ```json
+    {"status": "active", "items": ["a", "b"]}
+    ```
+  note: A fenced code block is never touched, even though it contains the word "active".
+
+- id: never_touched_tilde_fenced_code_block_issue_body
+  rule: none
+  format: issue_body
+  entity_type: DocumentedFunctionality
+  input: |
+    ## Description
+
+    Example AC header shown as a worked example:
+
+    ~~~
+    AC:US-999-01 (v9.9.9 - active)
+    ~~~
+  expected: |
+    ## Description
+
+    Example AC header shown as a worked example:
+
+    ~~~
+    AC:US-999-01 (v9.9.9 - active)
+    ~~~
+  note: A "~~~"-fenced code block is never touched either - not only the backtick form.
+
+- id: never_touched_prose_en_dash_issue_body
+  rule: none
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: |
+    ## Description
+
+    As a registered customer – who values speed – I can sign in with my email and
+    password, so that I can reach my account area.
+  expected: |
+    ## Description
+
+    As a registered customer – who values speed – I can sign in with my email and
+    password, so that I can reach my account area.
+  note: Free prose keeps its en-dashes; only structural positions are rewritten.
+
+- id: never_touched_scalar_field_feature_header
+  rule: none
+  format: feature_header
+  entity_type: DocumentedFunctionality
+  input: |
+    # source:    https://github.com/example/repo/issues/42
+    # parent:    FEAT-001
+    # func_type: field_validation
+  expected: |
+    # source:    https://github.com/example/repo/issues/42
+    # parent:    FEAT-001
+    # func_type: field_validation
+  note: Scalar keys other than "status" are never rewritten (no state lives in them).

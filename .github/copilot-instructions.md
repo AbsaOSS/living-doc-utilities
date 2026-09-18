@@ -45,13 +45,18 @@ Module map — the `living_doc_utilities/` package:
 | `model/issues.py` | `Issues` — collection wrapper: `save_to_json()` / `load_from_json()` (via `IssueFactory`), `add_issue()` / `get_issue()` / `all_issues()` / `count()`, the static `make_issue_key(org, repo, number)` |
 | `model/user_story_issue.py`, `model/feature_issue.py`, `model/functionality_issue.py` | `Issue` subtypes; `FunctionalityIssue.get_related_feature_ids()` parses the `### Associated Feature` list from the issue body |
 | `model/project_status.py` | `ProjectStatus` — per-issue GitHub Project fields (`project_title` / `status` / `priority` / `size` / `moscow`), `to_dict()` / `from_dict()` |
-| `contracts/common.py` | `ContractModel` (`extra="forbid"` pydantic base every contract model extends), `AcceptanceCriterion`, `EntityCore`, `SourceRef`, `Timestamps` |
+| `contracts/common.py` | `ContractModel` (`extra="forbid"` pydantic base every contract model extends), `AcceptanceCriterion` (plus its `canonical_header()` renderer), `EntityCore`, `SourceRef`, `Timestamps` |
 | `contracts/envelope.py` | The shared metadata envelope — `Metadata`, `Producer`, `Run`, `Source`, `Cardinality`, `Stats` / `AuditStats`, `SourceInputEntry`, `ContractWarning` — one model imported unchanged by every contract |
 | `contracts/doc_entities.py`, `contracts/doc_source.py`, `contracts/ui_tests.py` | The `doc-entities` / `doc-source` / `ui-tests` collector-output contract result models (`Entity`, `PageRef`, `Scenario`, `AcLink`) and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
 | `contracts/generator_ready.py`, `contracts/coverage_matrix.py`, `contracts/ui_test_catalog.py` | The `generator-ready` / `coverage-matrix` / `ui-test-catalog` transform-output contract result models — reuse `doc_entities.Entity` / `common.AcceptanceCriterion` / `ui_tests.Scenario` directly rather than redeclaring them — and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
 | `contracts/schema_export.py` | Generates `contracts/schemas/*.json` from the models — `python -m living_doc_utilities.contracts.schema_export`, or `make schemas` |
+| `authoring/normalize.py` | `normalize(text, fmt, entity_type)` and `normalize_title(title)` — rewrites non-canonical dashes, bullet markers, case, version form and whitespace per `SourceFormat`, never touching code, Gherkin step text, or free prose; `TYPE_PROFILES` is the only place holding which of an entity type's sections are bullet sections |
+| `authoring/ac_grammar.py` | `parse_acceptance_criteria(text, entity_id)` — the one acceptance-criterion header and extension grammar, canonical form only; the only module that validates the AC state vocabulary and version shape |
+| `authoring/normalisation_cases.yaml` | `normalize`'s only test data - one row per rule/format case, read by `tests/authoring/test_normalize_cases.py` |
 
 - Must treat the library as having no entry point — consumers import the classes and functions above directly.
+- Must keep `authoring/normalize.py` free of `if entity_type == ...` branching — type differences are data in `TYPE_PROFILES`.
+- Must keep `authoring/normalize.py` free of any regex that validates the acceptance-criterion state vocabulary or version shape — that validation lives in `authoring/ac_grammar.py` alone.
 - Must regenerate `contracts/schemas/*.json` (`make schemas`) in the same change as any `contracts/` model edit — CI's Schema Regeneration Check fails the build on any diff.
 
 Inputs — this repo owns no `INPUT_*` contract of its own; it provides the helper consumers use:

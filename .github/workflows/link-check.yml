@@ -84,6 +84,7 @@ jobs:
             --include-fragments
             --max-retries 3
             --retry-wait-time 5
+            --exclude 'https://opensource\.org/licenses/'
             './**/*.md'
           fail: true
         env:
