@@ -105,7 +105,11 @@ class NormalizedSource:
 # sits in the line. Validation lives in ac_grammar.py alone.
 
 _BULLET_START_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>[–—*•+])(?P<sp>\s)(?P<rest>.*)$")
-_DASH_SEP_CAP_RE = re.compile(r"(\s*[-–—]\s*)")
+# A dash separates header segments only when whitespace sits on at least one side -
+# otherwise it is indistinguishable from a hyphen inside a state token (e.g. the
+# "in-review" in "v1.0.0 - in-review"), which must stay intact for
+# `_canonicalize_token_case` to fold into "in_review".
+_DASH_SEP_CAP_RE = re.compile(r"(\s*[-–—]\s+|\s+[-–—]\s*)")
 _VERSION_RESHAPE_RE = re.compile(r"^[vV]?(\d+)(?:\.(\d+))?(?:\.(\d+))?$")
 _REMOVAL_PLANNED_CLAUSE_RE = re.compile(r"^removal[ \t]+planned[ \t]+(\S+)$", re.IGNORECASE)
 _AC_HEADER_FULL_RE = re.compile(r"^(?P<lead>[#*]{0,3}\s*)AC:(?P<id>\S+)\s*\((?P<inner>[^)]*)\)(?P<trail>.*)$")
@@ -234,7 +238,11 @@ def _emit(out_lines: list[str], changes: list[Change], fired: set, before: str, 
 
 _ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
 _TITLE_SEP_AFTER_ID_RE = re.compile(r"^\s*([-–—:|·])\s*")
-_TITLE_DASH_RE = re.compile(r"\s*[-–—]\s*")
+# An en/em dash is always the structural Feature-name/Functionality-name separator
+# (English compound words use a plain hyphen, never an en/em dash), so it is rewritten
+# regardless of spacing. A plain hyphen is only the same separator when whitespace sits
+# on at least one side - unspaced, it is a hyphenated word like "Password-reset".
+_TITLE_DASH_RE = re.compile(r"\s*[–—]\s*|\s*-\s+|\s+-\s*")
 _TITLE_CANONICAL_SEP = " · "
 
 
@@ -274,7 +282,14 @@ def _record_title_dash(dm: "re.Match[str]", changes: list[Change]) -> str:
 # --- per-format handlers -------------------------------------------------------------
 
 _MD_HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.*)$")
-_FENCE_OPEN_RE = re.compile(r"^\s{0,3}(?P<fence>`{3,}|~{3,})")
+# CommonMark fence syntax (spec, "Fenced code blocks"): up to three literal leading
+# spaces - a tab's larger indent disqualifies a fence marker, so this is " " not \s -
+# and a backtick fence's info string may not itself contain a backtick (a tilde fence
+# has no such restriction). Getting this wrong misclassifies which side of the fence
+# an "AC:..." line falls on, the one thing this function exists to get right for both
+# `_normalize_markdown` and `ac_grammar.py`.
+_FENCE_OPEN_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
+_FENCE_CLOSE_RE = re.compile(r"^ {0,3}(?P<fence>`+|~+)[ \t]*$")
 
 
 def compute_fence_flags(lines: list[str]) -> list[bool]:
@@ -292,7 +307,8 @@ def compute_fence_flags(lines: list[str]) -> list[bool]:
     for line in lines:
         if fence_char is None:
             m = _FENCE_OPEN_RE.match(line)
-            if m:
+            is_valid_opener = m and not (m.group("fence")[0] == "`" and "`" in m.group("info"))
+            if is_valid_opener:
                 fence_char = m.group("fence")[0]
                 fence_len = len(m.group("fence"))
                 flags.append(True)
@@ -300,8 +316,8 @@ def compute_fence_flags(lines: list[str]) -> list[bool]:
                 flags.append(False)
             continue
 
-        stripped = line.strip()
-        if len(stripped) >= fence_len and set(stripped) == {fence_char}:
+        m = _FENCE_CLOSE_RE.match(line)
+        if m and m.group("fence")[0] == fence_char and len(m.group("fence")) >= fence_len:
             fence_char = None
             fence_len = 0
         flags.append(True)
@@ -431,7 +447,10 @@ def _normalize_feature_header(lines: list[str], profile: TypeProfile, changes: l
                 continue
             _emit(out_lines, changes, fired, raw, f"#   {new_lines[0]}")
             for extra in new_lines[1:]:
-                _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", f"#     {extra}")
+                # `extra` already carries the "  " `bullet_indent` passed above; prefixing
+                # it with the same "#   " used for the AC header line (not one more "  ")
+                # keeps the canonical five spaces between "#" and "-", not seven.
+                _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", f"#   {extra}")
             continue
 
         list_key_m = _FH_KEY_LIST_RE.match(stripped)

@@ -28,6 +28,7 @@ from living_doc_utilities.authoring.normalize import (
     TYPE_PROFILES,
     NormalizedSource,
     SourceFormat,
+    compute_fence_flags,
     normalize,
     normalize_title,
 )
@@ -109,3 +110,28 @@ def test_normalize_title_preserves_text_before_the_id():
     title, _ = normalize_title("LIVING DOC — US-001 - Customer Login")
 
     assert title.startswith("LIVING DOC — US-001")
+
+
+def test_fence_flags_backtick_info_string_with_a_backtick_does_not_open_a_fence():
+    # CommonMark: a backtick fence's info string may not itself contain a backtick
+    # (a tilde fence has no such restriction) - so this is not a fence at all, and the
+    # "AC:" line below it is live content, not a quoted example.
+    lines = ["```lang`with`backtick", "AC:US-001-01 (v1.0.0 - active)", "```"]
+
+    assert compute_fence_flags(lines) == [False, False, True]
+
+
+def test_fence_flags_tab_indented_marker_does_not_open_a_fence():
+    # CommonMark: a fence marker may be indented by at most three spaces; a tab
+    # advances to the next 4-space tab stop, so it disqualifies the marker.
+    lines = ["\t```", "AC:US-001-01 (v1.0.0 - active)", "```"]
+
+    assert compute_fence_flags(lines) == [False, False, True]
+
+
+def test_fence_flags_over_indented_closer_does_not_close_the_fence():
+    # CommonMark: a closing fence may be indented by at most three spaces; four or
+    # more leaves the block open, so the line after it is still inside the fence.
+    lines = ["```", "AC:US-001-01 (v1.0.0 - active) example inside the fence", "    ```", "still inside"]
+
+    assert compute_fence_flags(lines) == [True, True, True, True]

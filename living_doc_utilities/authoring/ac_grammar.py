@@ -67,6 +67,15 @@ _AC_PREFIX_RE = re.compile(r"^AC:")
 # declaration and the entire scenario body into its own block.
 _SECTION_BANNER_RE = re.compile(r"^=+$")
 
+# An issue-body Markdown section heading ("## Preconditions", "## Not In Scope", ...) -
+# another hard boundary for an AC's block, the same way a fresh "AC:" header or a
+# feature-header "====" banner already is. Checked against the *raw* line, never the
+# comment-leader-stripped one: `_COMMENT_LEADER_RE` would strip a heading's own "##"
+# indistinguishably from a feature-header block's single-"#" comment prefix, so the
+# minimum of two "#" here is what keeps this from firing on every feature-header/
+# scenario-file AC-block line (those never use a doubled leader).
+_MD_SECTION_HEADING_RE = re.compile(r"^#{2,6}\s+\S")
+
 _REMOVAL_PLANNED_RE = re.compile(r"^removal planned (?P<version>\S+)$")
 _BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
 _SUBLIST_KEY_RE = re.compile(r"^(?P<key>preconditions|not_in_scope):\s*$")
@@ -222,6 +231,19 @@ def _build_ac(
 
     is_legacy_descoped = state == _LEGACY_DESCOPED_STATE
     if is_legacy_descoped:
+        legacy_shape_valid = (
+            removal_planned is None and version is not None and _VERSION_RE.match(version) is not None
+        )
+        if not legacy_shape_valid:
+            warnings.append(
+                ContractWarning(
+                    code=MALFORMED_AC,
+                    message="Legacy 'descoped' acceptance criterion requires the strict versioned form "
+                    "'vX.Y.Z - descoped'.",
+                    context=context,
+                )
+            )
+            return None, warnings
         warnings.append(
             ContractWarning(
                 code=LEGACY_AC_STATE,
@@ -354,6 +376,8 @@ def parse_acceptance_criteria(
                 continue
             candidate = cleaned_lines[cursor].strip()
             if _AC_PREFIX_RE.match(candidate) or _SECTION_BANNER_RE.match(candidate):
+                break
+            if _MD_SECTION_HEADING_RE.match(raw_lines[cursor].strip()):
                 break
             if candidate != "":
                 block.append(cleaned_lines[cursor])
