@@ -28,6 +28,7 @@ from typing import Optional, get_args
 
 from pydantic import ValidationError
 
+from living_doc_utilities.authoring.normalize import compute_fence_flags
 from living_doc_utilities.contracts.common import (
     AC_ID_PATTERN,
     PLACEHOLDER_NAME_PATTERN,
@@ -35,7 +36,6 @@ from living_doc_utilities.contracts.common import (
     AcceptanceCriterion,
     LifecycleState,
 )
-from living_doc_utilities.authoring.normalize import compute_fence_flags
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 MALFORMED_AC = "MALFORMED_AC"
