@@ -11,7 +11,7 @@ PYLINT_MIN  ?= 9.5
 COV_MIN     ?= 80
 
 .DEFAULT_GOAL := help
-.PHONY: help install qa lint format format-check types test coverage test-unit test-integration schemas docs
+.PHONY: help install qa lint format format-check types test coverage test-unit test-integration schemas docs no-vendored-schemas
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -21,7 +21,7 @@ install: ## Install runtime and development dependencies.
 	$(PIP) install -r requirements.txt
 	$(PIP) install -e . --no-deps
 
-qa: format-check lint types coverage ## Run the full quality gate (format, lint, types, tests + coverage).
+qa: format-check lint types coverage no-vendored-schemas ## Run the full quality gate (format, lint, types, tests + coverage).
 
 format: ## Reformat all tracked Python files (ruff autofix + Black).
 	ruff check --fix $(PY_FILES)
@@ -51,6 +51,9 @@ test-integration: ## Run only integration tests (cross-authoring-module, still s
 
 schemas: ## Regenerate the contract JSON Schemas from the pydantic models (docs/contracts.md).
 	$(PYTHON) -m living_doc_utilities.contracts.schema_export
+
+no-vendored-schemas: ## R12 check 1: fail on any committed schema file outside tests/ and this package's own schemas dir.
+	$(PYTHON) -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas
 
 docs: ## Regenerate docs/authoring.md's worked-examples table from normalisation_cases.yaml.
 	$(PYTHON) -m living_doc_utilities.authoring.docs_export
