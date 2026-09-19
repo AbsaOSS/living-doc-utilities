@@ -101,7 +101,6 @@ Repo specifics
   - Prefer README.md, DEVELOPER.md, and CONTRIBUTING.md for contract and contributor-facing documentation.
 - Contract-sensitive outputs
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).
-  - JSON serialization keys/structure in living_doc_utilities/model.
   - living_doc_utilities/contracts/ pydantic models and their generated living_doc_utilities/contracts/schemas/*.json, normatively defined in docs/contracts.md.
 - High-risk areas
   - GitHub API usage: rate limiting and missing permission scenarios.

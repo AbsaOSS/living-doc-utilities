@@ -61,7 +61,7 @@ jobs:
             changed_files=$(git diff --name-only "${{ github.sha }}~1" "${{ github.sha }}")
           fi
 
-          if echo "$changed_files" | grep -E '(\.py$|(^|/)requirements(-dev)?\.txt$|(^|/)pyproject\.toml$|^scripts/)' > /dev/null; then
+          if echo "$changed_files" | grep -E '(\.py$|(^|/)requirements(-dev)?\.txt$|(^|/)pyproject\.toml$|^Makefile$|^scripts/)' > /dev/null; then
             echo "python_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "python_changed=false" >> "$GITHUB_OUTPUT"

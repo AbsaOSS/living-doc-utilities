@@ -64,13 +64,15 @@ def safe_call_decorator(rate_limiter: GithubRateLimiter) -> Callable:
     """
 
     def decorator(method: Callable) -> Callable:
+        rate_limited_method = rate_limiter(method)
+
         # Note: Keep the log decorator first to log the correct method name.
         @debug_log_decorator
         @wraps(method)
-        @rate_limiter
         def wrapped(*args, **kwargs) -> Optional[Any]:
+            # The rate-limit lookup runs inside the try, so a failure there is logged like any other.
             try:
-                return method(*args, **kwargs)
+                return rate_limited_method(*args, **kwargs)
             except (ConnectionError, Timeout) as e:
                 logger.error("Network error calling %s: %s.", method.__name__, e, exc_info=True)
                 raise

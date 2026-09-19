@@ -24,7 +24,7 @@ that the collectors and generators import instead of re-implementing.
 - Must treat this repo as a library that is consumed by the other `living-doc-*` repos; it is not run directly, has no CLI, and has no GitHub Action entry point.
 - Must treat every public class and function as an import surface — there is no `main.py` / `run()`.
 - Must keep the library AI-free — deterministic Python only, no LLM call anywhere.
-- Must keep environment access confined to `logging_config.setup_logging()` and `github/utils.get_action_input()`; Must keep `contracts/` and `authoring/` free of environment reads.
+- Must keep environment access confined to `logging_config.setup_logging()`, `github/utils.get_action_input()`, and `github/utils.set_action_output()` (which writes to the file named by `GITHUB_OUTPUT`); Must keep `contracts/` and `authoring/` free of environment reads.
 - Must treat `contracts/` as the shared, typed pydantic models of the doc-entities / doc-source / ui-tests / generator-ready / coverage-matrix / ui-test-catalog contracts (see `docs/contracts.md`), and `authoring/` as the pure `text -> data` layer that reads authored documents into them (see `docs/authoring.md`).
 - Must not import from any collector, toolkit, or generator package — dependencies run one way, from those repos into this one.
 
@@ -89,7 +89,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Prefer explicit code over clever constructs.
 - Must keep externally visible behaviour stable unless the task is an intentional contract change.
 - Must not change existing log texts or error messages without a stated reason.
-- Prefer pure functions for contract and parser logic, and Avoid reading the environment outside `setup_logging()` and `get_action_input()`.
+- Prefer pure functions for contract and parser logic, and Avoid reading the environment outside `setup_logging()`, `get_action_input()`, and `set_action_output()`.
 
 ## Inputs
 
@@ -168,6 +168,6 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 
 ## Learned rules
 
-- Must keep `safe_call_decorator` logging with `exc_info=True` and then re-raising each of `ConnectionError` / `Timeout`, `GithubException`, `RequestException`, and any other `Exception` — a swallowed failure hides a real error behind a `None` that a caller reads as "no data".
+- Must keep `safe_call_decorator` logging with `exc_info=True` and then re-raising each of `ConnectionError` / `Timeout`, `GithubException`, `RequestException`, and any other `Exception`, including one raised by the rate limiter's own lookup — Must keep the rate limiter inside the `try`; a swallowed or unlogged failure hides a real error behind a `None` (or nothing) that a caller reads as "no data".
 - Must keep the function-level `import nh3  # pylint: disable=import-outside-toplevel` in `authoring/url_policy.py` — it is what lets every `authoring` module import without the `html` extra; Must not add another function-level import elsewhere.
 - Must keep error messages stable where downstream tests assert exact strings.

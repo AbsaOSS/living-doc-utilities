@@ -158,3 +158,21 @@ def test_safe_call_decorator_exception(rate_limiter, mocker):
     assert "sample_method" == args[2]
     assert args[3] is excinfo.value
     assert kwargs["exc_info"]
+
+
+def test_safe_call_decorator_logs_and_reraises_rate_limit_lookup_failure(rate_limiter, mocker):
+    mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
+    error = GithubException(401, {"message": "Bad credentials"}, {})
+    rate_limiter.github_client.get_rate_limit.side_effect = error
+    wrapped_call = mocker.Mock(__name__="sample_method")
+
+    with pytest.raises(GithubException) as excinfo:
+        safe_call_decorator(rate_limiter)(wrapped_call)()
+
+    args, kwargs = mock_log_error.call_args
+    assert excinfo.value is error
+    assert 1 == mock_log_error.call_count
+    assert "GitHub API error calling %s: %s." == args[0]
+    assert "sample_method" == args[1]
+    assert kwargs["exc_info"]
+    wrapped_call.assert_not_called()
