@@ -236,6 +236,10 @@ def test_malformed_path_inside_source_inputs_audit_field_occupancy_fails(malform
 # Cross-field model_validator rules, mirrored into the schema as allOf if/then/else
 # (_inject_cross_field_constraints): each invalid payload must be rejected by both
 # Pydantic and a plain jsonschema validator, not just by Pydantic.
+#
+# Key-*omission* parity for these same rules (dropping a field entirely, rather than setting
+# it to an explicit invalid value) is tested once, generically, in test_omission_parity.py -
+# not per rule here.
 # ---------------------------------------------------------------------------
 
 
@@ -307,18 +311,6 @@ def test_pages_without_exactly_one_primary_is_rejected_by_pydantic_and_jsonschem
         jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
 
 
-def test_pages_primary_omitted_entirely_is_rejected_by_jsonschema_too():
-    # Before the `contains` subschema required "is_primary", an item that omitted the field
-    # vacuously satisfied the const:true check (JSON Schema's "properties" is a no-op on an
-    # absent key), so a pages list with no explicit primary at all wrongly passed jsonschema
-    # even though Pydantic defaults is_primary=False and rejects it (0 primaries found).
-    data = _instance_dict_with_entities([factories.feature()])
-    del data["entities"][0]["pages"][0]["is_primary"]
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
-
-
 def test_ac_coverage_covered_status_with_a_not_covered_aspect_is_rejected_by_pydantic_and_jsonschema():
     with pytest.raises(ValidationError, match="status must be 'partially_covered'"):
         factories.ac_coverage(status="covered", aspects=[factories.aspect_coverage(status="not_covered")])
@@ -345,17 +337,6 @@ def test_ac_coverage_partially_covered_status_with_no_aspects_is_rejected_by_pyd
         jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
 
 
-def test_ac_coverage_with_aspects_key_omitted_entirely_is_accepted_by_jsonschema():
-    # Mirrors test_pages_primary_omitted_entirely_is_rejected_by_jsonschema_too's lesson: the
-    # third allOf block's "if" needs "required": ["aspects"] alongside minItems/contains, or it
-    # vacuously matches an instance that omits the key too and forces partially_covered while
-    # the first block simultaneously restricts status to covered/not_covered.
-    data = _coverage_matrix_instance_dict()
-    del data["entities"][0]["acceptance_criteria"][0]["aspects"]
-
-    jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
-
-
 def test_ac_coverage_with_a_malformed_ac_id_is_rejected_by_pydantic_and_jsonschema():
     with pytest.raises(ValidationError):
         factories.ac_coverage(ac_id="US-001-anything")
@@ -376,19 +357,6 @@ def test_aspect_coverage_covered_status_with_no_scenario_ids_is_rejected_by_pyda
     data["entities"][0]["acceptance_criteria"][0]["aspects"] = [
         {"aspect": "checkout", "status": "covered", "scenario_ids": []}
     ]
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
-
-
-def test_aspect_coverage_with_scenario_ids_key_omitted_entirely_is_rejected_by_jsonschema_too():
-    # Same omitted-key lesson as test_ac_coverage_with_aspects_key_omitted_entirely - "then"
-    # needs "required": ["scenario_ids"] alongside minItems, or an omitted key vacuously passes.
-    data = _coverage_matrix_instance_dict()
-    data["entities"][0]["acceptance_criteria"][0]["status"] = "covered"
-    aspect = {"aspect": "checkout", "status": "covered", "scenario_ids": ["SCN-001"]}
-    del aspect["scenario_ids"]
-    data["entities"][0]["acceptance_criteria"][0]["aspects"] = [aspect]
 
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
@@ -456,43 +424,6 @@ def test_collector_output_with_empty_source_inputs_still_passes_jsonschema():
     assert data["metadata"]["source_inputs"] == []
 
     jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
-
-
-def _transform_instance_dict(contract_id: str) -> dict:
-    if contract_id == generator_ready.CONTRACT_ID:
-        result = generator_ready.GeneratorReadyResult(
-            metadata=factories.transform_metadata(),
-            document=factories.generator_ready_document(),
-            content=generator_ready.Content(entities=[factories.user_story()]),
-        )
-    elif contract_id == coverage_matrix.CONTRACT_ID:
-        result = coverage_matrix.CoverageMatrixResult(
-            metadata=factories.transform_metadata(),
-            document=factories.coverage_matrix_document(),
-            entities=[factories.entity_coverage()],
-            planned_summary=factories.planned_summary(),
-        )
-    else:
-        result = ui_test_catalog.UiTestCatalogResult(
-            metadata=factories.transform_metadata(),
-            document=factories.ui_test_catalog_document(),
-            feature_files=[factories.feature_file_catalog()],
-        )
-    return json.loads(result.model_dump_json())
-
-
-@pytest.mark.parametrize(
-    "contract_id",
-    [generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID],
-)
-def test_transform_output_with_source_inputs_key_omitted_entirely_is_rejected_by_jsonschema(contract_id):
-    # minItems alone is a no-op on an absent key - the "required" entry added alongside it
-    # (schema_export._inject_cross_field_constraints) is what actually closes this.
-    data = _transform_instance_dict(contract_id)
-    del data["metadata"]["source_inputs"]
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(contract_id))
 
 
 # ---------------------------------------------------------------------------

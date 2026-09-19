@@ -67,6 +67,18 @@ _CONTRACTS: dict[str, tuple[type[BaseModel], dict[str, type[BaseModel]]]] = {
 }
 
 
+def record_roots(contract_id: str) -> dict[str, type[BaseModel]]:
+    """
+    @param contract_id: one of the six contracts' CONTRACT_ID (e.g. "doc-entities-v1.0.0").
+    @return: that contract's RECORD_ROOTS declaration.
+    @raises ValueError: `contract_id` is not one of the six known contract ids.
+    """
+    try:
+        return _CONTRACTS[contract_id][1]
+    except KeyError:
+        raise ValueError(f"unknown contract id {contract_id!r}; expected one of {sorted(_CONTRACTS)!r}") from None
+
+
 def read_artifact(path: Union[str, Path], expected: Union[str, set[str]]) -> ContractResult:
     """
     The only sanctioned way to read a contract artifact (R12): loads the JSON at `path`,

@@ -76,6 +76,23 @@ except ContractError as error:
 write_artifact(result, "out/doc-entities.json")  # stats + producer version filled in for you
 ```
 
+Three shared helpers back the R12 checks every component runs (docs/contracts.md, R11 and R12):
+
+- `living_doc_utilities.contracts.testing.full_sample(contract_id)` returns a deterministic, valid instance of
+  any of the six contracts, built from state-consistent records that jointly populate every optional
+  field; it takes no `view` (transforms filter it, generators set `document.view`).
+  `shown_paths(contract_id, view)` returns the field paths the rendering rules (section 4) show in
+  `"inner"` or `"release"`, for the three contracts a generator renders (`generator-ready`,
+  `coverage-matrix`, `ui-test-catalog`).
+- `living_doc_utilities.contracts.lineage` holds the machinery for a transform's own field-lineage
+  table: `LineageTable`, `Dropped`, `assert_complete(table, input_contract)` (takes a contract id or its `RECORD_ROOTS`; fails on any
+  input leaf path the table says nothing about) and `check_field_loss(table, input_selected_stats,
+  output_stats)` (raises one `FIELD_LOSS` naming every mapped path with input occupancy above 0 and output 0).
+  The tables themselves live with the transform, not here.
+- `python -m living_doc_utilities.contracts.check_no_vendored_schemas [--allow DIR]`, run from a
+  repository root, fails on any git-tracked `*-schema.json` / `*.schema.json` outside `tests/` and the
+  allowed directories; this package runs it with `--allow living_doc_utilities/contracts/schemas`.
+
 Every error and warning code either of these — or any other component in the ecosystem — can
 raise or emit is registered once, with its kind and its emitting component, in
 `living_doc_utilities.contracts.codes.ALL_CODES`.
