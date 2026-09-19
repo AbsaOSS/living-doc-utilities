@@ -31,8 +31,8 @@ general check.
 This module is that one general check: for every optional/defaulted field a rule in
 `_inject_cross_field_constraints` touches, it takes `full_sample(contract)`, drops that one
 key, and asserts a plain `jsonschema.validate` agrees with what the Pydantic model does for
-the same omission (constructed with the key omitted) - whichever way that agreement goes; the
-point is that they never diverge. This is the only place this repository tests key-omission
+the same omission (constructed with the key omitted), and that both match the outcome the rule
+contract requires (`OmissionCase.rejected`): they must never diverge, and never agree on the wrong answer. This is the only place this repository tests key-omission
 parity; PR #131's one-off tests (`test_pages_primary_omitted_entirely_is_rejected_by_jsonschema_too`
 and its siblings) were the worked examples this generalizes and have been removed in its
 favour.
@@ -68,33 +68,46 @@ class OmissionCase:
     """One optional/defaulted field a schema_export cross-field rule touches: `contract_id`
     identifies which contract's full_sample to build and which schema to validate against;
     `path` locates the field inside that sample's dumped JSON, as a sequence of dict keys and
-    list indices."""
+    list indices; `rejected` is what the rule contract says omitting that key must do, so the test
+    catches both validators being wrong the same way, not just diverging."""
 
     case_id: str
     contract_id: str
     path: tuple[PathKey, ...]
+    rejected: bool
 
 
 CASES = [
     # Entity._check_pages_have_exactly_one_primary (PageRef.is_primary): dropping the only
     # primary page's is_primary must be rejected by both - PR #131's original defect.
     OmissionCase(
-        "pages_is_primary_on_the_primary_page", doc_entities.CONTRACT_ID, ("entities", 2, "pages", 0, "is_primary")
+        "pages_is_primary_on_the_primary_page",
+        doc_entities.CONTRACT_ID,
+        ("entities", 2, "pages", 0, "is_primary"),
+        rejected=True,
     ),
     # Entity._check_stub_reason_is_feature_only (Entity.stub_reason): omitting it is harmless
     # on a Feature (it already has a value; None or absent are both fine) and on a non-Feature
     # (it is already None).
-    OmissionCase("stub_reason_on_a_feature", doc_entities.CONTRACT_ID, ("entities", 2, "stub_reason")),
-    OmissionCase("stub_reason_on_a_non_feature", doc_entities.CONTRACT_ID, ("entities", 0, "stub_reason")),
+    OmissionCase(
+        "stub_reason_on_a_feature", doc_entities.CONTRACT_ID, ("entities", 2, "stub_reason"), rejected=False
+    ),
+    OmissionCase(
+        "stub_reason_on_a_non_feature", doc_entities.CONTRACT_ID, ("entities", 0, "stub_reason"), rejected=False
+    ),
     # AcceptanceCriterion._check_version_required_unless_planned (AcceptanceCriterion.version):
     # required unless planned; optional (targeted or not) when planned.
     OmissionCase(
-        "ac_version_on_a_non_planned_ac", doc_entities.CONTRACT_ID, ("entities", 0, "acceptance_criteria", 0, "version")
+        "ac_version_on_a_non_planned_ac",
+        doc_entities.CONTRACT_ID,
+        ("entities", 0, "acceptance_criteria", 0, "version"),
+        rejected=True,
     ),
     OmissionCase(
         "ac_version_on_a_targeted_planned_ac",
         doc_entities.CONTRACT_ID,
         ("entities", 0, "acceptance_criteria", 1, "version"),
+        rejected=False,
     ),
     # AcceptanceCriterion._check_removal_planned_only_when_deprecated (removal_planned):
     # required when deprecated; must stay unset otherwise.
@@ -102,39 +115,63 @@ CASES = [
         "ac_removal_planned_on_a_deprecated_ac",
         doc_entities.CONTRACT_ID,
         ("entities", 1, "acceptance_criteria", 0, "removal_planned"),
+        rejected=True,
     ),
     OmissionCase(
         "ac_removal_planned_on_a_non_deprecated_ac",
         doc_entities.CONTRACT_ID,
         ("entities", 0, "acceptance_criteria", 0, "removal_planned"),
+        rejected=False,
     ),
-    # AcCoverage._check_status_matches_aspects (AcCoverage.aspects, AcCoverage.scenario_ids).
+    # AcCoverage._check_status_matches_aspects (AcCoverage.aspects, AcCoverage.scenario_ids):
+    # without aspects a `covered` status needs scenario_ids, so dropping the aspects (which leaves
+    # scenario_ids empty) is rejected; with aspects present the AC-level scenario_ids is irrelevant.
     OmissionCase(
         "ac_coverage_aspects_with_a_covered_status",
         coverage_matrix.CONTRACT_ID,
         ("entities", 0, "acceptance_criteria", 0, "aspects"),
+        rejected=True,
     ),
     OmissionCase(
         "ac_coverage_scenario_ids_with_aspects_present",
         coverage_matrix.CONTRACT_ID,
         ("entities", 0, "acceptance_criteria", 0, "scenario_ids"),
+        rejected=False,
     ),
     OmissionCase(
         "ac_coverage_scenario_ids_without_aspects",
         coverage_matrix.CONTRACT_ID,
         ("entities", 1, "acceptance_criteria", 0, "scenario_ids"),
+        rejected=True,
     ),
-    # AspectCoverage._check_status_matches_scenario_ids (AspectCoverage.scenario_ids).
+    # AspectCoverage._check_status_matches_scenario_ids (AspectCoverage.scenario_ids): a covered
+    # aspect needs at least one scenario.
     OmissionCase(
         "aspect_coverage_scenario_ids_with_a_covered_status",
         coverage_matrix.CONTRACT_ID,
         ("entities", 0, "acceptance_criteria", 0, "aspects", 0, "scenario_ids"),
+        rejected=True,
     ),
     # Metadata.source_inputs: required with minItems 1 on transform outputs only (R7) - one
     # case per transform contract, since the rule is injected conditionally per contract id.
-    OmissionCase("source_inputs_on_generator_ready", generator_ready.CONTRACT_ID, ("metadata", "source_inputs")),
-    OmissionCase("source_inputs_on_coverage_matrix", coverage_matrix.CONTRACT_ID, ("metadata", "source_inputs")),
-    OmissionCase("source_inputs_on_ui_test_catalog", ui_test_catalog.CONTRACT_ID, ("metadata", "source_inputs")),
+    OmissionCase(
+        "source_inputs_on_generator_ready",
+        generator_ready.CONTRACT_ID,
+        ("metadata", "source_inputs"),
+        rejected=True,
+    ),
+    OmissionCase(
+        "source_inputs_on_coverage_matrix",
+        coverage_matrix.CONTRACT_ID,
+        ("metadata", "source_inputs"),
+        rejected=True,
+    ),
+    OmissionCase(
+        "source_inputs_on_ui_test_catalog",
+        ui_test_catalog.CONTRACT_ID,
+        ("metadata", "source_inputs"),
+        rejected=True,
+    ),
 ]
 
 
@@ -172,4 +209,9 @@ def test_omitting_the_key_entirely_is_treated_the_same_by_pydantic_and_jsonschem
     assert pydantic_rejects == jsonschema_rejects, (
         f"{case.case_id}: pydantic {'rejects' if pydantic_rejects else 'accepts'} the omission, "
         f"jsonschema {'rejects' if jsonschema_rejects else 'accepts'} it - they must agree"
+    )
+    assert pydantic_rejects == case.rejected, (
+        f"{case.case_id}: the rule contract says the omission must be "
+        f"{'rejected' if case.rejected else 'accepted'}, but both validators "
+        f"{'reject' if pydantic_rejects else 'accept'} it"
     )

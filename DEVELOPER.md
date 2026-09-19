@@ -44,7 +44,7 @@ repo. Run the whole gate before opening a pull request:
 make qa
 ```
 
-`make qa` runs `format-check` → `lint` → `types` → `coverage` and fails on the first
+`make qa` runs `format-check` → `lint` → `types` → `coverage` → `no-vendored-schemas` and fails on the first
 failing gate. The individual targets are also available while iterating:
 
 | Target | Runs | Gate |
@@ -56,6 +56,7 @@ failing gate. The individual targets are also available while iterating:
 | `make test` | pytest, unit tests only | pass |
 | `make coverage` | pytest with the coverage gate | `--cov-fail-under=80` |
 | `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
+| `make no-vendored-schemas` | `python -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas` (R12 check 1) | no git-tracked `*-schema.json` / `*.schema.json` outside `tests/` and this package's own schemas dir; files not yet `git add`ed are not seen |
 | `make docs` | regenerates `docs/authoring.md`'s worked-examples table from `normalisation_cases.yaml` | committed table byte-for-byte up to date |
 
 The sections below explain each tool in more detail and how to scope it to a single file.

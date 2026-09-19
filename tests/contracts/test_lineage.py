@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import lineage
+from living_doc_utilities.contracts import doc_entities, lineage, schema_export
 from living_doc_utilities.contracts.codes import Code, ContractError
 from living_doc_utilities.contracts.envelope import AuditStats, Cardinality, Stats
 from living_doc_utilities.contracts.lineage import Dropped, LineageTable
@@ -64,6 +64,20 @@ def test_assert_complete_passes_when_every_leaf_path_is_explicitly_dropped():
     lineage.assert_complete(table, _SYNTHETIC_ROOTS)  # must not raise
 
 
+def test_assert_complete_accepts_a_contract_id_in_place_of_its_record_roots():
+    every_path = schema_export.field_occupancy_paths(doc_entities.RECORD_ROOTS)
+    complete = LineageTable({path: Dropped("not carried") for path in every_path})
+
+    lineage.assert_complete(complete, doc_entities.CONTRACT_ID)  # must not raise
+    with pytest.raises(AssertionError, match=r"entities\[\]\.entity_id"):
+        lineage.assert_complete(LineageTable({}), doc_entities.CONTRACT_ID)
+
+
+def test_assert_complete_rejects_an_unknown_contract_id():
+    with pytest.raises(ValueError, match="unknown contract id"):
+        lineage.assert_complete(LineageTable({}), "not-a-contract-v1.0.0")
+
+
 # ---------------------------------------------------------------------------
 # check_field_loss
 # ---------------------------------------------------------------------------
@@ -82,6 +96,21 @@ def test_check_field_loss_raises_field_loss_for_a_mapped_path_with_input_gt_0_ou
     assert "items[].a" in message
     assert "out[].a" in message
     assert "3" in message
+
+
+def test_check_field_loss_reports_every_lost_path_in_one_error():
+    table = LineageTable({"items[].a": "out[].a", "items[].b": "out[].b", "items[].c": "out[].c"})
+    input_selected_stats = AuditStats(
+        cardinality=Cardinality(), field_occupancy={"items[].a": 3, "items[].b": 2, "items[].c": 1}
+    )
+    output_stats = Stats(cardinality=Cardinality(), field_occupancy={"out[].b": 2})
+
+    with pytest.raises(ContractError) as exc_info:
+        lineage.check_field_loss(table, input_selected_stats, output_stats)
+
+    message = str(exc_info.value)
+    assert "items[].a" in message and "items[].c" in message
+    assert "items[].b" not in message
 
 
 def test_check_field_loss_raises_when_the_mapped_output_path_is_entirely_absent():

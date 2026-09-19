@@ -186,6 +186,22 @@ def test_shown_paths_shows_removal_planned_in_both_views():
         assert "content.entities[].acceptance_criteria[].removal_planned" in testing.shown_paths(_CID, view)
 
 
+def test_shown_paths_shows_ac_header_and_deprecated_badge_state_and_version_in_both_views():
+    for view in (_INNER, _RELEASE):
+        shown = testing.shown_paths(_CID, view)
+        assert "content.entities[].acceptance_criteria[].state" in shown
+        assert "content.entities[].acceptance_criteria[].version" in shown
+
+
+def test_shown_paths_shows_a_planned_ac_only_as_a_record_the_release_filter_drops():
+    # "planned vX.Y.Z" / "backlog" are inner-only because release drops planned ACs as records (a
+    # transform's job), not because a path is hidden; the label is rendered from state + version.
+    planned = [ac for entity in testing.full_sample(_CID).content.entities for ac in entity.acceptance_criteria]
+    assert any(ac.state == "planned" and ac.version is not None for ac in planned)
+    assert any(ac.state == "planned" and ac.version is None for ac in planned)
+    assert "content.entities[].acceptance_criteria[].version" in testing.shown_paths(_CID, _INNER)
+
+
 def test_shown_paths_shows_ac_aspect_in_both_views():
     for view in (_INNER, _RELEASE):
         assert "content.entities[].acceptance_criteria[].aspect[]" in testing.shown_paths(_CID, view)
@@ -213,8 +229,28 @@ def test_shown_paths_hides_source_ref_native_type_and_tracker_state_in_both_view
 
 
 def test_shown_paths_rejects_an_unsupported_contract():
-    with pytest.raises(ValueError, match="generator-ready"):
-        testing.shown_paths(coverage_matrix.CONTRACT_ID, _INNER)
+    with pytest.raises(ValueError, match="only supports"):
+        testing.shown_paths(doc_entities.CONTRACT_ID, _INNER)
+
+
+def test_shown_paths_coverage_matrix_shows_aspect_breakdown_in_both_views_and_planned_summary_in_inner_only():
+    both = {
+        "entities[].acceptance_criteria[].status",
+        "entities[].acceptance_criteria[].aspects[].aspect",
+        "entities[].acceptance_criteria[].aspects[].status",
+    }
+    planned_summary = {"planned_summary.total", "planned_summary.backlog", "planned_summary.by_target_version"}
+    inner = testing.shown_paths(coverage_matrix.CONTRACT_ID, _INNER)
+    release = testing.shown_paths(coverage_matrix.CONTRACT_ID, _RELEASE)
+
+    assert both <= inner and both <= release
+    assert planned_summary <= inner
+    assert not planned_summary & release
+
+
+def test_shown_paths_ui_test_catalog_has_no_view_dependent_rows():
+    for view in (_INNER, _RELEASE):
+        assert testing.shown_paths(ui_test_catalog.CONTRACT_ID, view) == set()
 
 
 def test_shown_paths_rejects_an_unknown_view():

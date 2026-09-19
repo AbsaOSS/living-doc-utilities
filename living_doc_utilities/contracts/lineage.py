@@ -30,7 +30,7 @@ from typing import Mapping, Union
 
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import schema_export
+from living_doc_utilities.contracts import io, schema_export
 from living_doc_utilities.contracts.codes import Code, ContractError
 from living_doc_utilities.contracts.envelope import AuditStats, Stats
 
@@ -56,18 +56,20 @@ class LineageTable:
     entries: Mapping[str, LineageEntry]
 
 
-def assert_complete(table: LineageTable, input_contract: dict[str, type[BaseModel]]) -> None:
+def assert_complete(table: LineageTable, input_contract: Union[str, dict[str, type[BaseModel]]]) -> None:
     """
     R11: "a new contract field cannot ship without anyone deciding where it goes." Fails when
     `input_contract` has a leaf path that `table` says nothing about at all - neither mapped
     to an output path nor explicitly marked Dropped.
 
     @param table: the transform's own lineage table.
-    @param input_contract: the input contract's RECORD_ROOTS declaration (its own module's
-        constant), used the same way schema_export and stats read a contract's shape.
+    @param input_contract: the input contract's CONTRACT_ID (e.g. "doc-entities-v1.0.0"), or its
+        RECORD_ROOTS declaration directly, as schema_export and stats read a contract's shape.
     @raises AssertionError: naming every input leaf path the table has no entry for.
+    @raises ValueError: `input_contract` is a contract id that is not one of the six known ids.
     """
-    expected_paths = set(schema_export.field_occupancy_paths(input_contract))
+    record_roots = io.record_roots(input_contract) if isinstance(input_contract, str) else input_contract
+    expected_paths = set(schema_export.field_occupancy_paths(record_roots))
     missing = expected_paths - table.entries.keys()
     if missing:
         raise AssertionError(f"lineage table is missing an entry for: {sorted(missing)}")
@@ -79,7 +81,7 @@ def check_field_loss(table: LineageTable, input_selected_stats: AuditStats, outp
     the ones marked Dropped, which are a legitimate, declared omission rather than a loss), a
     mapped path with non-zero input occupancy and zero output occupancy means the transform
     silently lost a field that was actually authored - raised as `FIELD_LOSS` naming the path
-    and both occupancies. `input_selected_stats` must already be the occupancy computed over
+    and both occupancies, for every such path in one error. `input_selected_stats` must already be the occupancy computed over
     the records the transform's view filter *kept* for this input (R7's `selected_stats`), so
     a record dropped by a legitimate view filter is never mistaken for a field loss.
 
@@ -87,9 +89,10 @@ def check_field_loss(table: LineageTable, input_selected_stats: AuditStats, outp
     @param input_selected_stats: the input's `selected_stats` for this run (R7) - occupancy
         over the records the view filter kept, not the input's raw, unfiltered occupancy.
     @param output_stats: the transform output's own `metadata.stats`.
-    @raises ContractError: FIELD_LOSS, naming the path, the input occupancy and the output
-        occupancy, for the first mapped path found lost.
+    @raises ContractError: FIELD_LOSS, naming every lost path with its input occupancy and its
+        mapped output path's occupancy.
     """
+    lost = []
     for input_path, entry in table.entries.items():
         if isinstance(entry, Dropped):
             continue
@@ -97,8 +100,9 @@ def check_field_loss(table: LineageTable, input_selected_stats: AuditStats, outp
         input_occupancy = input_selected_stats.field_occupancy.get(input_path, 0)
         output_occupancy = output_stats.field_occupancy.get(output_path, 0)
         if input_occupancy > 0 and output_occupancy == 0:
-            raise ContractError(
-                Code.FIELD_LOSS,
+            lost.append(
                 f"'{input_path}' had occupancy {input_occupancy} on input but its mapped "
-                f"output path '{output_path}' has occupancy 0",
+                f"output path '{output_path}' has occupancy 0"
             )
+    if lost:
+        raise ContractError(Code.FIELD_LOSS, "; ".join(lost))

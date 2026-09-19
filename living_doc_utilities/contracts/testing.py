@@ -411,6 +411,12 @@ _SHOWN_BOTH_VIEWS = frozenset(
         f"{_ENTITY_PATH}acceptance_criteria[].not_in_scope[]",
         f"{_ENTITY_PATH}acceptance_criteria[].preconditions[]",
         f"{_ENTITY_PATH}acceptance_criteria[].removal_planned",
+        # AC header (always canonical_header()), the AC's deprecated badge and, for a planned AC, the
+        # "planned vX.Y.Z" / "backlog" label all read state + version. A planned AC only ever reaches a
+        # generator in the inner view (the release filter drops it as a record), so the label needs no
+        # separate inner-only path.
+        f"{_ENTITY_PATH}acceptance_criteria[].state",
+        f"{_ENTITY_PATH}acceptance_criteria[].version",
         f"{_ENTITY_PATH}acceptance_criteria[].aspect[]",
         f"{_ENTITY_PATH}acceptance_criteria[].rationale",
         f"{_ENTITY_PATH}acceptance_criteria[].placeholder_values",
@@ -432,6 +438,17 @@ _SHOWN_INNER_ONLY = frozenset(
 # Never shown in either view (docs/contracts.md section 4): source_ref.native_type,
 # source_ref.tracker_state - simply never added to either set above.
 
+# coverage-matrix (docs/contracts.md section 4, "Coverage"): per-aspect coverage rows are presented
+# in both views; the planned summary is presented in the inner view only. Paths under `planned_summary`
+# are relative to the document root, since that block sits beside `entities[]`, not inside it.
+_COVERAGE_PATH = "entities[].acceptance_criteria[]."
+_COVERAGE_BOTH_VIEWS = frozenset(
+    {f"{_COVERAGE_PATH}status", f"{_COVERAGE_PATH}aspects[].aspect", f"{_COVERAGE_PATH}aspects[].status"}
+)
+_COVERAGE_INNER_ONLY = frozenset(
+    {"planned_summary.total", "planned_summary.backlog", "planned_summary.by_target_version"}
+)
+
 _VIEWS = ("inner", "release")
 
 
@@ -439,18 +456,26 @@ def shown_paths(contract: str, view: str) -> set[str]:
     """
     R12 check 3 / docs/contracts.md section 4: the field paths `view` shows for `contract`,
     so a generator's own tests assert against this instead of re-deriving the rendering table
-    themselves. Only `generator-ready` carries the Entity/AcceptanceCriterion shape that
-    table describes; `coverage-matrix` and `ui-test-catalog` have no rows of their own here.
+    themselves. Supported for the three contracts a generator renders: `generator-ready`
+    (the Entity/AcceptanceCriterion table), `coverage-matrix` (per-aspect coverage in both
+    views, the planned summary in inner only) and `ui-test-catalog`, which has no
+    view-dependent rows, so it shows nothing beyond its own record fields in either view.
 
-    @param contract: a contract's CONTRACT_ID; only "generator-ready-v1.0.0" is supported.
+    @param contract: "generator-ready-v1.0.0", "coverage-matrix-v1.0.0" or "ui-test-catalog-v1.0.0".
     @param view: "inner" or "release".
-    @return: the set of record-relative field paths (R11 syntax) that view shows.
+    @return: the set of field paths (R11 syntax) that view shows, for view-dependent presentation only.
     @raises ValueError: an unsupported contract or an unknown view.
     """
-    if contract != generator_ready.CONTRACT_ID:
-        raise ValueError(f"shown_paths only supports {generator_ready.CONTRACT_ID!r} today, got {contract!r}")
+    supported = (generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID)
+    if contract not in supported:
+        raise ValueError(f"shown_paths only supports {list(supported)!r}, got {contract!r}")
     if view not in _VIEWS:
         raise ValueError(f"view must be one of {_VIEWS!r}, got {view!r}")
+
+    if contract == ui_test_catalog.CONTRACT_ID:
+        return set()
+    if contract == coverage_matrix.CONTRACT_ID:
+        return set(_COVERAGE_BOTH_VIEWS) | (set(_COVERAGE_INNER_ONLY) if view == "inner" else set())
 
     paths = set(_SHOWN_BOTH_VIEWS)
     if view == "inner":
