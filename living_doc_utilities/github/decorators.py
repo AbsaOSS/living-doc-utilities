@@ -16,7 +16,10 @@
 
 """
 This module contains decorators for adding debug logging to method calls
-and for creating rate-limited safe call functions.
+and for creating rate-limited call functions that log every failure and re-raise it.
+
+It imports PyGithub and requests, so it needs the `github` extra
+(`pip install living-doc-utilities[github]`).
 """
 
 import logging
@@ -51,30 +54,34 @@ def debug_log_decorator(method: Callable) -> Callable:
 
 def safe_call_decorator(rate_limiter: GithubRateLimiter) -> Callable:
     """
-    Decorator factory to create a rate-limited safe call function.
+    Decorator factory to create a rate-limited call function that logs a failure and re-raises it.
+
+    A failed call never becomes a `None` result: the caller has to be able to tell "there was no
+    data" from "the fetch failed", so every exception is logged with its traceback and propagated.
 
     @param rate_limiter: The rate limiter to use.
     @return: The decorator.
     """
 
     def decorator(method: Callable) -> Callable:
+        rate_limited_method = rate_limiter(method)
+
         # Note: Keep the log decorator first to log the correct method name.
         @debug_log_decorator
         @wraps(method)
-        @rate_limiter
         def wrapped(*args, **kwargs) -> Optional[Any]:
+            # The rate-limit lookup runs inside the try, so a failure there is logged like any other.
             try:
-                return method(*args, **kwargs)
+                return rate_limited_method(*args, **kwargs)
             except (ConnectionError, Timeout) as e:
                 logger.error("Network error calling %s: %s.", method.__name__, e, exc_info=True)
-                return None
+                raise
             except GithubException as e:
                 logger.error("GitHub API error calling %s: %s.", method.__name__, e, exc_info=True)
-                return None
+                raise
             except RequestException as e:
                 logger.error("HTTP error calling %s: %s.", method.__name__, e, exc_info=True)
-                return None
-            # pylint: disable=broad-exception-caught
+                raise
             except Exception as e:
                 logger.error(
                     "Unexpected error of type %s occurred in %s: %s.",
@@ -83,7 +90,7 @@ def safe_call_decorator(rate_limiter: GithubRateLimiter) -> Callable:
                     e,
                     exc_info=True,
                 )
-                return None
+                raise
 
         return wrapped
 

@@ -61,7 +61,7 @@ jobs:
             changed_files=$(git diff --name-only "${{ github.sha }}~1" "${{ github.sha }}")
           fi
 
-          if echo "$changed_files" | grep -E '(\.py$|(^|/)requirements\.txt$|(^|/)pyproject\.toml$)' > /dev/null; then
+          if echo "$changed_files" | grep -E '(\.py$|(^|/)requirements(-dev)?\.txt$|(^|/)pyproject\.toml$|^Makefile$|^scripts/)' > /dev/null; then
             echo "python_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "python_changed=false" >> "$GITHUB_OUTPUT"
@@ -97,6 +97,8 @@ jobs:
             target: lint
           - name: Mypy Type Check
             target: types
+          - name: Undeclared Imports (deptry)
+            target: deptry
           - name: Python Tests
             target: coverage
     steps:
@@ -188,10 +190,42 @@ jobs:
             exit 1
           fi
 
+  # Packaging gate: the wheel a consumer installs has to work fresh. Builds it and imports every
+  # module in three clean virtual environments (no extra / github / html), with `pip check` in
+  # each. deptry cannot see which module needs which extra - this is the check that does.
+  import-matrix:
+    needs: detect
+    if: needs.detect.outputs.python_changed == 'true'
+    runs-on: ubuntu-latest
+    name: Import Matrix (Python ${{ matrix.python-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # The supported floor and the newest supported interpreter.
+        python-version: [ "3.10", "3.14" ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Build the wheel and run the import matrix
+        run: make import-matrix
+
   # Single required status check. Always runs, so it always reports; passes when
   # the matrix succeeded or was skipped (no Python changes), fails otherwise.
   qa-gate:
-    needs: [ detect, static-analysis-and-tests, schema-regeneration-check, docs-regeneration-check ]
+    needs: [ detect, static-analysis-and-tests, import-matrix, schema-regeneration-check, docs-regeneration-check ]
     if: always()
     runs-on: ubuntu-latest
     name: QA Gate
@@ -204,15 +238,20 @@ jobs:
           schema_changed="${{ needs.detect.outputs.schema_changed }}"
           authoring_docs_changed="${{ needs.detect.outputs.authoring_docs_changed }}"
           test_result="${{ needs.static-analysis-and-tests.result }}"
+          matrix_result="${{ needs.import-matrix.result }}"
           schema_result="${{ needs.schema-regeneration-check.result }}"
           docs_result="${{ needs.docs-regeneration-check.result }}"
-          echo "python_changed=$changed | schema_changed=$schema_changed | authoring_docs_changed=$authoring_docs_changed | static-analysis-and-tests=$test_result | schema-regeneration-check=$schema_result | docs-regeneration-check=$docs_result"
+          echo "python_changed=$changed | schema_changed=$schema_changed | authoring_docs_changed=$authoring_docs_changed | static-analysis-and-tests=$test_result | import-matrix=$matrix_result | schema-regeneration-check=$schema_result | docs-regeneration-check=$docs_result"
           if [[ "$changed" != "true" && "$schema_changed" != "true" && "$authoring_docs_changed" != "true" ]]; then
             echo "No Python-related, contract-schema, or authoring-docs changes — checks not required."
             exit 0
           fi
           if [[ "$changed" == "true" && "$test_result" != "success" ]]; then
             echo "::error::static analysis & tests did not pass (tests: $test_result)."
+            exit 1
+          fi
+          if [[ "$changed" == "true" && "$matrix_result" != "success" ]]; then
+            echo "::error::the import matrix did not pass (import-matrix: $matrix_result)."
             exit 1
           fi
           if [[ "$schema_changed" == "true" || "$changed" == "true" ]] && [[ "$schema_result" != "success" ]]; then

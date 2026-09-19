@@ -7,6 +7,7 @@
 - [Run mypy Tool Locally](#run-mypy-tool-locally)
 - [Run Unit Test](#run-unit-test)
 - [Code Coverage](#code-coverage)
+- [Dependencies and Extras](#dependencies-and-extras)
 - [Regenerate Contract Schemas](#regenerate-contract-schemas)
 - [Regenerate Authoring Docs](#regenerate-authoring-docs)
 - [How to Release](#how-to-release)
@@ -26,9 +27,14 @@ python3 --version
 ```shell
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e . --no-deps
+make install
 ```
+
+`make install` is `pip install -r requirements-dev.txt` followed by `pip install -e . --no-deps`.
+`requirements.txt` holds only the runtime dependencies of this repository's own CI tooling
+(`make schemas`, `make docs`, `make no-vendored-schemas`); `requirements-dev.txt` includes it and
+adds the test, lint, type, and packaging tools. Neither is the package's install-time dependency
+list — that is `pyproject.toml` (see [Dependencies and Extras](#dependencies-and-extras)).
 
 The editable install of the package itself (not just its dependencies) is required: some
 of the code (e.g. `compat.installed_utilities_version()`) reads this package's own version
@@ -44,7 +50,7 @@ repo. Run the whole gate before opening a pull request:
 make qa
 ```
 
-`make qa` runs `format-check` → `lint` → `types` → `coverage` → `no-vendored-schemas` and fails on the first
+`make qa` runs `format-check` → `lint` → `types` → `deptry` → `coverage` → `no-vendored-schemas` and fails on the first
 failing gate. The individual targets are also available while iterating:
 
 | Target | Runs | Gate |
@@ -53,11 +59,13 @@ failing gate. The individual targets are also available while iterating:
 | `make format` | Black, rewriting files in place | line length 120 |
 | `make format-check` | Black in `--check` mode | line length 120 |
 | `make types` | mypy | clean |
+| `make deptry` | deptry over the package | no import that is used but not declared in `pyproject.toml` (DEP001) and no development-only tool imported by the library (DEP004) |
 | `make test` | pytest, unit tests only | pass |
 | `make coverage` | pytest with the coverage gate | `--cov-fail-under=80` |
 | `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
 | `make no-vendored-schemas` | `python -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas` (R12 check 1) | no git-tracked `*-schema.json` / `*.schema.json` outside `tests/` and this package's own schemas dir; files not yet `git add`ed are not seen |
 | `make docs` | regenerates `docs/authoring.md`'s worked-examples table from `normalisation_cases.yaml` | committed table byte-for-byte up to date |
+| `make import-matrix` | builds the wheel and installs it into three clean virtual environments (no extra / `github` / `html`) — not part of `make qa`, CI runs it as its own job | every module imports with only the extras it needs, `pip check` clean in each |
 
 The sections below explain each tool in more detail and how to scope it to a single file.
 
@@ -163,7 +171,7 @@ To run my[py] check on a specific file, follow the pattern `mypy <path_to_file>/
 
 Example:
 ```shell
-   mypy living_doc_utilities/decorators.py
+   mypy living_doc_utilities/github/decorators.py
 ``` 
 
 ### Expected Output
@@ -187,7 +195,7 @@ You can modify the directory to control the level of detail or granularity as pe
 
 To run a specific test, run the command following the pattern below:
 ```shell
-pytest tests/utils/test_utils.py::test_make_issue_key
+pytest tests/github/test_decorators.py::test_safe_call_decorator_success
 ```
 
 ---
@@ -206,6 +214,30 @@ See the coverage report on the path:
 ```shell
 open htmlcov/index.html
 ```
+
+---
+
+## Dependencies and Extras
+
+Where a dependency is declared depends on which modules import it:
+
+| Declared in | For | Today |
+|---|---|---|
+| `pyproject.toml` `dependencies` | a module that has to import with no extra installed — `contracts`, `authoring`, `github.utils`, `inputs` | `pydantic`, `jsonschema`, `PyYAML` |
+| `pyproject.toml` extra `github` | `github.rate_limiter`, `github.decorators` | `PyGithub`, `requests` |
+| `pyproject.toml` extra `html` | calling `authoring.html_to_markdown` or `authoring.url_policy.sanitize_html_fragment` (the `nh3` import is inside the function) | `nh3` |
+| `requirements.txt` | the runtime of this repository's own CI tooling | `pydantic`, `jsonschema`, `PyYAML`, pinned |
+| `requirements-dev.txt` | everything else `make qa` and CI need, plus the libraries behind the extras so the tests can import them | pinned |
+
+When you add a third-party import:
+
+- Declare it in `pyproject.toml` (in the core list only if a no-extra module needs it, otherwise in the extra it belongs to) and pin it in `requirements-dev.txt`.
+- Run `make deptry` — it fails on an undeclared import (DEP001) and on a development-only tool imported by the library (DEP004). deptry treats an extra as declared for the whole package, so it cannot tell that a no-extra module imported a `github`-extra library.
+- Run `make import-matrix` — it builds the wheel and imports every module in three clean environments, so a no-extra module that reaches for PyGithub, `requests`, or `nh3` fails here.
+
+`requirements-dev.txt` and the `[dependency-groups] dev` list in `pyproject.toml` name the same
+tools: the pinned versions live in the requirements file, and deptry reads the group's names to
+classify a development-only import. Add a new development tool to both.
 
 ---
 

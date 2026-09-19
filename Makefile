@@ -11,17 +11,17 @@ PYLINT_MIN  ?= 9.5
 COV_MIN     ?= 80
 
 .DEFAULT_GOAL := help
-.PHONY: help install qa lint format format-check types test coverage test-unit test-integration schemas docs no-vendored-schemas
+.PHONY: help install qa lint format format-check types deptry test coverage test-unit test-integration schemas docs no-vendored-schemas import-matrix
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install runtime and development dependencies.
-	$(PIP) install -r requirements.txt
+	$(PIP) install -r requirements-dev.txt
 	$(PIP) install -e . --no-deps
 
-qa: format-check lint types coverage no-vendored-schemas ## Run the full quality gate (format, lint, types, tests + coverage).
+qa: format-check lint types deptry coverage no-vendored-schemas ## Run the full quality gate (format, lint, types, undeclared imports, tests + coverage).
 
 format: ## Reformat all tracked Python files (ruff autofix + Black).
 	ruff check --fix $(PY_FILES)
@@ -36,6 +36,9 @@ lint: ## Run ruff and Pylint (enforce the minimum score).
 
 types: ## Run the mypy static type checker.
 	mypy .
+
+deptry: ## Fail on an import that is used but not declared (DEP001) or a dev-only tool imported by the library (DEP004).
+	deptry .
 
 test: ## Run the unit test suite (integration tests excluded).
 	pytest --ignore=tests/integration -v tests/
@@ -57,3 +60,6 @@ no-vendored-schemas: ## R12 check 1: fail on any committed schema file outside t
 
 docs: ## Regenerate docs/authoring.md's worked-examples table from normalisation_cases.yaml.
 	$(PYTHON) -m living_doc_utilities.authoring.docs_export
+
+import-matrix: ## Build the wheel and prove in three clean venvs (no extra / github / html) which modules import and which need an extra.
+	PYTHON=$(PYTHON) scripts/import_matrix.sh

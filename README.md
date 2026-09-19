@@ -5,20 +5,22 @@
 [![PyPI](https://img.shields.io/pypi/v/living-doc-utilities.svg)](https://pypi.org/project/living-doc-utilities/)
 
 `living-doc-utilities` is the shared Python library for the Living Documentation ecosystem — the
-data models, serialization helpers, and GitHub utilities that the `living-doc-*` collectors and
-generators import instead of re-implementing.
+six documentation contracts, the authoring parsers that read authored documents into them, and the
+GitHub helpers that the `living-doc-*` collectors and generators import instead of re-implementing.
 
 ## Overview
 
 The library provides the pieces every `living-doc-*` repository would otherwise duplicate:
 
-- **Structured data models** — `Issue` and its subtypes (`UserStoryIssue`, `FeatureIssue`,
-  `FunctionalityIssue`), the `Issues` collection, and `ProjectStatus`, so every action exchanges the
-  same JSON shape.
-- **Serialization / deserialization (serde)** — `Issues.save_to_json()` / `Issues.load_from_json()`
-  and the `IssueFactory` that rebuilds the correct subtype by name.
-- **GitHub helpers** — `get_action_input()` / `set_action_output()`, the `GithubRateLimiter`, and the
-  `safe_call_decorator` retry wrapper.
+- **Documentation contracts** (`living_doc_utilities.contracts`) — typed pydantic models of the six
+  contracts, their generated JSON Schemas, and the runtime helpers every component shares: artifact
+  reading and writing, the compatibility check, stats, field lineage, and the test helpers. See
+  [Documentation contracts](docs/contracts.md).
+- **Authoring** (`living_doc_utilities.authoring`) — normalisation, the acceptance-criterion
+  grammar, the parsers for every authoring surface, entity identity, status derivation, relation
+  checks, the URL policy, and HTML-to-Markdown conversion. See [Authoring](docs/authoring.md).
+- **GitHub helpers** (`living_doc_utilities.github`) — `get_action_input()` / `set_action_output()`,
+  the `GithubRateLimiter`, and the `safe_call_decorator` call wrapper.
 - **Shared plumbing** — `setup_logging()`, the `BaseActionInputs` contract, and common constants.
 
 It is designed to reduce duplication, improve testability, and simplify maintenance across the
@@ -185,11 +187,25 @@ Before installing this library, ensure you have:
 
 ### Installation
 
-You can install the utilities locally, directly from GitHub, or from PyPI.
+Install from PyPI, pinned exactly (see [Versioning](#versioning)):
 
-#### Option 1: Local Development (editable mode)
+```bash
+pip install living-doc-utilities==0.5.0
+```
 
-If you are developing the library alongside another project:
+The core install (`pydantic`, `jsonschema`, `PyYAML`) covers everything except the two optional
+parts below. Add an extra only when you use the module that needs it:
+
+| Install | Adds | Needed for |
+|---|---|---|
+| `living-doc-utilities==0.5.0` | `pydantic`, `jsonschema`, `PyYAML` | `contracts`, `authoring` (except the HTML sanitiser), `github.utils`, `inputs` |
+| `living-doc-utilities[github]==0.5.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
+| `living-doc-utilities[html]==0.5.0` | `nh3` | calling `authoring.html_to_markdown.convert_html_to_markdown` or `authoring.url_policy.sanitize_html_fragment` |
+
+Extras combine: `pip install "living-doc-utilities[github,html]==0.5.0"`. Importing a module never
+needs the `html` extra — only calling the sanitiser does.
+
+If you are developing the library alongside another project, install it in editable mode:
 
 ```bash
 pip install -e ../living-doc-utilities
@@ -197,33 +213,44 @@ pip install -e ../living-doc-utilities
 
 Make sure you activate the virtual environment in your main project before installing.
 
-#### Option 2: From GitHub (using a release tag)
+### GitHub helpers
 
-```bash
-pip install git+https://github.com/AbsaOSS/living-doc-utilities@v0.4.0
-```
-
-#### Option 3: From PyPI
-
-```bash
-pip install living-doc-utilities
-```
-
-To pin a specific version:
-
-```bash
-pip install living-doc-utilities==0.4.0
-```
-
-### Importing
+`living_doc_utilities.github` holds the helpers for GitHub Actions and the GitHub API:
 
 ```python
-from living_doc_utilities.model.issues import Issues
-from living_doc_utilities.github.utils import get_action_input, set_action_output
+from github import Github  # needs the github extra
 
-issues = Issues.load_from_json("doc-issues.json")
-print(issues.count())
+from living_doc_utilities.github.decorators import safe_call_decorator  # needs the github extra
+from living_doc_utilities.github.rate_limiter import GithubRateLimiter  # needs the github extra
+from living_doc_utilities.github.utils import get_action_input, set_action_output  # no extra needed
+
+token = get_action_input("github-token")  # reads INPUT_GITHUB_TOKEN
+set_action_output("issue-count", "42")  # appends "issue-count=42" to $GITHUB_OUTPUT
+
+
+@safe_call_decorator(GithubRateLimiter(Github(token)))
+def fetch_issue(repository, number):
+    return repository.get_issue(number)
 ```
+
+`safe_call_decorator` rate-limits the call, and on a `ConnectionError`, `Timeout`, `GithubException`,
+`RequestException` or any other exception it logs the failure and **re-raises** it, so a caller can
+tell "there was no data" from "the fetch failed". The decorators live in
+`living_doc_utilities.github.decorators`; before `0.5.0` they were at
+`living_doc_utilities.decorators`, which no longer exists.
+
+## Versioning
+
+- **Pin exactly** — `living-doc-utilities==0.5.0`, plus whichever extras you need
+  (`living-doc-utilities[github]==0.5.0`). No version ranges, pre-releases, or git-SHA pins.
+- **`0.x` on purpose** — the public API keeps evolving until every component in the ecosystem
+  reaches `1.0` together, as one coordinated release.
+- **A contract or public-API change bumps the minor version** (`0.5.0` → `0.6.0`); **a parser or
+  helper fix bumps the patch version** (`0.5.0` → `0.5.1`).
+- **One minor version across the ecosystem** — every component sits on the same minor at any given
+  time, so a released contract change means every component that reads or writes that contract
+  re-pins to it.
+- The package version and the contract version are independent — a contract id stays `-v1.0.0`.
 
 ## Releasing
 

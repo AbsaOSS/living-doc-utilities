@@ -1,18 +1,6 @@
-mypy==2.3.1
-mypy-extensions==1.1.0
-typing_extensions==4.16.0
-PyGithub==2.10.0
+# Runtime dependencies of this repository's own CI tooling (`make schemas`, `make docs`,
+# `make no-vendored-schemas`). These are NOT the package's install-time dependencies - those
+# are declared in pyproject.toml. Test, lint and type tools belong in requirements-dev.txt.
 pydantic==2.13.5
 jsonschema==4.26.0
-pylint==4.0.8
-ruff==0.16.6
-black==26.5.1
-pytest==9.1.1
-pytest-cov==7.1.0
-pytest-mock==3.15.1
-types-requests==2.33.0.20260906
-types-jsonschema==4.26.0.20260518
 PyYAML==6.0.3
-types-PyYAML==6.0.12.20260815
-nh3==0.3.7
-
