@@ -14,10 +14,13 @@
 # limitations under the License.
 #
 
-from github import GithubException
-from requests import RequestException
+import importlib.util
 
-from living_doc_utilities.decorators import debug_log_decorator, safe_call_decorator
+import pytest
+from github import GithubException
+from requests import RequestException, Timeout
+
+from living_doc_utilities.github.decorators import debug_log_decorator, safe_call_decorator
 
 
 # sample function to be decorated
@@ -25,12 +28,19 @@ def sample_function(x, y):
     return x + y
 
 
+# module layout
+
+
+def test_no_decorators_module_at_package_root():
+    assert importlib.util.find_spec("living_doc_utilities.decorators") is None
+
+
 # debug_log_decorator
 
 
 def test_debug_log_decorator(mocker):
     # Mock logging
-    mock_log_debug = mocker.patch("living_doc_utilities.decorators.logger.debug")
+    mock_log_debug = mocker.patch("living_doc_utilities.github.decorators.logger.debug")
 
     decorated_function = debug_log_decorator(sample_function)
     expected_call = [
@@ -57,84 +67,94 @@ def test_safe_call_decorator_success(rate_limiter):
     assert 5 == actual
 
 
-def test_safe_call_decorator_network_error(rate_limiter, mocker):
-    mock_log_error = mocker.patch("living_doc_utilities.decorators.logger.error")
+def test_safe_call_decorator_none_result_is_not_an_error(rate_limiter, mocker):
+    mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
 
     @safe_call_decorator(rate_limiter)
     def sample_method():
-        raise ConnectionError("Test connection error")
+        return None
 
     actual = sample_method()
 
-    args, kwargs = mock_log_error.call_args
     assert actual is None
+    mock_log_error.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "error, expected_message",
+    [
+        pytest.param(ConnectionError("Test connection error"), "Network error calling %s: %s.", id="connection-error"),
+        pytest.param(Timeout("Test timeout"), "Network error calling %s: %s.", id="timeout"),
+        pytest.param(
+            GithubException(
+                404,
+                {"message": "Not Found", "documentation_url": "https://developer.github.com/v3"},
+                {"X-RateLimit-Limit": "60", "X-RateLimit-Remaining": "0"},
+            ),
+            "GitHub API error calling %s: %s.",
+            id="github-exception",
+        ),
+        pytest.param(RequestException("Test HTTP error"), "HTTP error calling %s: %s.", id="request-exception"),
+    ],
+)
+def test_safe_call_decorator_logs_and_reraises(rate_limiter, mocker, error, expected_message):
+    mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
+
+    @safe_call_decorator(rate_limiter)
+    def sample_method():
+        raise error
+
+    with pytest.raises(type(error)) as excinfo:
+        sample_method()
+
+    args, kwargs = mock_log_error.call_args
+    assert excinfo.value is error
     assert 1 == mock_log_error.call_count
-    assert "Network error calling %s: %s." == args[0]
+    assert expected_message == args[0]
     assert "sample_method" == args[1]
-    assert isinstance(args[2], ConnectionError)
-    assert "Test connection error" == str(args[2])
+    assert args[2] is error
     assert kwargs["exc_info"]
 
 
-def test_safe_call_decorator_github_api_error(rate_limiter, mocker):
-    mock_log_error = mocker.patch("living_doc_utilities.decorators.logger.error")
+def test_safe_call_decorator_github_api_error_message(rate_limiter, mocker):
+    mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
+    error = GithubException(
+        404,
+        {"message": "Not Found", "documentation_url": "https://developer.github.com/v3"},
+        {"X-RateLimit-Limit": "60", "X-RateLimit-Remaining": "0"},
+    )
 
     @safe_call_decorator(rate_limiter)
     def sample_method():
-        status_code = 404
-        error_data = {"message": "Not Found", "documentation_url": "https://developer.github.com/v3"}
-        response_headers = {
-            "X-RateLimit-Limit": "60",
-            "X-RateLimit-Remaining": "0",
-        }
-        raise GithubException(status_code, error_data, response_headers)
+        raise error
 
-    actual = sample_method()
+    with pytest.raises(GithubException) as excinfo:
+        sample_method()
 
     args, kwargs = mock_log_error.call_args
-    assert actual is None
+    assert excinfo.value is error
     assert 1 == mock_log_error.call_count
     assert "GitHub API error calling %s: %s." == args[0]
     assert "sample_method" == args[1]
-    assert isinstance(args[2], GithubException)
+    assert args[2] is error
     assert '404 {"message": "Not Found", "documentation_url": "https://developer.github.com/v3"}' == str(args[2])
     assert kwargs["exc_info"]
 
 
-def test_safe_call_decorator_http_error(mocker, rate_limiter):
-    mock_log_error = mocker.patch("living_doc_utilities.decorators.logger.error")
-
-    @safe_call_decorator(rate_limiter)
-    def sample_method():
-        raise RequestException("Test HTTP error")
-
-    actual = sample_method()
-
-    args, kwargs = mock_log_error.call_args
-    assert actual is None
-    assert 1 == mock_log_error.call_count
-    assert "HTTP error calling %s: %s." == args[0]
-    assert "sample_method" == args[1]
-    assert isinstance(args[2], RequestException)
-    assert "Test HTTP error" == str(args[2])
-    assert kwargs["exc_info"]
-
-
 def test_safe_call_decorator_exception(rate_limiter, mocker):
-    mock_log_error = mocker.patch("living_doc_utilities.decorators.logger.error")
+    mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
 
     @safe_call_decorator(rate_limiter)
     def sample_method(x, y):
         return x / y
 
-    actual = sample_method(2, 0)
+    with pytest.raises(ZeroDivisionError) as excinfo:
+        sample_method(2, 0)
 
-    mock_log_error.assert_called_once()
-    exception_message = mock_log_error.call_args[0][0]
-    exception_type = mock_log_error.call_args[0][1]
-    method_name = mock_log_error.call_args[0][2]
-
-    assert actual is None
-    assert "Unexpected error of type %s occurred in %s: %s." in exception_message
-    assert "ZeroDivisionError" in exception_type
-    assert "sample_method" in method_name
+    args, kwargs = mock_log_error.call_args
+    assert 1 == mock_log_error.call_count
+    assert "Unexpected error of type %s occurred in %s: %s." == args[0]
+    assert "ZeroDivisionError" == args[1]
+    assert "sample_method" == args[2]
+    assert args[3] is excinfo.value
+    assert kwargs["exc_info"]

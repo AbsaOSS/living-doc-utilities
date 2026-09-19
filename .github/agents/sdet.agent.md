@@ -85,7 +85,7 @@ Non-goals
 Repo specifics
 
 - Test locations
-  - Tests: tests/ (mirrors the package tree — tests/github/, tests/model/, tests/inputs/, tests/exporter/, tests/contracts/).
+  - Tests: tests/ (mirrors the package tree — tests/contracts/, tests/authoring/, tests/github/, tests/inputs/).
   - Shared fixtures: tests/conftest.py.
 - Coverage target
   - Must keep coverage ≥ 80% when running the repo coverage command.

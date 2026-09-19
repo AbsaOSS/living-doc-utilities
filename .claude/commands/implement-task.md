@@ -35,17 +35,17 @@ Task-list source (optional override): `$2`
 - Add or update tests for every new or changed code path (success + failure). Use the
   `test-author` agent for the test surface.
 - Do not change externally-visible contracts (public class/function signatures, the
-  serialized issue JSON shape and its `type` discriminator, `Issues.make_issue_key()`'s
-  format, `get_action_input()` / `set_action_output()` behaviour, contract-sensitive
-  strings) unless the task explicitly calls for it — and bump `pyproject.toml` `version`
-  when it does.
+  contract ids and generated `contracts/schemas/*.json`, `contracts.codes.ALL_CODES`,
+  `get_action_input()` / `set_action_output()` behaviour, contract-sensitive strings)
+  unless the task explicitly calls for it — and bump `pyproject.toml` `version` when it
+  does.
 - If a design-doc section is being implemented, apply `.claude/rules/docs-lifecycle.md` in
   this same change: move that section's content into the live docs (`README.md` /
   `DEVELOPER.md`).
 
 ## 4. Run the `make qa` loop until green
 
-- Run `make qa` (format-check, lint, types, test — the same targets CI runs).
+- Run `make qa` (format-check, lint, types, deptry, coverage, no-vendored-schemas — the same targets CI runs).
 - Fix every failure and re-run. Repeat until `make qa` exits clean:
   Pylint ≥ 9.5, Black clean, mypy clean, `pytest --cov-fail-under=80` passing.
 - Do not lower a threshold, add an inline lint disable, or `# type: ignore` to get past a
@@ -57,7 +57,8 @@ For every criterion on your step 1 checklist, confirm the **literal claim** by r
 code that now exists — **not** by checking that a same-named test is green.
 
 - "returns a typed `X`" → read the function's real return annotation.
-- "serialized as `field_name`" → read the actual key written in `to_dict()`.
+- "serialized as `field_name`" → read the actual key on the pydantic model (or in the
+  generated `contracts/schemas/*.json`).
 - "load falls back to empty on error" → confirm the `except` returns `cls()` before any
   re-raise.
 - "input is validated in one place" → confirm there is exactly one validation site.
