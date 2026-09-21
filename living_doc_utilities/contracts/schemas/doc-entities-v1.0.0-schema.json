@@ -884,7 +884,7 @@
       "description": "One transform input's provenance and stats (R7). Collector outputs carry none.",
       "properties": {
         "schema_version": {
-          "pattern": "^[a-z][a-z-]*-v\\d+\\.\\d+\\.\\d+$",
+          "pattern": "^([a-z0-9]+(?:-[a-z0-9]+)*)-v\\d+\\.\\d+\\.\\d+$",
           "title": "Schema Version",
           "type": "string"
         },

@@ -29,11 +29,10 @@ from jsonschema.exceptions import ValidationError, best_match
 
 from living_doc_utilities.contracts import schema_export
 from living_doc_utilities.contracts.codes import Code, ContractError
+from living_doc_utilities.contracts.envelope import CONTRACT_ID_PATTERN
 from living_doc_utilities.contracts.validation import validate
 
-# schema_version format (R4/R5): "<contract-name>-v<major>.<minor>.<patch>", e.g.
-# "doc-entities-v1.0.0" - the named group isolates the contract name from the version.
-_CONTRACT_ID_RE = re.compile(r"^(?P<name>[a-z][a-z-]*)-v\d+\.\d+\.\d+$")
+_CONTRACT_ID_RE = re.compile(CONTRACT_ID_PATTERN)
 
 _PACKAGE_NAME = "living-doc-utilities"
 
@@ -104,7 +103,7 @@ def check_input(payload: Any, expected: Union[str, set[str]]) -> str:
             Code.INVALID_CONTRACT_ID,
             f"schema_version {schema_version!r} does not match '<contract-name>-v<major>.<minor>.<patch>'",
         )
-    contract_name = match.group("name")
+    contract_name = match.group(1)
 
     if contract_name not in expected_names:
         raise ContractError(

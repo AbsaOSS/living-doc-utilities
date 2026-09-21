@@ -96,6 +96,17 @@ def test_cardinality_warnings_by_code_rejects_lowercase_code():
         factories.cardinality(warnings_by_code={"missing_status": 1})
 
 
+@pytest.mark.parametrize("schema_version", ["a--x-v1.0.0", "Doc-v1.0.0"])
+def test_source_input_entry_schema_version_pattern_rejects_invalid_values(schema_version):
+    with pytest.raises(ValidationError):
+        factories.source_input_entry(schema_version=schema_version)
+
+
+@pytest.mark.parametrize("schema_version", ["doc-entities-v1.0.0", "doc2-entities-v1.0.0"])
+def test_source_input_entry_schema_version_pattern_accepts_valid_values(schema_version):
+    assert factories.source_input_entry(schema_version=schema_version).schema_version == schema_version
+
+
 def test_metadata_source_inputs_defaults_to_empty_list():
     result = factories.metadata()
 
