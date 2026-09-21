@@ -3,4 +3,5 @@
 # are declared in pyproject.toml. Test, lint and type tools belong in requirements-dev.txt.
 pydantic==2.13.5
 jsonschema==4.26.0
+# Read only by `make docs` and the tests; not a package dependency.
 PyYAML==6.0.3

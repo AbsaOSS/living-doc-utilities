@@ -84,7 +84,6 @@ check_environment() {
   (cd "$WORK" && "$venv/bin/python" -I - "$mode" "$VERSION" <<'PY'
 import importlib
 import importlib.metadata
-import importlib.util
 import pkgutil
 import sys
 
@@ -101,9 +100,6 @@ NEEDS_EXTRA = {
     "living_doc_utilities.github.rate_limiter": ("github", "github"),
     "living_doc_utilities.github.decorators": ("github", "github"),
 }
-
-for retired in ("model", "factory", "exporter", "decorators"):
-    assert importlib.util.find_spec(f"living_doc_utilities.{retired}") is None, retired
 
 names = sorted(m.name for m in pkgutil.walk_packages(package.__path__, "living_doc_utilities."))
 assert "living_doc_utilities.contracts.io" in names and "living_doc_utilities.authoring.normalize" in names

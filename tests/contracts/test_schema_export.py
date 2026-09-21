@@ -94,6 +94,15 @@ def test_write_schemas_is_byte_for_byte_deterministic(tmp_path):
     assert len(first_pass) == 6
 
 
+def test_write_schemas_writes_lf_line_endings_only(tmp_path):
+    # Text mode would write CRLF on Windows.
+    for path in schema_export.write_schemas(tmp_path):
+        content = path.read_bytes()
+
+        assert b"\r" not in content
+        assert content.endswith(b"}\n")
+
+
 def test_regeneration_overwrites_a_tampered_schema_file(tmp_path):
     target = tmp_path / f"{doc_entities.CONTRACT_ID}-schema.json"
     target.write_text('{"$schema": "tampered"}\n', encoding="utf-8")

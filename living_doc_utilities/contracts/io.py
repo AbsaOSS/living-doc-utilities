@@ -141,7 +141,8 @@ def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, tmp_name = tempfile.mkstemp(dir=str(destination.parent), prefix=f".{destination.name}.", suffix=".tmp")
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as tmp_file:
+        # Explicit newline: text mode would write CRLF on Windows.
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as tmp_file:
             tmp_file.write(json.dumps(payload, indent=2) + "\n")
             tmp_file.flush()
             os.fsync(tmp_file.fileno())

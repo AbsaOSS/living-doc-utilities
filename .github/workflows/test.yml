@@ -79,17 +79,16 @@ jobs:
             echo "authoring_docs_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-  static-analysis-and-tests:
+  # Static checks give the same result on every interpreter, so they run once, on the
+  # supported floor: syntax newer than 3.10 fails here.
+  static-checks:
     needs: detect
     if: needs.detect.outputs.python_changed == 'true'
     runs-on: ubuntu-latest
-    name: ${{ matrix.task.name }} (Python ${{ matrix.python-version }})
+    name: ${{ matrix.task.name }} (Python 3.10)
     strategy:
       fail-fast: false
       matrix:
-        # Python 3.10 is the supported floor (see `requires-python` in pyproject.toml);
-        # 3.14 is the newest supported interpreter.
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         task:
           - name: Black Format Check
             target: format-check
@@ -99,8 +98,36 @@ jobs:
             target: types
           - name: Undeclared Imports (deptry)
             target: deptry
-          - name: Python Tests
-            target: coverage
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run ${{ matrix.task.name }}
+        run: make ${{ matrix.task.target }}
+
+  tests:
+    needs: detect
+    if: needs.detect.outputs.python_changed == 'true'
+    runs-on: ubuntu-latest
+    name: Python Tests (Python ${{ matrix.python-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Python 3.10 is the supported floor (see `requires-python` in pyproject.toml);
+        # 3.14 is the newest supported interpreter.
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -117,8 +144,8 @@ jobs:
       - name: Install dependencies
         run: make install
 
-      - name: Run ${{ matrix.task.name }}
-        run: make ${{ matrix.task.target }}
+      - name: Run tests with coverage
+        run: make coverage
 
   # Owner-side regeneration gate (docs/contracts.md, "Schema authoring rules"): a contract
   # model change with no regenerated schema must fail here, not downstream.
@@ -222,44 +249,16 @@ jobs:
       - name: Build the wheel and run the import matrix
         run: make import-matrix
 
-  # Single required status check. Always runs, so it always reports; passes when
-  # the matrix succeeded or was skipped (no Python changes), fails otherwise.
+  # Single required status check. Always runs, so it always reports; skipped jobs
+  # (no relevant changes) pass, failed or cancelled ones fail.
   qa-gate:
-    needs: [ detect, static-analysis-and-tests, import-matrix, schema-regeneration-check, docs-regeneration-check ]
+    needs: [ static-checks, tests, import-matrix, schema-regeneration-check, docs-regeneration-check ]
     if: always()
     runs-on: ubuntu-latest
     name: QA Gate
     steps:
-      - name: Check matrix outcome
-        shell: bash
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
-          set -euo pipefail
-          changed="${{ needs.detect.outputs.python_changed }}"
-          schema_changed="${{ needs.detect.outputs.schema_changed }}"
-          authoring_docs_changed="${{ needs.detect.outputs.authoring_docs_changed }}"
-          test_result="${{ needs.static-analysis-and-tests.result }}"
-          matrix_result="${{ needs.import-matrix.result }}"
-          schema_result="${{ needs.schema-regeneration-check.result }}"
-          docs_result="${{ needs.docs-regeneration-check.result }}"
-          echo "python_changed=$changed | schema_changed=$schema_changed | authoring_docs_changed=$authoring_docs_changed | static-analysis-and-tests=$test_result | import-matrix=$matrix_result | schema-regeneration-check=$schema_result | docs-regeneration-check=$docs_result"
-          if [[ "$changed" != "true" && "$schema_changed" != "true" && "$authoring_docs_changed" != "true" ]]; then
-            echo "No Python-related, contract-schema, or authoring-docs changes — checks not required."
-            exit 0
-          fi
-          if [[ "$changed" == "true" && "$test_result" != "success" ]]; then
-            echo "::error::static analysis & tests did not pass (tests: $test_result)."
-            exit 1
-          fi
-          if [[ "$changed" == "true" && "$matrix_result" != "success" ]]; then
-            echo "::error::the import matrix did not pass (import-matrix: $matrix_result)."
-            exit 1
-          fi
-          if [[ "$schema_changed" == "true" || "$changed" == "true" ]] && [[ "$schema_result" != "success" ]]; then
-            echo "::error::the schema regeneration check did not pass (schemas: $schema_result)."
-            exit 1
-          fi
-          if [[ "$authoring_docs_changed" == "true" || "$changed" == "true" ]] && [[ "$docs_result" != "success" ]]; then
-            echo "::error::the authoring docs regeneration check did not pass (docs: $docs_result)."
-            exit 1
-          fi
-          exit 0
+          echo "::error::a required job failed or was cancelled."
+          exit 1

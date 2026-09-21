@@ -199,7 +199,6 @@ def test_non_canonical_version_prefix_is_malformed(inner):
     assert [w.code for w in warnings] == [MALFORMED_AC]
 
 
-@pytest.mark.integration
 def test_complete_feature_file_stops_at_the_closing_banner():
     # Regression case for a full living-doc-header-types.md-shaped .feature file: the
     # last AC's block must end at the closing "# ====...====" banner, not absorb the

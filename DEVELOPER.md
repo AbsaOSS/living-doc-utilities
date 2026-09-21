@@ -55,17 +55,17 @@ failing gate. The individual targets are also available while iterating:
 
 | Target | Runs | Gate |
 |---|---|---|
-| `make lint` | Pylint over all tracked `*.py` | score ≥ 9.5 / 10 |
+| `make lint` | ruff, then Pylint over the tracked files outside `tests/` and over `tests/` (rules that do not suit tests are off, see `PYLINT_TESTS_DISABLE` in the `Makefile`) | each Pylint run scores ≥ 9.5 / 10 |
 | `make format` | Black, rewriting files in place | line length 120 |
 | `make format-check` | Black in `--check` mode | line length 120 |
 | `make types` | mypy | clean |
 | `make deptry` | deptry over the package | no import that is used but not declared in `pyproject.toml` (DEP001) and no development-only tool imported by the library (DEP004) |
-| `make test` | pytest, unit tests only | pass |
+| `make test` | pytest over `tests/` | pass |
 | `make coverage` | pytest with the coverage gate | `--cov-fail-under=80` |
 | `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
 | `make no-vendored-schemas` | `python -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas` (R12 check 1) | no git-tracked `*-schema.json` / `*.schema.json` outside `tests/` and this package's own schemas dir; files not yet `git add`ed are not seen |
 | `make docs` | regenerates `docs/authoring.md`'s worked-examples table from `normalisation_cases.yaml` | committed table byte-for-byte up to date |
-| `make import-matrix` | builds the wheel and installs it into three clean virtual environments (no extra / `github` / `html`) — not part of `make qa`, CI runs it as its own job | every module imports with only the extras it needs, `pip check` clean in each |
+| `make import-matrix` (Linux / macOS; on Windows use WSL) | builds the wheel and installs it into three clean virtual environments (no extra / `github` / `html`) — not part of `make qa`, CI runs it as its own job | every module imports with only the extras it needs, `pip check` clean in each |
 
 The sections below explain each tool in more detail and how to scope it to a single file.
 
@@ -75,7 +75,9 @@ The sections below explain each tool in more detail and how to scope it to a sin
 This project uses the [Pylint](https://pypi.org/project/pylint/) tool for static code analysis.
 Pylint analyses your code without actually running it.
 It checks for errors, enforces coding standards, looks for code smells, etc.
-We do exclude the `tests/` file from the Pylint check.
+Pylint runs twice: over every tracked file outside `tests/` with every rule, and over `tests/` with the rules that do not suit tests switched off (`PYLINT_TESTS_DISABLE` in the `Makefile`, explained in [Rules switched off for tests](#rules-switched-off-for-tests)).
+Both passes take their files from `git ls-files`, so a new `.py` file is linted once it is tracked (`git add`), not before.
+The root project file `pyproject.toml` defines the Pylint configuration (`[tool.pylint.*]`).
 
 Pylint displays a global evaluation score for the code, rated out of a maximum score of 10.0.
 We are aiming to keep our code quality high above the score 9.5.
@@ -86,16 +88,17 @@ Follow these steps to run Pylint check locally:
 
 ### Run Pylint
 
-Run Pylint on all files that are currently tracked by Git in the project.
+Run both Pylint passes, as CI does (ruff runs first).
 ```shell
-pylint $(git ls-files '*.py')
+make lint
 ```
 
-To run Pylint on a specific file, follow the pattern `pylint <path_to_file>/<name_of_file>.py`.
+To run Pylint on a specific package file, follow the pattern `pylint <path_to_file>/<name_of_file>.py`.
+A test file also needs the `--disable` list from `PYLINT_TESTS_DISABLE`, otherwise the rules that do not suit tests are reported.
 
 Example:
 ```shell
-pylint src/living_doc_utilities/inputs/action_inputs.py
+pylint living_doc_utilities/inputs/action_inputs.py
 ``` 
 
 ### Expected Output
@@ -108,6 +111,31 @@ main.py:30:0: C0116: Missing function or method docstring (missing-function-docs
 ------------------------------------------------------------------
 Your code has been rated at 9.41/10 (previous run: 8.82/10, +0.59)
 ```
+
+### Rules switched off for tests
+
+`make lint` checks `tests/` with fewer Pylint rules than the package. Below, each switched-off rule is explained in plain words:
+what Pylint complains about, and why that does not help in tests.
+The list itself is `PYLINT_TESTS_DISABLE` in the `Makefile`. Change the list and this section together.
+
+Every rule that is not listed here stays on for tests, so unused imports, undefined names and similar mistakes are still caught.
+
+**Off because tests do these things on purpose**
+
+| Rule | What Pylint complains about | Why it is off for tests |
+|---|---|---|
+| `use-implicit-booleaness-not-comparison` | `assert result == []`. Pylint says: write `assert not result`. | A test should also fail when `result` is `None` or `{}`. `assert not result` passes for both, so it checks less. |
+| `redefined-outer-name` | A function argument has the same name as something defined above it. | This is how pytest fixtures (shared test setup) work. The fixture is defined once, and a test asks for it by using its name as an argument. |
+| `protected-access` | Code uses a name that starts with `_`, which means "private". | Some tests check a private helper or constant on purpose. |
+| `unsupported-membership-test`, `unsubscriptable-object` | `"x" in Model.model_fields` and `Model.model_fields["x"]`. Pylint says the object does not support that. | False alarm. `model_fields` is a normal dict, but Pylint does not understand how pydantic builds its classes and guesses wrong. A real mistake would fail when the test runs. |
+| `unidiomatic-typecheck` | `type(x) is Foo`. Pylint says: use `isinstance(x, Foo)`. | A test sometimes has to check the exact type: a `Foo`, not a subclass. `isinstance` also accepts subclasses. Pylint also flags the harmless `type(None)`. |
+| `unused-argument` | A function argument is never used. | pytest fills in the arguments. A test can receive a `parametrize` value (one of several inputs it runs with) that it does not need, or a fixture it needs only for its side effect, such as a temporary folder. |
+
+**Off for now**
+
+| Rule | What Pylint complains about | Why it is off for now |
+|---|---|---|
+| `missing-function-docstring`, `missing-module-docstring`, `missing-class-docstring` | A function, module or class has no docstring. | Each test should get a one-line docstring that says what it protects, so whoever changes the code later can see the target. Many tests have none yet, and the suite is still being merged and trimmed, so writing them now would be wasted work. When the suite is settled, delete the line marked `TEMPORARY` in the `Makefile` and this table, and add the missing docstrings. |
 
 ---
 ## Run Black Tool Locally
@@ -223,17 +251,17 @@ Where a dependency is declared depends on which modules import it:
 
 | Declared in | For | Today |
 |---|---|---|
-| `pyproject.toml` `dependencies` | a module that has to import with no extra installed — `contracts`, `authoring`, `github.utils`, `inputs` | `pydantic`, `jsonschema`, `PyYAML` |
+| `pyproject.toml` `dependencies` | a module that has to import with no extra installed — `contracts`, `authoring`, `github.utils`, `inputs` | `pydantic`, `jsonschema` |
 | `pyproject.toml` extra `github` | `github.rate_limiter`, `github.decorators` | `PyGithub`, `requests` |
 | `pyproject.toml` extra `html` | calling `authoring.html_to_markdown` or `authoring.url_policy.sanitize_html_fragment` (the `nh3` import is inside the function) | `nh3` |
-| `requirements.txt` | the runtime of this repository's own CI tooling | `pydantic`, `jsonschema`, `PyYAML`, pinned |
+| `requirements.txt` | the runtime of this repository's own CI tooling | `pydantic`, `jsonschema`, and `PyYAML` (only for `make docs` and the tests, not a package dependency), pinned |
 | `requirements-dev.txt` | everything else `make qa` and CI need, plus the libraries behind the extras so the tests can import them | pinned |
 
 When you add a third-party import:
 
 - Declare it in `pyproject.toml` (in the core list only if a no-extra module needs it, otherwise in the extra it belongs to) and pin it in `requirements-dev.txt`.
-- Run `make deptry` — it fails on an undeclared import (DEP001) and on a development-only tool imported by the library (DEP004). deptry treats an extra as declared for the whole package, so it cannot tell that a no-extra module imported a `github`-extra library.
-- Run `make import-matrix` — it builds the wheel and imports every module in three clean environments, so a no-extra module that reaches for PyGithub, `requests`, or `nh3` fails here.
+- Run `make deptry` — it fails on an undeclared import (DEP001) and on a development-only tool imported by the library (DEP004). The one accepted DEP004 is `yaml`: `authoring/docs_export.py` is a repository script and imports PyYAML inside `_load_cases()`, so it is ignored per rule in `pyproject.toml`. deptry treats an extra as declared for the whole package, so it cannot tell that a no-extra module imported a `github`-extra library.
+- Run `make import-matrix` (Linux / macOS; on Windows use WSL) — it builds the wheel and imports every module in three clean environments, so a no-extra module that reaches for PyGithub, `requests`, or `nh3` fails here.
 
 `requirements-dev.txt` and the `[dependency-groups] dev` list in `pyproject.toml` name the same
 tools: the pinned versions live in the requirements file, and deptry reads the group's names to
@@ -259,7 +287,7 @@ make schemas
 ```
 
 This runs `python -m living_doc_utilities.contracts.schema_export`, which overwrites all
-six `*-schema.json` files in place. Commit the result alongside the model change.
+six `*-schema.json` files in place, always with LF line endings whatever the OS. Commit the result alongside the model change.
 
 A CI job (`Schema Regeneration Check`) runs the same command and fails the build if the
 regenerated files differ from what is committed, so a forgotten regeneration is caught
@@ -287,7 +315,7 @@ make docs
 ```
 
 This runs `python -m living_doc_utilities.authoring.docs_export`, which rewrites the generated
-table in place. Commit the result alongside the cases-file change.
+table in place, always with LF line endings whatever the OS. Commit the result alongside the cases-file change.
 
 A CI job (`Authoring Docs Regeneration Check`) runs the same command and fails the build if the
 regenerated table differs from what is committed, so a forgotten regeneration is caught before

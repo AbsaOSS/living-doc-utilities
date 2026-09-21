@@ -89,7 +89,7 @@ Non-goals
 Repo specifics
 
 - Runtime/toolchain targets
-  - Python: 3.12+
+  - Python: 3.10+
 - Logging conventions
   - Must use lazy % formatting in logs.
   - Prefer wiring via the repo logging configuration module.
@@ -97,7 +97,7 @@ Repo specifics
   - Tests: pytest tests/
   - Coverage: pytest --cov=. tests/ --cov-fail-under=80 --cov-report=html
   - Format: black $(git ls-files '*.py')
-  - Lint: pylint $(git ls-files '*.py')
+  - Lint: make lint (ruff, then Pylint over the tracked files outside tests/ and over tests/)
   - Types: mypy .
 - Contract-sensitive outputs
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).
