@@ -26,7 +26,6 @@ from pydantic import ValidationError
 
 from living_doc_utilities.contracts.coverage_matrix import (
     CONTRACT_ID,
-    COUNTED_STATES,
     RECORD_ROOTS,
     CountedState,
     CoverageMatrixResult,
@@ -72,7 +71,6 @@ def test_document_carries_only_the_view():
 
 
 def test_counted_states_are_exactly_active_and_deprecated():
-    assert COUNTED_STATES == {"active", "deprecated"}
     assert set(get_args(CountedState)) == {"active", "deprecated"}
 
 

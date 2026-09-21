@@ -22,7 +22,7 @@ and their test activity is reported as a warning instead (STALE_AC_REF and frien
 docs/contracts.md section 5).
 """
 
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
@@ -34,7 +34,6 @@ CONTRACT_ID: Literal["coverage-matrix-v1.0.0"] = "coverage-matrix-v1.0.0"
 # The only two entity states a coverage row is ever computed for (docs/contracts.md,
 # "Coverage" - `in_review` and `planned` acceptance criteria are never counted).
 CountedState = Literal["active", "deprecated"]
-COUNTED_STATES: frozenset[str] = frozenset(get_args(CountedState))
 
 CoverageStatus = Literal["covered", "partially_covered", "not_covered"]
 AspectStatus = Literal["covered", "not_covered"]

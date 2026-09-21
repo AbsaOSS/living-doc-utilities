@@ -34,7 +34,7 @@ Module map — the `living_doc_utilities/` package:
 
 | Path | Responsibility |
 |---|---|
-| `constants.py` | Shared constants — the `GITHUB_TOKEN` input name, the `OUTPUT_PATH` default, the `NO_PROJECT_DATA` sentinel |
+| `constants.py` | Shared constants — the `GITHUB_TOKEN` input name, the `OUTPUT_PATH` default |
 | `logging_config.py` | `setup_logging()` — reads `INPUT_VERBOSE_LOGGING` and `RUNNER_DEBUG` from the environment, configures the root logger to stdout |
 | `contracts/common.py` | `ContractModel` (`extra="forbid"` pydantic base every contract model extends), `AcceptanceCriterion` (plus its `canonical_header()` renderer), `EntityCore`, `SourceRef`, `Timestamps` |
 | `contracts/envelope.py` | The shared metadata envelope — `Metadata`, `Producer`, `Run`, `Source`, `Cardinality`, `Stats` / `AuditStats`, `SourceInputEntry`, `ContractWarning` — one model imported unchanged by every contract |

@@ -18,10 +18,7 @@
 This module contains utility functions for GitHub Actions.
 """
 
-import logging
 import os
-
-logger = logging.getLogger(__name__)
 
 
 def get_action_input(name: str, default: str = "") -> str:
@@ -35,7 +32,7 @@ def get_action_input(name: str, default: str = "") -> str:
     return os.getenv(f'INPUT_{name.replace("-", "_").upper()}', default=default)
 
 
-def set_action_output(name: str, value: str, default_output_path: str = "default_output.txt") -> None:
+def set_action_output(name: str, value: str) -> None:
     """
     Write an action output to a file in the format expected by GitHub Actions.
 
@@ -44,14 +41,11 @@ def set_action_output(name: str, value: str, default_output_path: str = "default
 
     @param name: The name of the output parameter.
     @param value: The value of the output parameter.
-    @param default_output_path: The default file path to which the output is written if the GITHUB_OUTPUT
-    environment variable is not set.
     @return: None
+    @raises KeyError: GITHUB_OUTPUT is not set.
+    @raises OSError: the output file cannot be written (R13: no silent swallowing).
     """
-    output_file = os.getenv("GITHUB_OUTPUT", default_output_path)
-    try:
-        # Explicit newline: text mode would append CRLF on Windows.
-        with open(output_file, "a", encoding="utf-8", newline="\n") as f:
-            f.write(f"{name}={value}\n")
-    except IOError as e:
-        logger.error("Failed to write output to %s: %s", output_file, e)
+    output_file = os.environ["GITHUB_OUTPUT"]
+    # Explicit newline: text mode would append CRLF on Windows.
+    with open(output_file, "a", encoding="utf-8", newline="\n") as f:
+        f.write(f"{name}={value}\n")

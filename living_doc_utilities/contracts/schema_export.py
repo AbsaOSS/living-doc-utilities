@@ -21,7 +21,6 @@ section 2) and writes them to contracts/schemas/. Run as
 """
 
 import json
-import logging
 from importlib import resources
 from pathlib import Path
 from types import NoneType
@@ -38,9 +37,6 @@ from living_doc_utilities.contracts import (
     ui_tests,
 )
 from living_doc_utilities.contracts.envelope import Stats
-from living_doc_utilities.logging_config import setup_logging
-
-logger = logging.getLogger(__name__)
 
 # R1/R2: every exported schema declares its dialect and identifies itself.
 SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
@@ -385,9 +381,8 @@ def load_schema(contract_id: str) -> dict[str, Any]:
 
 def main() -> None:
     """Entry point for `python -m living_doc_utilities.contracts.schema_export`."""
-    setup_logging()
     for path in write_schemas():
-        logger.info("wrote %s", path)
+        print(f"wrote {path}")
 
 
 if __name__ == "__main__":
