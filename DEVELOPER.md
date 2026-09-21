@@ -76,6 +76,7 @@ This project uses the [Pylint](https://pypi.org/project/pylint/) tool for static
 Pylint analyses your code without actually running it.
 It checks for errors, enforces coding standards, looks for code smells, etc.
 Pylint runs twice: over `living_doc_utilities/` with every rule, and over `tests/` with the rules that do not suit tests switched off (`PYLINT_TESTS_DISABLE` in the `Makefile`, explained in [Rules switched off for tests](#rules-switched-off-for-tests)).
+The root project file `pyproject.toml` defines the Pylint configuration (`[tool.pylint.*]`).
 
 Pylint displays a global evaluation score for the code, rated out of a maximum score of 10.0.
 We are aiming to keep our code quality high above the score 9.5.

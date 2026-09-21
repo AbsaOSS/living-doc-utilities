@@ -56,6 +56,20 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "B"]
 
+[tool.pylint.main]
+# The supported floor; without it Pylint uses the running interpreter and its checks differ per Python.
+py-version = "3.10"
+# nh3 is a compiled extension with no statically-inferable members; Pylint must import it to see `clean` and `ALLOWED_TAGS`.
+extension-pkg-allow-list = ["nh3"]
+
+[tool.pylint.format]
+# Same limit as Black and ruff.
+max-line-length = 120
+
+[tool.pylint.basic]
+# Tiny functions (under 5 lines) need no docstring.
+docstring-min-length = 5
+
 # Undeclared-import gate (`make deptry`, no configuration): every deptry rule runs, and the two
 # that matter most here are DEP001 (imported but not declared) and DEP004 (a development-only tool
 # imported by the library's own code). deptry counts an extra as declared for the whole package, so
