@@ -55,12 +55,12 @@ failing gate. The individual targets are also available while iterating:
 
 | Target | Runs | Gate |
 |---|---|---|
-| `make lint` | ruff, then Pylint over `living_doc_utilities/` and over `tests/` (rules that do not suit tests are off, see `PYLINT_TESTS_DISABLE` in the `Makefile`) | each Pylint run scores ≥ 9.5 / 10 |
+| `make lint` | ruff, then Pylint over the tracked files outside `tests/` and over `tests/` (rules that do not suit tests are off, see `PYLINT_TESTS_DISABLE` in the `Makefile`) | each Pylint run scores ≥ 9.5 / 10 |
 | `make format` | Black, rewriting files in place | line length 120 |
 | `make format-check` | Black in `--check` mode | line length 120 |
 | `make types` | mypy | clean |
 | `make deptry` | deptry over the package | no import that is used but not declared in `pyproject.toml` (DEP001) and no development-only tool imported by the library (DEP004) |
-| `make test` | pytest, unit tests only | pass |
+| `make test` | pytest over `tests/` | pass |
 | `make coverage` | pytest with the coverage gate | `--cov-fail-under=80` |
 | `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
 | `make no-vendored-schemas` | `python -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas` (R12 check 1) | no git-tracked `*-schema.json` / `*.schema.json` outside `tests/` and this package's own schemas dir; files not yet `git add`ed are not seen |
@@ -75,7 +75,8 @@ The sections below explain each tool in more detail and how to scope it to a sin
 This project uses the [Pylint](https://pypi.org/project/pylint/) tool for static code analysis.
 Pylint analyses your code without actually running it.
 It checks for errors, enforces coding standards, looks for code smells, etc.
-Pylint runs twice: over `living_doc_utilities/` with every rule, and over `tests/` with the rules that do not suit tests switched off (`PYLINT_TESTS_DISABLE` in the `Makefile`, explained in [Rules switched off for tests](#rules-switched-off-for-tests)).
+Pylint runs twice: over every tracked file outside `tests/` with every rule, and over `tests/` with the rules that do not suit tests switched off (`PYLINT_TESTS_DISABLE` in the `Makefile`, explained in [Rules switched off for tests](#rules-switched-off-for-tests)).
+Both passes take their files from `git ls-files`, so a new `.py` file is linted once it is tracked (`git add`), not before.
 The root project file `pyproject.toml` defines the Pylint configuration (`[tool.pylint.*]`).
 
 Pylint displays a global evaluation score for the code, rated out of a maximum score of 10.0.

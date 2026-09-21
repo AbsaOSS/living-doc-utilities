@@ -95,11 +95,6 @@ DEP004 = ["yaml"]
 [tool.coverage.run]
 omit = ["tests/*"]
 
-[tool.pytest.ini_options]
-markers = [
-    "integration: crosses more than one authoring module (normalize + ac_grammar together); still synthetic input, no I/O.",
-]
-
 [tool.mypy]
 check_untyped_defs = true
 python_version = "3.10"

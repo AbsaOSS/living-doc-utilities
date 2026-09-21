@@ -50,7 +50,8 @@ def version(root: str) -> None:
 
 
 def copy_sources(root: str, destination: str) -> None:
-    # Build from a copy: an in-tree build would leave build/ and *.egg-info behind and reuse a stale build/lib.
+    """Copies the tracked and untracked sources (minus git-ignored) so the wheel is built from a copy: an
+    in-tree build would leave build/ and *.egg-info behind and reuse a stale build/lib."""
     source_root, target_root = Path(root), Path(destination)
     listing = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
@@ -67,6 +68,7 @@ def copy_sources(root: str, destination: str) -> None:
 
 
 def check_wheel(wheel: str) -> None:
+    """The wheel packages the contract schemas and none of the retired modules."""
     with zipfile.ZipFile(wheel) as archive:
         names = archive.namelist()
     retired = [name for name in names if name.startswith(RETIRED_DIRS) or name == RETIRED_FILE]
@@ -76,36 +78,32 @@ def check_wheel(wheel: str) -> None:
     ), "the wheel does not package the contract schemas"
 
 
-def check_env(mode: str, expected_version: str) -> None:
-    extras = EXTRAS[mode]
+def _import_module(name: str, extras: set[str]) -> None:
+    if name not in NEEDS_EXTRA or NEEDS_EXTRA[name][0] in extras:
+        importlib.import_module(name)
+        return
+    extra, missing = NEEDS_EXTRA[name]
+    try:
+        importlib.import_module(name)
+    except ModuleNotFoundError as error:
+        assert error.name == missing, f"{name} failed on {error.name!r}, expected {missing!r}"
+    else:
+        raise AssertionError(f"{name} imported without the '{extra}' extra")
 
-    import living_doc_utilities as package
 
-    assert "site-packages" in str(package.__file__), f"not the installed wheel: {package.__file__}"
-    assert importlib.metadata.version("living-doc-utilities") == expected_version
+def _check_extras_behaviour(extras: set[str]) -> None:
+    url_policy = importlib.import_module(f"{PACKAGE}.authoring.url_policy")
+    html_to_markdown = importlib.import_module(f"{PACKAGE}.authoring.html_to_markdown")
+    schema_export = importlib.import_module(f"{PACKAGE}.contracts.schema_export")
 
-    names = sorted(module.name for module in pkgutil.walk_packages(package.__path__, f"{PACKAGE}."))
-    assert f"{PACKAGE}.contracts.io" in names and f"{PACKAGE}.authoring.normalize" in names
-    for name in names:
-        if name in NEEDS_EXTRA and NEEDS_EXTRA[name][0] not in extras:
-            extra, missing = NEEDS_EXTRA[name]
-            try:
-                importlib.import_module(name)
-            except ModuleNotFoundError as error:
-                assert error.name == missing, f"{name} failed on {error.name!r}, expected {missing!r}"
-            else:
-                raise AssertionError(f"{name} imported without the '{extra}' extra")
-        else:
-            importlib.import_module(name)
+    assert url_policy.safe_href("https://example.com/a") == "https://example.com/a"  # needs no extra
+    assert schema_export.load_schema("doc-entities-v1.0.0")  # the schemas are packaged as package data
 
-    from living_doc_utilities.authoring.html_to_markdown import convert_html_to_markdown
-    from living_doc_utilities.authoring.url_policy import safe_href, sanitize_html_fragment
-    from living_doc_utilities.contracts.schema_export import load_schema
-
-    assert safe_href("https://example.com/a") == "https://example.com/a"  # needs no extra
-    assert load_schema("doc-entities-v1.0.0")  # the schemas are packaged as package data
-
-    for call in (lambda: sanitize_html_fragment("<p>x</p>"), lambda: convert_html_to_markdown("<p>x</p>")):
+    sanitiser_calls = (
+        lambda: url_policy.sanitize_html_fragment("<p>x</p>"),
+        lambda: html_to_markdown.convert_html_to_markdown("<p>x</p>"),
+    )
+    for call in sanitiser_calls:
         if "html" in extras:
             call()
         else:
@@ -115,6 +113,21 @@ def check_env(mode: str, expected_version: str) -> None:
                 assert error.name == "nh3", error.name
             else:
                 raise AssertionError("the HTML sanitiser ran without the 'html' extra")
+
+
+def check_env(mode: str, expected_version: str) -> None:
+    """Every module imports from the installed wheel, needing only this environment's extras."""
+    extras = EXTRAS[mode]
+    package = importlib.import_module(PACKAGE)
+
+    assert "site-packages" in str(package.__file__), f"not the installed wheel: {package.__file__}"
+    assert importlib.metadata.version("living-doc-utilities") == expected_version
+
+    names = sorted(module.name for module in pkgutil.walk_packages(package.__path__, f"{PACKAGE}."))
+    assert f"{PACKAGE}.contracts.io" in names and f"{PACKAGE}.authoring.normalize" in names
+    for name in names:
+        _import_module(name, extras)
+    _check_extras_behaviour(extras)
 
     print(f"   {len(names)} modules checked: OK ({mode})")
 

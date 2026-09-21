@@ -17,7 +17,7 @@ PYLINT_TESTS_DISABLE = use-implicit-booleaness-not-comparison,redefined-outer-na
 PYLINT_TESTS_DISABLE := $(PYLINT_TESTS_DISABLE),missing-function-docstring,missing-module-docstring,missing-class-docstring
 
 .DEFAULT_GOAL := help
-.PHONY: help install qa lint format format-check types deptry test coverage test-unit test-integration schemas docs no-vendored-schemas import-matrix
+.PHONY: help install qa lint format format-check types deptry test coverage schemas docs no-vendored-schemas import-matrix
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -36,10 +36,10 @@ format: ## Reformat all tracked Python files (ruff autofix + Black).
 format-check: ## Check Black formatting without modifying files.
 	black --check $(PY_FILES)
 
-lint: ## Run ruff, then Pylint over the package and over tests/ (each enforces the minimum score).
+lint: ## Run ruff, then Pylint over the tracked files outside tests/ and over tests/ (each enforces the minimum score).
 	ruff check $(PY_FILES)
-	pylint --fail-under=$(PYLINT_MIN) living_doc_utilities
-	pylint --fail-under=$(PYLINT_MIN) --disable=$(PYLINT_TESTS_DISABLE) tests
+	pylint --fail-under=$(PYLINT_MIN) $(filter-out tests/%,$(PY_FILES))
+	pylint --fail-under=$(PYLINT_MIN) --disable=$(PYLINT_TESTS_DISABLE) $(filter tests/%,$(PY_FILES))
 
 types: ## Run the mypy static type checker.
 	mypy .
@@ -47,17 +47,11 @@ types: ## Run the mypy static type checker.
 deptry: ## Fail on an import that is used but not declared (DEP001) or a dev-only tool imported by the library (DEP004).
 	deptry .
 
-test: ## Run the unit test suite (integration tests excluded).
-	pytest --ignore=tests/integration -v tests/
+test: ## Run the test suite.
+	pytest -v tests/
 
-coverage: ## Run the unit test suite with the coverage gate.
-	pytest --ignore=tests/integration --cov=. -v tests/ --cov-fail-under=$(COV_MIN)
-
-test-unit: ## Run only unit tests (fast local loop, no cross-module chaining).
-	pytest -m "not integration" -v tests/
-
-test-integration: ## Run only integration tests (cross-authoring-module, still synthetic/fast - no separate CI lane).
-	pytest -m integration -v tests/
+coverage: ## Run the test suite with the coverage gate.
+	pytest --cov=. -v tests/ --cov-fail-under=$(COV_MIN)
 
 schemas: ## Regenerate the contract JSON Schemas from the pydantic models (docs/contracts.md).
 	$(PYTHON) -m living_doc_utilities.contracts.schema_export
