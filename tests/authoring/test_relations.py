@@ -18,13 +18,9 @@
 (docs/contracts.md)."""
 
 from living_doc_utilities.authoring.issue_body import ParsedEntity, parse_issue_body
-from living_doc_utilities.authoring.relations import (
-    RELATION_MISMATCH,
-    RELATION_TYPE_MISMATCH,
-    UNRESOLVED_RELATION,
-    check_relations,
-)
+from living_doc_utilities.authoring.relations import check_relations
 from living_doc_utilities.authoring.status import derive_statuses
+from living_doc_utilities.contracts.codes import Code
 from tests.authoring.golden.helpers import read_fixture
 
 
@@ -52,7 +48,7 @@ def test_unresolved_relation_for_a_feature_pointing_outside_the_run():
     warnings = check_relations([feature])
 
     codes = [w.code for w in warnings]
-    assert codes.count(UNRESOLVED_RELATION) == 2
+    assert codes.count(Code.UNRESOLVED_RELATION.name) == 2
 
 
 def test_unresolved_relation_for_a_functionality_parent_and_superseded_by():
@@ -60,7 +56,7 @@ def test_unresolved_relation_for_a_functionality_parent_and_superseded_by():
 
     warnings = check_relations([func])
 
-    assert [w.code for w in warnings] == [UNRESOLVED_RELATION, UNRESOLVED_RELATION]
+    assert [w.code for w in warnings] == [Code.UNRESOLVED_RELATION.name, Code.UNRESOLVED_RELATION.name]
 
 
 def test_relation_mismatch_when_feature_does_not_list_its_functionality_back():
@@ -70,7 +66,7 @@ def test_relation_mismatch_when_feature_does_not_list_its_functionality_back():
 
     warnings = check_relations([feature, func, other_func])
 
-    assert [w.code for w in warnings] == [RELATION_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_MISMATCH.name]
 
 
 def test_no_warnings_for_a_consistent_relation_set():
@@ -93,7 +89,7 @@ def test_relation_mismatch_when_feature_claims_a_functionality_parented_elsewher
 
     warnings = check_relations([feature, real_parent, func])
 
-    assert [w.code for w in warnings] == [RELATION_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_MISMATCH.name]
 
 
 def test_no_mismatch_when_feature_declares_no_functionalities_list_at_all():
@@ -115,7 +111,7 @@ def test_relation_type_mismatch_when_a_functionality_id_is_copy_pasted_into_user
 
     warnings = check_relations([feature, func])
 
-    assert [w.code for w in warnings] == [RELATION_TYPE_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_TYPE_MISMATCH.name]
     context = warnings[0].context
     assert "entity_id='FEAT-001'" in context
     assert "field='user_stories'" in context
@@ -130,7 +126,7 @@ def test_relation_type_mismatch_when_a_user_story_id_is_copy_pasted_into_functio
 
     warnings = check_relations([feature, story])
 
-    assert [w.code for w in warnings] == [RELATION_TYPE_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_TYPE_MISMATCH.name]
     context = warnings[0].context
     assert "entity_id='FEAT-001'" in context
     assert "field='functionalities'" in context
@@ -145,7 +141,7 @@ def test_relation_type_mismatch_when_functionality_parent_resolves_to_a_non_feat
 
     warnings = check_relations([func, story])
 
-    assert [w.code for w in warnings] == [RELATION_TYPE_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_TYPE_MISMATCH.name]
     context = warnings[0].context
     assert "entity_id='FUNC-001'" in context
     assert "field='parent'" in context
@@ -160,7 +156,7 @@ def test_relation_type_mismatch_when_superseded_by_resolves_to_a_different_type(
 
     warnings = check_relations([story, func])
 
-    assert [w.code for w in warnings] == [RELATION_TYPE_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_TYPE_MISMATCH.name]
     context = warnings[0].context
     assert "entity_id='US-001'" in context
     assert "field='superseded_by'" in context
@@ -177,7 +173,7 @@ def test_type_mismatch_does_not_also_raise_relation_mismatch_for_functionalities
 
     warnings = check_relations([feature, story])
 
-    assert [w.code for w in warnings] == [RELATION_TYPE_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_TYPE_MISMATCH.name]
 
 
 def test_type_mismatch_does_not_also_raise_relation_mismatch_for_parent():
@@ -189,7 +185,7 @@ def test_type_mismatch_does_not_also_raise_relation_mismatch_for_parent():
 
     warnings = check_relations([func, story])
 
-    assert [w.code for w in warnings] == [RELATION_TYPE_MISMATCH]
+    assert [w.code for w in warnings] == [Code.RELATION_TYPE_MISMATCH.name]
 
 
 def test_no_type_mismatch_for_a_correctly_typed_relation_set():

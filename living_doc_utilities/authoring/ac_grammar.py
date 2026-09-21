@@ -30,6 +30,7 @@ from typing import Optional
 from pydantic import ValidationError
 
 from living_doc_utilities.authoring.normalize import compute_fence_flags
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import (
     AC_ID_PATTERN,
     PLACEHOLDER_NAME_PATTERN,
@@ -37,10 +38,6 @@ from living_doc_utilities.contracts.common import (
     AcceptanceCriterion,
 )
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-MALFORMED_AC = "MALFORMED_AC"
-LEGACY_AC_STATE = "LEGACY_AC_STATE"
-UNPARSED_AC_LINE = "UNPARSED_AC_LINE"
 
 # The only place in the codebase that still recognises this literal string (docs/
 # contracts.md's AC grammar section) - everywhere else it is simply not a valid state.
@@ -155,7 +152,7 @@ def _parse_extensions(
     def _unparsed(raw_line: str) -> None:
         warnings.append(
             ContractWarning(
-                code=UNPARSED_AC_LINE,
+                code=Code.UNPARSED_AC_LINE.name,
                 message="Acceptance-criterion block line could not be assigned to any known field.",
                 context=f"{context} line={raw_line.strip()!r}",
             )
@@ -247,7 +244,9 @@ def _build_ac(
 
     if not id_valid or state is None:
         warnings.append(
-            ContractWarning(code=MALFORMED_AC, message="Acceptance-criterion header is malformed.", context=context)
+            ContractWarning(
+                code=Code.MALFORMED_AC.name, message="Acceptance-criterion header is malformed.", context=context
+            )
         )
         return None, warnings
 
@@ -257,7 +256,7 @@ def _build_ac(
         if not legacy_shape_valid:
             warnings.append(
                 ContractWarning(
-                    code=MALFORMED_AC,
+                    code=Code.MALFORMED_AC.name,
                     message="Legacy 'descoped' acceptance criterion requires the strict versioned form "
                     "'vX.Y.Z - descoped'.",
                     context=context,
@@ -266,7 +265,7 @@ def _build_ac(
             return None, warnings
         warnings.append(
             ContractWarning(
-                code=LEGACY_AC_STATE,
+                code=Code.LEGACY_AC_STATE.name,
                 message="Legacy 'descoped' state converted to a version-less 'planned' acceptance criterion.",
                 context=context,
             )
@@ -297,7 +296,7 @@ def _build_ac(
         detail = f"{field_path}: {first['msg']}" if field_path else first["msg"]
         warnings.append(
             ContractWarning(
-                code=MALFORMED_AC,
+                code=Code.MALFORMED_AC.name,
                 message=f"Acceptance criterion failed validation: {detail}",
                 context=context,
             )
@@ -345,7 +344,7 @@ def parse_acceptance_criteria(
         if header_m is None:
             warnings.append(
                 ContractWarning(
-                    code=MALFORMED_AC,
+                    code=Code.MALFORMED_AC.name,
                     message="Acceptance-criterion header is malformed.",
                     context=f"entity={entity_id!r} header={raw_lines[index].strip()!r}",
                 )

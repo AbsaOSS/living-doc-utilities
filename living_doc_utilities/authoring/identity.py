@@ -24,9 +24,8 @@ the separator after it - it needs no normalisation before extraction.
 import re
 from typing import Optional
 
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-MISSING_ENTITY_ID = "MISSING_ENTITY_ID"
 
 # A historical prefix such as "GH-" ahead of the real id is stripped simply by taking the
 # *last* id-shaped run in the title: "GH-US-001" itself is not id-shaped (letters directly
@@ -61,7 +60,7 @@ def derive_entity_id(title: str) -> tuple[Optional[str], list[ContractWarning]]:
     if match is None:
         return None, [
             ContractWarning(
-                code=MISSING_ENTITY_ID,
+                code=Code.MISSING_ENTITY_ID.name,
                 message="Title carries no recognised entity-id prefix.",
                 context=f"title={title!r}",
             )

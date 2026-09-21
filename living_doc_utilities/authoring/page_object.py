@@ -26,9 +26,10 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from living_doc_utilities.authoring.identity import MISSING_ENTITY_ID, derive_entity_id, extract_living_doc_title
-from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEY, ParsedEntity
+from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
+from living_doc_utilities.authoring.issue_body import ParsedEntity
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.doc_entities import PageRef
 from living_doc_utilities.contracts.envelope import ContractWarning
 
@@ -168,7 +169,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     if title is None:
         return None, [
             ContractWarning(
-                code=MISSING_ENTITY_ID,
+                code=Code.MISSING_ENTITY_ID.name,
                 message="PageObject banner carries no 'LIVING DOC — ...' title line.",
                 context="title=''",
             )
@@ -191,7 +192,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     for key in unrecognised:
         warnings.append(
             ContractWarning(
-                code=IGNORED_AUTHORED_KEY,
+                code=Code.IGNORED_AUTHORED_KEY.name,
                 message=f"'{key}:' is not a field this contract carries.",
                 context=f"entity_id={entity_id!r}",
             )
@@ -199,7 +200,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     if "status" in values:
         warnings.append(
             ContractWarning(
-                code=IGNORED_AUTHORED_KEY,
+                code=Code.IGNORED_AUTHORED_KEY.name,
                 message=IGNORED_AUTHORED_KEYS["status"],
                 context=f"entity_id={entity_id!r} key='status:'",
             )

@@ -22,12 +22,8 @@ for a User Story/Functionality, every derivation row for a Feature, every
 import pytest
 
 from living_doc_utilities.authoring.issue_body import ParsedEntity
-from living_doc_utilities.authoring.status import (
-    MISSING_STATUS,
-    ORPHAN_FEATURE,
-    STATUS_AC_MISMATCH,
-    derive_statuses,
-)
+from living_doc_utilities.authoring.status import derive_statuses
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import AcceptanceCriterion
 
 
@@ -90,7 +86,7 @@ def test_missing_status_derives_from_acceptance_criteria(ac_states, expected_sta
 
     assert entities[0].state == expected_state
     assert entities[0].state_origin == "authored"
-    assert [w.code for w in warnings] == [MISSING_STATUS]
+    assert [w.code for w in warnings] == [Code.MISSING_STATUS.name]
 
 
 # --- STATUS_AC_MISMATCH ------------------------------------------------------------------
@@ -121,14 +117,14 @@ def test_status_ac_mismatch_table(authored, ac_states, expect_mismatch):
 
     assert entities[0].state == authored  # authored value always wins
     codes = [w.code for w in warnings]
-    assert (STATUS_AC_MISMATCH in codes) is expect_mismatch
+    assert (Code.STATUS_AC_MISMATCH.name in codes) is expect_mismatch
 
 
 def test_in_review_never_mismatches_for_any_ac_combination():
     for ac_states in ([], ["planned"], ["active"], ["in_review"], ["deprecated"], ["active", "deprecated"]):
         acs = [_ac(i + 1, state) for i, state in enumerate(ac_states)]
         _entities, warnings = derive_statuses([_us(state="in_review", acceptance_criteria=acs)])
-        assert STATUS_AC_MISMATCH not in [w.code for w in warnings]
+        assert Code.STATUS_AC_MISMATCH.name not in [w.code for w in warnings]
 
 
 # --- Feature derivation ------------------------------------------------------------------
@@ -184,4 +180,4 @@ def test_orphan_feature_defaults_to_active_with_a_warning():
 
     assert entities[0].state == "active"
     assert entities[0].state_origin == "derived"
-    assert [w.code for w in warnings] == [ORPHAN_FEATURE]
+    assert [w.code for w in warnings] == [Code.ORPHAN_FEATURE.name]

@@ -25,16 +25,13 @@ to an entity of the wrong type - e.g. a Functionality's id copy-pasted into a Fe
 """
 
 from living_doc_utilities.authoring.issue_body import ParsedEntity
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-UNRESOLVED_RELATION = "UNRESOLVED_RELATION"
-RELATION_MISMATCH = "RELATION_MISMATCH"
-RELATION_TYPE_MISMATCH = "RELATION_TYPE_MISMATCH"
 
 
 def _unresolved(entity: ParsedEntity, target_id: str, relation: str) -> ContractWarning:
     return ContractWarning(
-        code=UNRESOLVED_RELATION,
+        code=Code.UNRESOLVED_RELATION.name,
         message=f"'{relation}' points outside the collected entity set.",
         context=f"entity_id={entity.entity_id!r} target={target_id!r}",
     )
@@ -42,7 +39,7 @@ def _unresolved(entity: ParsedEntity, target_id: str, relation: str) -> Contract
 
 def _type_mismatch(entity: ParsedEntity, field: str, target: ParsedEntity, expected_type: str) -> ContractWarning:
     return ContractWarning(
-        code=RELATION_TYPE_MISMATCH,
+        code=Code.RELATION_TYPE_MISMATCH.name,
         message=f"'{field}' resolves to {target.entity_id!r}, a {target.type}, not the expected {expected_type}.",
         context=(
             f"entity_id={entity.entity_id!r} field={field!r} target={target.entity_id!r} "
@@ -76,7 +73,7 @@ def check_relations(entities: list[ParsedEntity]) -> list[ContractWarning]:
                 elif func.parent is not None and func.parent != entity.entity_id:
                     warnings.append(
                         ContractWarning(
-                            code=RELATION_MISMATCH,
+                            code=Code.RELATION_MISMATCH.name,
                             message="Feature's declared functionality does not list it back as its own parent.",
                             context=f"entity_id={entity.entity_id!r} functionality={func_id!r}",
                         )
@@ -91,7 +88,7 @@ def check_relations(entities: list[ParsedEntity]) -> list[ContractWarning]:
             elif parent.functionalities and entity.entity_id not in parent.functionalities:
                 warnings.append(
                     ContractWarning(
-                        code=RELATION_MISMATCH,
+                        code=Code.RELATION_MISMATCH.name,
                         message="Functionality's declared parent does not list it back in its own " "functionalities.",
                         context=f"entity_id={entity.entity_id!r} parent={entity.parent!r}",
                     )

@@ -17,8 +17,8 @@
 """Scenario parsing: `@AC:<id>[/aspect:<value>]` tags link a scenario to its acceptance
 criteria; the human-readable `# AC:` comment above it is never parsed as a tag."""
 
-from living_doc_utilities.authoring.ac_grammar import MALFORMED_AC
 from living_doc_utilities.authoring.scenario import parse_scenarios
+from living_doc_utilities.contracts.codes import Code
 
 _FEATURE_BODY = """\
 @US_ID:US-001
@@ -70,7 +70,7 @@ def test_malformed_ac_tag_produces_a_warning_and_no_link():
     scenarios, warnings = parse_scenarios(body, "DocumentedUserStory")
 
     assert scenarios[0].acceptance_criteria == []
-    assert [w.code for w in warnings] == [MALFORMED_AC]
+    assert [w.code for w in warnings] == [Code.MALFORMED_AC.name]
 
 
 def test_tag_before_a_non_scenario_construct_does_not_leak_onto_a_later_scenario():

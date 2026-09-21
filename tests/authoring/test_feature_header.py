@@ -17,7 +17,8 @@
 """`.feature`-header parsing: recognised keys land on their fields, an unrecognised key
 produces `IGNORED_AUTHORED_KEY`, and `normalize` runs before `ac_grammar`."""
 
-from living_doc_utilities.authoring.feature_header import IGNORED_AUTHORED_KEY, parse_feature_header
+from living_doc_utilities.authoring.feature_header import parse_feature_header
+from living_doc_utilities.contracts.codes import Code
 
 _US_HEADER = """\
 # =============================================================================
@@ -81,7 +82,7 @@ def test_unrecognised_key_produces_ignored_authored_key():
     entity, warnings = parse_feature_header(_HEADER_WITH_UNKNOWN_KEY, "DocumentedUserStory")
 
     assert entity is not None
-    assert [w.code for w in warnings] == [IGNORED_AUTHORED_KEY]
+    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
     assert "totally_unknown_key" in warnings[0].message
 
 

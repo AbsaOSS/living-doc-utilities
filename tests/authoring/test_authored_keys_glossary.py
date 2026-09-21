@@ -22,8 +22,9 @@ dropped. Both `IGNORED_AUTHORED_KEY` and `UNKNOWN_SECTION` are exercised here to
 """
 
 from living_doc_utilities.authoring import issue_body, page_object
-from living_doc_utilities.authoring.issue_body import UNKNOWN_SECTION, parse_issue_body
+from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.authoring.page_object import parse_page_object
+from living_doc_utilities.contracts.codes import Code
 from tests.contracts.test_authored_field_set import ALL_HEADINGS
 
 # The two glossary-defined keys with no model field (a Feature's status is derived, never
@@ -70,4 +71,4 @@ def test_unknown_section_is_exercised_for_an_unrecognised_issue_body_heading():
         "## Description\n\nd\n\n## Nonsense Heading\n\nv\n", "US-001 · Sample", "DocumentedUserStory"
     )
     assert entity is not None
-    assert [w.code for w in warnings] == [UNKNOWN_SECTION]
+    assert [w.code for w in warnings] == [Code.UNKNOWN_SECTION.name]

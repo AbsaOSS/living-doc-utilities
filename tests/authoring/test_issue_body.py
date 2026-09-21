@@ -22,7 +22,8 @@ heading produces `UNKNOWN_SECTION`, a `## Status` heading on a Feature produces
 acceptance-criterion's own `rationale`.
 """
 
-from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEY, UNKNOWN_SECTION, parse_issue_body
+from living_doc_utilities.authoring.issue_body import parse_issue_body
+from living_doc_utilities.contracts.codes import Code
 
 _USER_STORY_BODY = """\
 ## Description
@@ -173,7 +174,7 @@ def test_every_user_story_heading_lands_on_its_field():
 def test_every_feature_heading_lands_on_its_field_and_status_is_ignored():
     entity, warnings = parse_issue_body(_FEATURE_BODY, "FEAT-001 · Sample", "DocumentedFeature")
 
-    assert [w.code for w in warnings] == [IGNORED_AUTHORED_KEY]
+    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
     assert warnings[0].message == "Feature state is derived; use `stub-reason:` for an uninstrumented surface"
     assert entity.state is None
     assert entity.purpose == "A purpose sentence."
@@ -209,7 +210,7 @@ def test_unrecognised_heading_produces_unknown_section():
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 
     assert entity is not None
-    assert [w.code for w in warnings] == [UNKNOWN_SECTION]
+    assert [w.code for w in warnings] == [Code.UNKNOWN_SECTION.name]
     assert "Totally Unknown Heading" in warnings[0].message
 
 

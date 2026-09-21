@@ -26,9 +26,10 @@ import re
 from typing import Any, Optional
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
-from living_doc_utilities.authoring.identity import MISSING_ENTITY_ID, derive_entity_id, extract_living_doc_title
-from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEY, ParsedEntity, extract_bullets
+from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
+from living_doc_utilities.authoring.issue_body import ParsedEntity, extract_bullets
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.envelope import ContractWarning
 
@@ -173,7 +174,7 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
     if title is None:
         return None, [
             ContractWarning(
-                code=MISSING_ENTITY_ID,
+                code=Code.MISSING_ENTITY_ID.name,
                 message="Feature-header banner carries no 'LIVING DOC — ...' title line.",
                 context="title=''",
             )
@@ -189,7 +190,7 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
     for key in unrecognised:
         warnings.append(
             ContractWarning(
-                code=IGNORED_AUTHORED_KEY,
+                code=Code.IGNORED_AUTHORED_KEY.name,
                 message=f"'{key}:' is not a field this contract carries.",
                 context=f"entity_id={entity_id!r}",
             )
