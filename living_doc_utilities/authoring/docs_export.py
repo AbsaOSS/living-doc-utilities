@@ -29,8 +29,6 @@ the doc fails the build rather than silently drifting.
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CASES_FILE = _REPO_ROOT / "living_doc_utilities" / "authoring" / "normalisation_cases.yaml"
 _DOC_FILE = _REPO_ROOT / "docs" / "authoring.md"
@@ -42,6 +40,9 @@ _TABLE_HEADER = "| ID | Rule | Format | Entity type | Before | After | Note |\n|
 
 
 def _load_cases() -> list[dict[str, Any]]:
+    # PyYAML is a development dependency (make docs, the tests), so importing this module must not need it.
+    import yaml  # pylint: disable=import-outside-toplevel
+
     with _CASES_FILE.open(encoding="utf-8") as handle:
         cases = yaml.safe_load(handle)
     if not isinstance(cases, list):
@@ -100,8 +101,11 @@ def regenerate() -> str:
 
 
 def main() -> None:
-    _DOC_FILE.write_text(regenerate(), encoding="utf-8")
-    print(f"Regenerated {_DOC_FILE.relative_to(_REPO_ROOT)} from {_CASES_FILE.relative_to(_REPO_ROOT)}")
+    # Explicit newline: text mode would write CRLF on Windows.
+    _DOC_FILE.write_text(regenerate(), encoding="utf-8", newline="\n")
+    doc = _DOC_FILE.relative_to(_REPO_ROOT).as_posix()
+    cases = _CASES_FILE.relative_to(_REPO_ROOT).as_posix()
+    print(f"Regenerated {doc} from {cases}")
 
 
 if __name__ == "__main__":

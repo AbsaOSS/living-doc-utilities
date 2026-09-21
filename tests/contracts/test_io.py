@@ -179,6 +179,17 @@ def test_write_artifact_creates_the_parent_directory_and_writes_the_file(tmp_pat
     assert payload["metadata"]["producer"]["utilities_version"] == compat.installed_utilities_version()
 
 
+def test_write_artifact_writes_lf_line_endings_only(tmp_path):
+    # Text mode would write CRLF on Windows.
+    destination = tmp_path / "doc-entities.json"
+
+    io.write_artifact(_valid_doc_entities_result(producer=_matching_producer()), destination)
+
+    content = destination.read_bytes()
+    assert b"\r" not in content
+    assert content.endswith(b"}\n")
+
+
 def test_write_artifact_fills_metadata_stats_from_the_result_itself(tmp_path):
     destination = tmp_path / "doc-entities.json"
     result = _valid_doc_entities_result(producer=_matching_producer())

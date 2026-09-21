@@ -363,7 +363,8 @@ def write_schemas(output_dir: Path = SCHEMAS_DIR) -> list[Path]:
     for contract_id, model, record_roots in _CONTRACTS:
         schema = generate_schema(contract_id, model, record_roots)
         path = output_dir / f"{contract_id}-schema.json"
-        path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
+        # Explicit newline: text mode would write CRLF on Windows.
+        path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8", newline="\n")
         written.append(path)
     return written
 

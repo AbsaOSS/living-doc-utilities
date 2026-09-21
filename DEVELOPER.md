@@ -65,7 +65,7 @@ failing gate. The individual targets are also available while iterating:
 | `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
 | `make no-vendored-schemas` | `python -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas` (R12 check 1) | no git-tracked `*-schema.json` / `*.schema.json` outside `tests/` and this package's own schemas dir; files not yet `git add`ed are not seen |
 | `make docs` | regenerates `docs/authoring.md`'s worked-examples table from `normalisation_cases.yaml` | committed table byte-for-byte up to date |
-| `make import-matrix` | builds the wheel and installs it into three clean virtual environments (no extra / `github` / `html`) — not part of `make qa`, CI runs it as its own job | every module imports with only the extras it needs, `pip check` clean in each |
+| `make import-matrix` (Windows: `scripts\import_matrix.bat`) | builds the wheel and installs it into three clean virtual environments (no extra / `github` / `html`) — not part of `make qa`, CI runs it as its own job | every module imports with only the extras it needs, `pip check` clean in each |
 
 The sections below explain each tool in more detail and how to scope it to a single file.
 
@@ -250,17 +250,17 @@ Where a dependency is declared depends on which modules import it:
 
 | Declared in | For | Today |
 |---|---|---|
-| `pyproject.toml` `dependencies` | a module that has to import with no extra installed — `contracts`, `authoring`, `github.utils`, `inputs` | `pydantic`, `jsonschema`, `PyYAML` |
+| `pyproject.toml` `dependencies` | a module that has to import with no extra installed — `contracts`, `authoring`, `github.utils`, `inputs` | `pydantic`, `jsonschema` |
 | `pyproject.toml` extra `github` | `github.rate_limiter`, `github.decorators` | `PyGithub`, `requests` |
 | `pyproject.toml` extra `html` | calling `authoring.html_to_markdown` or `authoring.url_policy.sanitize_html_fragment` (the `nh3` import is inside the function) | `nh3` |
-| `requirements.txt` | the runtime of this repository's own CI tooling | `pydantic`, `jsonschema`, `PyYAML`, pinned |
+| `requirements.txt` | the runtime of this repository's own CI tooling | `pydantic`, `jsonschema`, and `PyYAML` (only for `make docs` and the tests, not a package dependency), pinned |
 | `requirements-dev.txt` | everything else `make qa` and CI need, plus the libraries behind the extras so the tests can import them | pinned |
 
 When you add a third-party import:
 
 - Declare it in `pyproject.toml` (in the core list only if a no-extra module needs it, otherwise in the extra it belongs to) and pin it in `requirements-dev.txt`.
-- Run `make deptry` — it fails on an undeclared import (DEP001) and on a development-only tool imported by the library (DEP004). deptry treats an extra as declared for the whole package, so it cannot tell that a no-extra module imported a `github`-extra library.
-- Run `make import-matrix` — it builds the wheel and imports every module in three clean environments, so a no-extra module that reaches for PyGithub, `requests`, or `nh3` fails here.
+- Run `make deptry` — it fails on an undeclared import (DEP001) and on a development-only tool imported by the library (DEP004). The one accepted DEP004 is `yaml`: `authoring/docs_export.py` is a repository script and imports PyYAML inside `_load_cases()`, so it is ignored per rule in `pyproject.toml`. deptry treats an extra as declared for the whole package, so it cannot tell that a no-extra module imported a `github`-extra library.
+- Run `make import-matrix` (on Windows `scripts\import_matrix.bat`, which needs no POSIX shell; set `PYTHON` to choose the interpreter) — it builds the wheel and imports every module in three clean environments, so a no-extra module that reaches for PyGithub, `requests`, or `nh3` fails here.
 
 `requirements-dev.txt` and the `[dependency-groups] dev` list in `pyproject.toml` name the same
 tools: the pinned versions live in the requirements file, and deptry reads the group's names to
@@ -286,7 +286,7 @@ make schemas
 ```
 
 This runs `python -m living_doc_utilities.contracts.schema_export`, which overwrites all
-six `*-schema.json` files in place. Commit the result alongside the model change.
+six `*-schema.json` files in place, always with LF line endings whatever the OS. Commit the result alongside the model change.
 
 A CI job (`Schema Regeneration Check`) runs the same command and fails the build if the
 regenerated files differ from what is committed, so a forgotten regeneration is caught
@@ -314,7 +314,7 @@ make docs
 ```
 
 This runs `python -m living_doc_utilities.authoring.docs_export`, which rewrites the generated
-table in place. Commit the result alongside the cases-file change.
+table in place, always with LF line endings whatever the OS. Commit the result alongside the cases-file change.
 
 A CI job (`Authoring Docs Regeneration Check`) runs the same command and fails the build if the
 regenerated table differs from what is committed, so a forgotten regeneration is caught before

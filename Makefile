@@ -4,7 +4,8 @@
 # .github/workflows/test.yml calls the same targets so the
 # two never drift. Run `make qa` before opening a pull request.
 
-PYTHON      ?= python3
+# `python3` does not exist on Windows (the name is a Microsoft Store stub), so use `python` there.
+PYTHON      ?= $(if $(filter Windows_NT,$(OS)),python,python3)
 PIP         ?= $(PYTHON) -m pip
 PY_FILES     = $(shell git ls-files '*.py')
 PYLINT_MIN  ?= 9.5

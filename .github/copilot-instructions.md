@@ -65,7 +65,7 @@ Module map — the `living_doc_utilities/` package:
 
 Extras — what a module may import at module level, checked by `make deptry` and `make import-matrix`:
 
-- Must keep `contracts/`, `authoring/`, `github/utils.py`, `inputs/`, `constants.py`, and `logging_config.py` importable with no extra installed — third-party imports there are limited to the core `dependencies` in `pyproject.toml` (`pydantic`, `jsonschema`, `PyYAML`).
+- Must keep `contracts/`, `authoring/`, `github/utils.py`, `inputs/`, `constants.py`, and `logging_config.py` importable with no extra installed — third-party imports there are limited to the core `dependencies` in `pyproject.toml` (`pydantic`, `jsonschema`); the one exception is `yaml` (PyYAML, a development dependency) inside `authoring/docs_export.py::_load_cases`, a repository script.
 - Must import PyGithub and `requests` only in `github/rate_limiter.py` and `github/decorators.py` — they need the `github` extra.
 - Must import `nh3` only inside the `url_policy` functions that call it — the `html` extra is needed to call `sanitize_html_fragment` or `convert_html_to_markdown`, never to import a module.
 
@@ -151,7 +151,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep `make types` (mypy, config in `pyproject.toml`) clean, and Prefer fixing types over adding ignores.
 - Must keep `make deptry` clean — it fails on an import that is used but not declared in `pyproject.toml` (DEP001) and on a development-only tool imported by the library (DEP004).
 - Must keep `make coverage` (pytest, `--cov-fail-under=80`) passing.
-- Must run `make import-matrix` after touching an import or `pyproject.toml` dependencies — it builds the wheel and proves, in three clean virtual environments (no extra, `github`, `html`), which modules import and which need an extra; CI runs the same target.
+- Must run `make import-matrix` after touching an import or `pyproject.toml` dependencies — it builds the wheel and proves, in three clean virtual environments (no extra, `github`, `html`), which modules import and which need an extra; CI runs the same target; on Windows run `scripts\import_matrix.bat` instead (its Python checks live in `scripts/import_matrix_check.py`) — Must keep it doing the same checks as `scripts/import_matrix.sh`.
 - Must run `make schemas` and commit the regenerated `contracts/schemas/*.json` when a `contracts/` model changes — `make qa` does not regenerate them itself, and CI's Schema Regeneration Check fails the build on any diff.
 
 ## Common pitfalls
@@ -169,5 +169,6 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 ## Learned rules
 
 - Must keep `safe_call_decorator` logging with `exc_info=True` and then re-raising each of `ConnectionError` / `Timeout`, `GithubException`, `RequestException`, and any other `Exception`, including one raised by the rate limiter's own lookup — Must keep the rate limiter inside the `try`; a swallowed or unlogged failure hides a real error behind a `None` (or nothing) that a caller reads as "no data".
-- Must keep the function-level `import nh3  # pylint: disable=import-outside-toplevel` in `authoring/url_policy.py` — it is what lets every `authoring` module import without the `html` extra; Must not add another function-level import elsewhere.
+- Must keep the function-level `import nh3  # pylint: disable=import-outside-toplevel` in `authoring/url_policy.py` — it is what lets every `authoring` module import without the `html` extra; Must not add another function-level import elsewhere, except `import yaml` in `authoring/docs_export.py::_load_cases` (PyYAML is a development dependency, so that module must import without it).
+- Must write every generated or contract file (`make schemas`, `make docs`, `write_artifact`, `set_action_output`) with an explicit `newline="\n"`, so the same file is byte-identical on every OS — text mode writes CRLF on Windows, and the committed files (and CI's `git diff`) are LF; Must check it by reading the file as bytes, since a text-mode read hides the difference; Must not restate this in code comments or docstrings.
 - Must keep error messages stable where downstream tests assert exact strings.

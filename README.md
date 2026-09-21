@@ -64,7 +64,7 @@ way to read or write a contract artifact anywhere in the ecosystem (docs/contrac
 caller accepts, and validates against the bundled schema) before returning a typed model;
 `write_artifact` fills in `metadata.stats` and `metadata.producer.utilities_version`, validates the
 result in memory, and only then writes it — to a temporary file in the destination's own directory,
-then an atomic rename — so a crash mid-write never leaves a partial or corrupt artifact behind:
+then an atomic rename — so a crash mid-write never leaves a partial or corrupt artifact behind, and the file always has LF line endings on every OS:
 
 ```python
 from living_doc_utilities.contracts.io import read_artifact, write_artifact
@@ -193,12 +193,12 @@ Install from PyPI, pinned exactly (see [Versioning](#versioning)):
 pip install living-doc-utilities==0.5.0
 ```
 
-The core install (`pydantic`, `jsonschema`, `PyYAML`) covers everything except the two optional
+The core install (`pydantic`, `jsonschema`) covers everything except the two optional
 parts below. Add an extra only when you use the module that needs it:
 
 | Install | Adds | Needed for |
 |---|---|---|
-| `living-doc-utilities==0.5.0` | `pydantic`, `jsonschema`, `PyYAML` | `contracts`, `authoring` (except the HTML sanitiser), `github.utils`, `inputs` |
+| `living-doc-utilities==0.5.0` | `pydantic`, `jsonschema` | `contracts`, `authoring` (except the HTML sanitiser), `github.utils`, `inputs` |
 | `living-doc-utilities[github]==0.5.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
 | `living-doc-utilities[html]==0.5.0` | `nh3` | calling `authoring.html_to_markdown.convert_html_to_markdown` or `authoring.url_policy.sanitize_html_fragment` |
 

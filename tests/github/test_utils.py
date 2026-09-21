@@ -47,7 +47,7 @@ def test_set_output_default(mocker):
 
     set_action_output("test-output", "test_value")
 
-    mock_open.assert_called_with("default_output.txt", "a", encoding="utf-8")
+    mock_open.assert_called_with("default_output.txt", "a", encoding="utf-8", newline="\n")
     handle = mock_open()
     handle.write.assert_any_call("test-output=test_value\n")
 
@@ -58,7 +58,7 @@ def test_set_output_custom_path(mocker):
 
     set_action_output("custom-output", "custom_value", "default_output.txt")
 
-    mock_open.assert_called_with("custom_output.txt", "a", encoding="utf-8")
+    mock_open.assert_called_with("custom_output.txt", "a", encoding="utf-8", newline="\n")
     handle = mock_open()
     handle.write.assert_any_call("custom-output=custom_value\n")
 
@@ -70,7 +70,7 @@ def test_set_action_output_ioerror(mocker):
 
     set_action_output("fail-output", "fail-value", "fail.txt")
 
-    mock_open.assert_called_once_with("fail.txt", "a", encoding="utf-8")
+    mock_open.assert_called_once_with("fail.txt", "a", encoding="utf-8", newline="\n")
     mock_logger.assert_called_once()
     args = mock_logger.call_args[0]
     assert args[0] == "Failed to write output to %s: %s"

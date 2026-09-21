@@ -23,7 +23,17 @@ notices when the cases file and the committed table disagree (so the CI job woul
 stale table, not just a missing one).
 """
 
-from living_doc_utilities.authoring.docs_export import _DOC_FILE, _load_cases, _row, regenerate, render_table
+import pytest
+
+from living_doc_utilities.authoring import docs_export
+from living_doc_utilities.authoring.docs_export import (
+    _CASES_FILE,
+    _DOC_FILE,
+    _load_cases,
+    _row,
+    regenerate,
+    render_table,
+)
 
 
 def test_committed_doc_matches_a_fresh_regeneration():
@@ -78,3 +88,33 @@ def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
 
     assert "\\|" in row
     assert row.replace("\\|", "").count("|") == 8  # 7 cells => 8 delimiters, none from the note
+
+
+@pytest.fixture
+def crlf_checkout(tmp_path, mocker):
+    # The doc and the cases file as a Windows autocrlf checkout can leave them (CRLF), in nested folders so a
+    # path separator shows up in what `main()` prints, wired into `main()` in place of the real files.
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "pkg").mkdir()
+    doc, cases = tmp_path / "docs" / "authoring.md", tmp_path / "pkg" / "cases.yaml"
+    for target, source in ((doc, _DOC_FILE), (cases, _CASES_FILE)):
+        target.write_bytes(source.read_text(encoding="utf-8").encode("utf-8").replace(b"\n", b"\r\n"))
+    mocker.patch.object(docs_export, "_REPO_ROOT", tmp_path)
+    mocker.patch.object(docs_export, "_DOC_FILE", doc)
+    mocker.patch.object(docs_export, "_CASES_FILE", cases)
+    return doc
+
+
+def test_main_writes_lf_line_endings_on_every_os_and_from_any_checkout(crlf_checkout):
+    # Text mode would turn each newline into CRLF on Windows.
+    docs_export.main()
+
+    written = crlf_checkout.read_bytes()
+    assert b"\r" not in written
+    assert written == _DOC_FILE.read_text(encoding="utf-8").encode("utf-8")
+
+
+def test_main_prints_forward_slash_paths_on_every_os(crlf_checkout, capsys):
+    docs_export.main()
+
+    assert capsys.readouterr().out == "Regenerated docs/authoring.md from pkg/cases.yaml\n"

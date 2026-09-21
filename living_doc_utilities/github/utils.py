@@ -50,7 +50,8 @@ def set_action_output(name: str, value: str, default_output_path: str = "default
     """
     output_file = os.getenv("GITHUB_OUTPUT", default_output_path)
     try:
-        with open(output_file, "a", encoding="utf-8") as f:
+        # Explicit newline: text mode would append CRLF on Windows.
+        with open(output_file, "a", encoding="utf-8", newline="\n") as f:
             f.write(f"{name}={value}\n")
     except IOError as e:
         logger.error("Failed to write output to %s: %s", output_file, e)
