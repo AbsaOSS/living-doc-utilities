@@ -294,10 +294,11 @@ def _build_ac(
     except ValidationError as exc:
         first = exc.errors()[0]
         field_path = ".".join(str(part) for part in first["loc"])
+        detail = f"{field_path}: {first['msg']}" if field_path else first["msg"]
         warnings.append(
             ContractWarning(
                 code=MALFORMED_AC,
-                message=f"Acceptance criterion failed validation: {field_path + ': ' if field_path else ''}{first['msg']}",
+                message=f"Acceptance criterion failed validation: {detail}",
                 context=context,
             )
         )

@@ -24,7 +24,7 @@ import pytest
 from living_doc_utilities.contracts.codes import ALL_CODES, Code, CodeKind, ContractError, Emitter
 
 # docs/contracts.md, section 5: a representative sample spanning every emitter/kind
-# combination, so a regression in _CODE_INFO's mapping (not just a missing entry) is caught.
+# combination, so a regression in the registry's kind/emitter mapping (not just a missing entry) is caught.
 _KNOWN_CODES = [
     ("INVALID_CONTRACT_ID", CodeKind.ERROR, Emitter.UTILITIES),
     ("CONTRACT_MISMATCH", CodeKind.ERROR, Emitter.UTILITIES),

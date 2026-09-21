@@ -24,7 +24,7 @@ component in the fleet can produce has exactly one entry here, with its kind and
 emitting component.
 """
 
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional
 
 
@@ -52,116 +52,70 @@ class Emitter(str, Enum):
 
 
 class Code(Enum):
-    """Every code from docs/contracts.md section 5.
+    """Every code from docs/contracts.md section 5, with its kind and emitting component."""
 
-    Members use auto() rather than a (kind, emitter) tuple as their value: many codes share
-    the same kind and emitter (e.g. most collector warnings), and Enum treats two members
-    with an equal value as aliases of one another rather than distinct members - a (kind,
-    emitter) value would have silently collapsed this registry to one member per unique
-    combination. kind/emitter are looked up from _CODE_INFO instead, keyed by the member
-    itself, which stays unique by construction.
-    """
+    kind: CodeKind
+    emitter: Emitter
+
+    def __new__(cls, kind: CodeKind, emitter: Emitter) -> "Code":
+        member = object.__new__(cls)
+        # Unique per member: Enum aliases members whose values are equal, and many codes share (kind, emitter).
+        member._value_ = len(cls.__members__)
+        member.kind = kind
+        member.emitter = emitter
+        return member
 
     # --- R5: the shared compatibility check (contracts.compat.check_input) ---
-    INVALID_CONTRACT_ID = auto()
-    CONTRACT_MISMATCH = auto()
-    SCHEMA_VALIDATION_FAILED = auto()
+    INVALID_CONTRACT_ID = CodeKind.ERROR, Emitter.UTILITIES
+    CONTRACT_MISMATCH = CodeKind.ERROR, Emitter.UTILITIES
+    SCHEMA_VALIDATION_FAILED = CodeKind.ERROR, Emitter.UTILITIES
 
     # --- Shared input validation (toolkit) ---
-    MISSING_INPUT = auto()
-    UNKNOWN_PRODUCER = auto()
-    PROJECT_MISMATCH = auto()
-    MULTIPLE_DOCUMENTATION_SOURCES = auto()
-    MIXED_DOCUMENTATION_SOURCES = auto()
-    DUPLICATE_ENTITY_ID = auto()
-    DUPLICATE_AC_ID = auto()
+    MISSING_INPUT = CodeKind.ERROR, Emitter.TOOLKIT
+    UNKNOWN_PRODUCER = CodeKind.ERROR, Emitter.TOOLKIT
+    PROJECT_MISMATCH = CodeKind.ERROR, Emitter.TOOLKIT
+    MULTIPLE_DOCUMENTATION_SOURCES = CodeKind.ERROR, Emitter.TOOLKIT
+    MIXED_DOCUMENTATION_SOURCES = CodeKind.ERROR, Emitter.TOOLKIT
+    DUPLICATE_ENTITY_ID = CodeKind.ERROR, Emitter.TOOLKIT
+    DUPLICATE_AC_ID = CodeKind.ERROR, Emitter.TOOLKIT
 
     # --- Transform-time hard error and transform warnings (R11) ---
-    FIELD_LOSS = auto()
-    PLANNED_AC_HAS_TESTS = auto()
-    IN_REVIEW_AC_HAS_TESTS = auto()
-    STALE_AC_REF = auto()
+    FIELD_LOSS = CodeKind.ERROR, Emitter.TRANSFORM
+    PLANNED_AC_HAS_TESTS = CodeKind.WARNING, Emitter.TRANSFORM
+    IN_REVIEW_AC_HAS_TESTS = CodeKind.WARNING, Emitter.TRANSFORM
+    STALE_AC_REF = CodeKind.WARNING, Emitter.TRANSFORM
 
     # --- Collectors (R13, and the authoring/parsing rules) ---
-    INVALID_CONFIGURATION = auto()
+    INVALID_CONFIGURATION = CodeKind.ERROR, Emitter.COLLECTOR
     # Hard by default; a warning only under a collector's opt-in partial mode (R13) - kept
     # as ERROR here since that is the default disposition.
-    SOURCE_UNAVAILABLE = auto()
-    EMPTY_SOURCE = auto()
-    MALFORMED_AC = auto()
-    LEGACY_AC_STATE = auto()
-    UNPARSED_AC_LINE = auto()
-    UNKNOWN_SECTION = auto()
-    MISSING_ENTITY_ID = auto()
-    IGNORED_AUTHORED_KEY = auto()
-    MISSING_STATUS = auto()
-    STATUS_AC_MISMATCH = auto()
-    ORPHAN_FEATURE = auto()
-    RELATION_MISMATCH = auto()
-    UNRESOLVED_RELATION = auto()
-    RELATION_TYPE_MISMATCH = auto()
-    NO_SOURCE_URL = auto()
-    HTML_CONTENT_DROPPED = auto()
-    DUPLICATE_AC_SOURCE = auto()
-    EXCLUDED_STATE = auto()
+    SOURCE_UNAVAILABLE = CodeKind.ERROR, Emitter.COLLECTOR
+    EMPTY_SOURCE = CodeKind.WARNING, Emitter.COLLECTOR
+    MALFORMED_AC = CodeKind.WARNING, Emitter.COLLECTOR
+    LEGACY_AC_STATE = CodeKind.WARNING, Emitter.COLLECTOR
+    UNPARSED_AC_LINE = CodeKind.WARNING, Emitter.COLLECTOR
+    UNKNOWN_SECTION = CodeKind.WARNING, Emitter.COLLECTOR
+    MISSING_ENTITY_ID = CodeKind.WARNING, Emitter.COLLECTOR
+    IGNORED_AUTHORED_KEY = CodeKind.WARNING, Emitter.COLLECTOR
+    MISSING_STATUS = CodeKind.WARNING, Emitter.COLLECTOR
+    STATUS_AC_MISMATCH = CodeKind.WARNING, Emitter.COLLECTOR
+    ORPHAN_FEATURE = CodeKind.WARNING, Emitter.COLLECTOR
+    RELATION_MISMATCH = CodeKind.WARNING, Emitter.COLLECTOR
+    UNRESOLVED_RELATION = CodeKind.WARNING, Emitter.COLLECTOR
+    RELATION_TYPE_MISMATCH = CodeKind.WARNING, Emitter.COLLECTOR
+    NO_SOURCE_URL = CodeKind.WARNING, Emitter.COLLECTOR
+    HTML_CONTENT_DROPPED = CodeKind.WARNING, Emitter.COLLECTOR
+    DUPLICATE_AC_SOURCE = CodeKind.WARNING, Emitter.COLLECTOR
+    EXCLUDED_STATE = CodeKind.WARNING, Emitter.COLLECTOR
 
     # --- Generators ---
-    TEMPLATE_KEY_MISSING = auto()
-    URL_FETCH_REFUSED = auto()
+    TEMPLATE_KEY_MISSING = CodeKind.ERROR, Emitter.GENERATOR
+    URL_FETCH_REFUSED = CodeKind.WARNING, Emitter.GENERATOR
 
-    @property
-    def kind(self) -> CodeKind:
-        return _CODE_INFO[self][0]
-
-    @property
-    def emitter(self) -> Emitter:
-        return _CODE_INFO[self][1]
-
-
-_CODE_INFO: dict[Code, tuple[CodeKind, Emitter]] = {
-    Code.INVALID_CONTRACT_ID: (CodeKind.ERROR, Emitter.UTILITIES),
-    Code.CONTRACT_MISMATCH: (CodeKind.ERROR, Emitter.UTILITIES),
-    Code.SCHEMA_VALIDATION_FAILED: (CodeKind.ERROR, Emitter.UTILITIES),
-    Code.MISSING_INPUT: (CodeKind.ERROR, Emitter.TOOLKIT),
-    Code.UNKNOWN_PRODUCER: (CodeKind.ERROR, Emitter.TOOLKIT),
-    Code.PROJECT_MISMATCH: (CodeKind.ERROR, Emitter.TOOLKIT),
-    Code.MULTIPLE_DOCUMENTATION_SOURCES: (CodeKind.ERROR, Emitter.TOOLKIT),
-    Code.MIXED_DOCUMENTATION_SOURCES: (CodeKind.ERROR, Emitter.TOOLKIT),
-    Code.DUPLICATE_ENTITY_ID: (CodeKind.ERROR, Emitter.TOOLKIT),
-    Code.DUPLICATE_AC_ID: (CodeKind.ERROR, Emitter.TOOLKIT),
-    Code.FIELD_LOSS: (CodeKind.ERROR, Emitter.TRANSFORM),
-    Code.PLANNED_AC_HAS_TESTS: (CodeKind.WARNING, Emitter.TRANSFORM),
-    Code.IN_REVIEW_AC_HAS_TESTS: (CodeKind.WARNING, Emitter.TRANSFORM),
-    Code.STALE_AC_REF: (CodeKind.WARNING, Emitter.TRANSFORM),
-    Code.INVALID_CONFIGURATION: (CodeKind.ERROR, Emitter.COLLECTOR),
-    Code.SOURCE_UNAVAILABLE: (CodeKind.ERROR, Emitter.COLLECTOR),
-    Code.EMPTY_SOURCE: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.MALFORMED_AC: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.LEGACY_AC_STATE: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.UNPARSED_AC_LINE: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.UNKNOWN_SECTION: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.MISSING_ENTITY_ID: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.IGNORED_AUTHORED_KEY: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.MISSING_STATUS: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.STATUS_AC_MISMATCH: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.ORPHAN_FEATURE: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.RELATION_MISMATCH: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.UNRESOLVED_RELATION: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.RELATION_TYPE_MISMATCH: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.NO_SOURCE_URL: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.HTML_CONTENT_DROPPED: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.DUPLICATE_AC_SOURCE: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.EXCLUDED_STATE: (CodeKind.WARNING, Emitter.COLLECTOR),
-    Code.TEMPLATE_KEY_MISSING: (CodeKind.ERROR, Emitter.GENERATOR),
-    Code.URL_FETCH_REFUSED: (CodeKind.WARNING, Emitter.GENERATOR),
-}
-
-if _CODE_INFO.keys() != set(Code):
-    raise ValueError("every Code member must have exactly one _CODE_INFO entry")
 
 # The registry other repos' documentation checks and this package's own helpers read from -
 # every code, keyed by its name, e.g. ALL_CODES["CONTRACT_MISMATCH"].kind.
-ALL_CODES: dict[str, Code] = {code.name: code for code in Code}
+ALL_CODES: dict[str, Code] = dict(Code.__members__)
 
 
 class ContractError(Exception):
