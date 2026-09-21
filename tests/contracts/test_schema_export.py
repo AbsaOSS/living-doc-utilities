@@ -16,6 +16,7 @@
 import json
 import re
 from pathlib import Path
+from typing import Union
 
 import jsonschema
 import pytest
@@ -448,3 +449,16 @@ def test_metadata_is_one_shared_model_across_all_six_contracts():
         is coverage_matrix.Metadata
         is ui_test_catalog.Metadata
     )
+
+
+# ---------------------------------------------------------------------------
+# Internal helper: the annotation walker.
+# ---------------------------------------------------------------------------
+
+
+def test_unwrap_field_type_treats_a_multi_member_union_as_an_opaque_leaf():
+    # None of the six contracts' models carry a field shaped like this today, but a future
+    # one might - unwrap_field_type must not crash on it, only Optional[...] is peeled.
+    item_type, is_array = schema_export.unwrap_field_type(Union[int, str])
+
+    assert (item_type, is_array) == (Union[int, str], False)

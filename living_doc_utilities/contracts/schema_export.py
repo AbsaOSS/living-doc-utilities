@@ -45,8 +45,10 @@ def unwrap_field_type(annotation: Any) -> tuple[Any, bool]:
     """
     origin = get_origin(annotation)
     if origin is Union:
-        (item,) = (arg for arg in get_args(annotation) if arg is not NoneType)
-        return unwrap_field_type(item)
+        args = [arg for arg in get_args(annotation) if arg is not NoneType]
+        if len(args) == 1:
+            return unwrap_field_type(args[0])
+        return annotation, False
     if origin is list:
         (item,) = get_args(annotation)
         item_type, _ = unwrap_field_type(item)
