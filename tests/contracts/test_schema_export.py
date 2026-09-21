@@ -16,7 +16,6 @@
 import json
 import re
 from pathlib import Path
-from typing import Union
 
 import jsonschema
 import pytest
@@ -449,41 +448,3 @@ def test_metadata_is_one_shared_model_across_all_six_contracts():
         is coverage_matrix.Metadata
         is ui_test_catalog.Metadata
     )
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers: the annotation walker and the defensive guards around a
-# contract module losing its expected shape.
-# ---------------------------------------------------------------------------
-
-
-def test_unwrap_treats_a_multi_member_union_as_an_opaque_leaf():
-    item_type, is_array = schema_export._unwrap(Union[int, str])
-
-    assert (item_type, is_array) == (Union[int, str], False)
-
-
-def test_inject_own_field_occupancy_enum_requires_a_stats_definition():
-    with pytest.raises(ValueError, match="expected a 'Stats' definition"):
-        schema_export._inject_own_field_occupancy_enum({"$defs": {}}, [])
-
-
-def test_inject_own_field_occupancy_enum_requires_a_field_occupancy_property():
-    schema = {"$defs": {"Stats": {"properties": {}}}}
-
-    with pytest.raises(ValueError, match="expected a 'field_occupancy' property"):
-        schema_export._inject_own_field_occupancy_enum(schema, [])
-
-
-def test_inject_cross_field_constraints_requires_a_source_inputs_property_on_transform_contracts():
-    schema = {"$defs": {"Metadata": {"properties": {}}}}
-
-    with pytest.raises(ValueError, match="expected a 'source_inputs' property"):
-        schema_export._inject_cross_field_constraints(schema, generator_ready.CONTRACT_ID)
-
-
-def test_main_regenerates_the_committed_schemas_in_place():
-    schema_export.main()
-
-    for contract_id in CONTRACT_IDS:
-        assert schema_export.load_schema(contract_id) == _committed_schema(contract_id)

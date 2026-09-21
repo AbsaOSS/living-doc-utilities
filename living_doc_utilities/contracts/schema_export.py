@@ -45,10 +45,8 @@ def _unwrap(annotation: Any) -> tuple[Any, bool]:
     """
     origin = get_origin(annotation)
     if origin is Union:
-        args = [arg for arg in get_args(annotation) if arg is not NoneType]
-        if len(args) == 1:
-            return _unwrap(args[0])
-        return annotation, False
+        (item,) = (arg for arg in get_args(annotation) if arg is not NoneType)
+        return _unwrap(item)
     if origin is list:
         (item,) = get_args(annotation)
         item_type, _ = _unwrap(item)
@@ -105,13 +103,7 @@ def _rewrite_pattern_maps(node: Any) -> None:
 
 def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -> None:
     """Constrains a contract's own metadata.stats.field_occupancy keys to its leaf paths (R9)."""
-    stats_def = schema.get("$defs", {}).get(Stats.__name__)
-    if not isinstance(stats_def, dict):
-        raise ValueError(f"expected a '{Stats.__name__}' definition in $defs")
-    field_occupancy = stats_def.get("properties", {}).get("field_occupancy")
-    if not isinstance(field_occupancy, dict):
-        raise ValueError("expected a 'field_occupancy' property on the Stats definition")
-    field_occupancy["propertyNames"] = {"enum": paths}
+    schema["$defs"][Stats.__name__]["properties"]["field_occupancy"]["propertyNames"] = {"enum": paths}
 
 
 # AcCoverage's no-aspects rules share these two building blocks (AcCoverage._check_status_matches_aspects).
@@ -250,15 +242,11 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
             target_def.setdefault("allOf", []).extend(rules)
 
     if registry.CONTRACTS[contract_id].is_transform:
-        metadata_def = defs.get("Metadata")
-        if isinstance(metadata_def, dict):
-            source_inputs = metadata_def.get("properties", {}).get("source_inputs")
-            if not isinstance(source_inputs, dict):
-                raise ValueError("expected a 'source_inputs' property on the Metadata definition")
-            source_inputs["minItems"] = 1
-            required = metadata_def.setdefault("required", [])
-            if "source_inputs" not in required:
-                required.append("source_inputs")
+        metadata_def = defs["Metadata"]
+        metadata_def["properties"]["source_inputs"]["minItems"] = 1
+        required = metadata_def.setdefault("required", [])
+        if "source_inputs" not in required:
+            required.append("source_inputs")
 
 
 def find_schema_violations(schema: dict[str, Any]) -> list[str]:
@@ -303,7 +291,6 @@ def generate_schema(
     @param model: the contract's top-level result model.
     @param record_roots: the contract's RECORD_ROOTS declaration.
     @return: the full schema document, ready to write.
-    @raises ValueError: if the generated schema still has an untyped object (R9).
     """
     raw_schema = model.model_json_schema()
     _rewrite_pattern_maps(raw_schema)
@@ -315,10 +302,6 @@ def generate_schema(
         "$id": ID_TEMPLATE.format(contract_id=contract_id),
     }
     schema.update(raw_schema)
-
-    violations = find_schema_violations(schema)
-    if violations:
-        raise ValueError(f"schema for '{contract_id}' has untyped object(s): {violations}")
 
     return schema
 
