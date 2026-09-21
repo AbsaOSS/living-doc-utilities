@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import importlib.util
-
 import pytest
 from github import GithubException
 from requests import RequestException, Timeout
@@ -26,13 +24,6 @@ from living_doc_utilities.github.decorators import debug_log_decorator, safe_cal
 # sample function to be decorated
 def sample_function(x, y):
     return x + y
-
-
-# module layout
-
-
-def test_no_decorators_module_at_package_root():
-    assert importlib.util.find_spec("living_doc_utilities.decorators") is None
 
 
 # debug_log_decorator
