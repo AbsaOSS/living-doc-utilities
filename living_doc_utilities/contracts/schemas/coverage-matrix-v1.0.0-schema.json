@@ -360,25 +360,6 @@
       "title": "ContractWarning",
       "type": "object"
     },
-    "Document": {
-      "additionalProperties": false,
-      "description": "What the generator filters by.",
-      "properties": {
-        "view": {
-          "enum": [
-            "inner",
-            "release"
-          ],
-          "title": "View",
-          "type": "string"
-        }
-      },
-      "required": [
-        "view"
-      ],
-      "title": "Document",
-      "type": "object"
-    },
     "EntityCoverage": {
       "additionalProperties": false,
       "description": "A User Story or Functionality's acceptance criteria, each with its coverage row.\n\n`state` is the entity's own lifecycle state, which is independent of which of its\nacceptance criteria are counted (docs/contracts.md, \"Coverage\": counting is decided per\nAC, \"in both views\" - never by the parent entity's state). A `planned`/`in_review`\nentity can still own `active`/`deprecated` acceptance criteria that must be counted, so\nthis is the full `LifecycleState`, not `CountedState`.",
@@ -743,6 +724,25 @@
       ],
       "title": "Stats",
       "type": "object"
+    },
+    "ViewDocument": {
+      "additionalProperties": false,
+      "description": "What a generator filters by. Shared as-is by coverage-matrix and ui-test-catalog,\nwhose own `document` block carries no other field; generator-ready's own Document\nsubclasses this to add its extra fields.",
+      "properties": {
+        "view": {
+          "enum": [
+            "inner",
+            "release"
+          ],
+          "title": "View",
+          "type": "string"
+        }
+      },
+      "required": [
+        "view"
+      ],
+      "title": "ViewDocument",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -765,7 +765,7 @@
       "type": "array"
     },
     "document": {
-      "$ref": "#/$defs/Document"
+      "$ref": "#/$defs/ViewDocument"
     },
     "entities": {
       "items": {

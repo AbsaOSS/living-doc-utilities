@@ -24,7 +24,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from living_doc_utilities.contracts.common import AcceptanceCriterion, ContractModel, EntityCore
+from living_doc_utilities.contracts.common import AcceptanceCriterion, ContractModel, EntityCore, check_ac_ids_owned
 from living_doc_utilities.contracts.envelope import ContractWarning, Metadata
 
 CONTRACT_ID: Literal["doc-entities-v1.0.0"] = "doc-entities-v1.0.0"
@@ -110,10 +110,7 @@ class Entity(EntityCore):
 
     @model_validator(mode="after")
     def _check_acceptance_criteria_belong_to_this_entity(self) -> "Entity":
-        prefix = f"{self.entity_id}-"
-        for ac in self.acceptance_criteria:
-            if not ac.id.startswith(prefix):
-                raise ValueError(f"acceptance criterion id '{ac.id}' does not belong to entity '{self.entity_id}'")
+        check_ac_ids_owned(self.entity_id, (ac.id for ac in self.acceptance_criteria))
         return self
 
     @model_validator(mode="after")

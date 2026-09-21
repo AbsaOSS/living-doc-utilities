@@ -25,7 +25,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from living_doc_utilities.contracts.common import ContractModel, View
+from living_doc_utilities.contracts.common import ContractModel, ViewDocument
 from living_doc_utilities.contracts.doc_entities import Entity
 from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
 
@@ -61,12 +61,11 @@ class SelectionSummary(ContractModel):
         return self
 
 
-class Document(ContractModel):
+class Document(ViewDocument):
     """What the generator titles and filters by (docs/contracts.md, "The metadata envelope")."""
 
     title: str
     version: str
-    view: View
     selection_summary: SelectionSummary
 
 

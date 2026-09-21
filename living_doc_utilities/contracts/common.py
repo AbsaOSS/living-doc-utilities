@@ -20,7 +20,7 @@ the acceptance-criterion grammar, entity identity/provenance, and timestamps.
 """
 
 from datetime import datetime
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Iterable, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -53,6 +53,14 @@ class ContractModel(BaseModel):
     """Shared base for every contract model: unknown fields are rejected (R9)."""
 
     model_config = ConfigDict(extra="forbid")
+
+
+class ViewDocument(ContractModel):
+    """What a generator filters by. Shared as-is by coverage-matrix and ui-test-catalog,
+    whose own `document` block carries no other field; generator-ready's own Document
+    subclasses this to add its extra fields."""
+
+    view: View
 
 
 class Timestamps(ContractModel):
@@ -117,6 +125,23 @@ class AcceptanceCriterion(ContractModel):
         if self.state == "deprecated" and self.removal_planned is not None:
             inner += f" - removal planned v{self.removal_planned}"
         return f"AC:{self.id} ({inner})"
+
+
+def check_ac_ids_owned(entity_id: str, ac_ids: Iterable[str]) -> None:
+    """
+    Every acceptance-criterion id under an entity is that entity's own id plus "-" plus a
+    sequence number (AC_ID_PATTERN) - shared by doc_entities.Entity (one entity's own
+    acceptance_criteria) and coverage_matrix.CoverageMatrixResult (each of entities[]'s own
+    AcCoverage rows).
+
+    @param entity_id: the owning entity's id.
+    @param ac_ids: that entity's own acceptance-criterion ids.
+    @raises ValueError: naming the first id that does not start with "<entity_id>-".
+    """
+    prefix = f"{entity_id}-"
+    for ac_id in ac_ids:
+        if not ac_id.startswith(prefix):
+            raise ValueError(f"acceptance criterion id '{ac_id}' does not belong to entity '{entity_id}'")
 
 
 class EntityCore(ContractModel):

@@ -26,7 +26,14 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
-from living_doc_utilities.contracts.common import AC_ID_PATTERN, VERSION_PATTERN, ContractModel, LifecycleState, View
+from living_doc_utilities.contracts.common import (
+    AC_ID_PATTERN,
+    VERSION_PATTERN,
+    ContractModel,
+    LifecycleState,
+    ViewDocument,
+    check_ac_ids_owned,
+)
 from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
 
 CONTRACT_ID: Literal["coverage-matrix-v1.0.0"] = "coverage-matrix-v1.0.0"
@@ -39,6 +46,15 @@ CoverageStatus = Literal["covered", "partially_covered", "not_covered"]
 AspectStatus = Literal["covered", "not_covered"]
 
 
+def _check_status_evidence(status: str, scenario_ids: list[str]) -> None:
+    """Status is evidence-backed by scenario_ids: covered only when there's at least one
+    linked scenario (docs/contracts.md, section 4 "Coverage") - shared by AspectCoverage's
+    own check and AcCoverage's no-aspects case."""
+    expected = "covered" if scenario_ids else "not_covered"
+    if status != expected:
+        raise ValueError(f"status must be '{expected}' given scenario_ids={scenario_ids!r}, got '{status}'")
+
+
 class AspectCoverage(ContractModel):
     """One aspect of an acceptance criterion's per-aspect breakdown."""
 
@@ -48,14 +64,7 @@ class AspectCoverage(ContractModel):
 
     @model_validator(mode="after")
     def _check_status_matches_scenario_ids(self) -> "AspectCoverage":
-        # docs/contracts.md, section 4 "Coverage": an aspect is covered only when it has at
-        # least one linked scenario - status is evidence-backed, never authored independently
-        # of scenario_ids.
-        expected = "covered" if self.scenario_ids else "not_covered"
-        if self.status != expected:
-            raise ValueError(
-                f"status must be '{expected}' given scenario_ids={self.scenario_ids!r}, got '{self.status}'"
-            )
+        _check_status_evidence(self.status, self.scenario_ids)
         return self
 
 
@@ -77,11 +86,7 @@ class AcCoverage(ContractModel):
         if not self.aspects:
             if self.status == "partially_covered":
                 raise ValueError("status cannot be 'partially_covered' when aspects is empty")
-            expected = "covered" if self.scenario_ids else "not_covered"
-            if self.status != expected:
-                raise ValueError(
-                    f"status must be '{expected}' given scenario_ids={self.scenario_ids!r}, got '{self.status}'"
-                )
+            _check_status_evidence(self.status, self.scenario_ids)
             return self
         expected = "covered" if all(aspect.status == "covered" for aspect in self.aspects) else "partially_covered"
         if self.status != expected:
@@ -131,10 +136,7 @@ class PlannedSummary(ContractModel):
         return self
 
 
-class Document(ContractModel):
-    """What the generator filters by."""
-
-    view: View
+Document = ViewDocument
 
 
 class CoverageMatrixResult(ContractModel):
@@ -155,12 +157,7 @@ class CoverageMatrixResult(ContractModel):
     @model_validator(mode="after")
     def _check_acceptance_criteria_belong_to_this_entity(self) -> "CoverageMatrixResult":
         for entity in self.entities:
-            prefix = f"{entity.entity_id}-"
-            for ac in entity.acceptance_criteria:
-                if not ac.ac_id.startswith(prefix):
-                    raise ValueError(
-                        f"acceptance criterion id '{ac.ac_id}' does not belong to entity '{entity.entity_id}'"
-                    )
+            check_ac_ids_owned(entity.entity_id, (ac.ac_id for ac in entity.acceptance_criteria))
         return self
 
 
