@@ -38,7 +38,7 @@ ID_TEMPLATE = "https://absaoss.github.io/living-doc-utilities/schemas/{contract_
 SCHEMAS_DIR = Path(__file__).resolve().parent / "schemas"
 
 
-def _unwrap(annotation: Any) -> tuple[Any, bool]:
+def unwrap_field_type(annotation: Any) -> tuple[Any, bool]:
     """Peels Optional[...] and list[...] off a field annotation.
 
     @return: the innermost type, and whether a list level was found.
@@ -46,18 +46,33 @@ def _unwrap(annotation: Any) -> tuple[Any, bool]:
     origin = get_origin(annotation)
     if origin is Union:
         (item,) = (arg for arg in get_args(annotation) if arg is not NoneType)
-        return _unwrap(item)
+        return unwrap_field_type(item)
     if origin is list:
         (item,) = get_args(annotation)
-        item_type, _ = _unwrap(item)
+        item_type, _ = unwrap_field_type(item)
         return item_type, True
     return annotation, False
 
 
-def _iter_leaf_paths(model: type[BaseModel], prefix: str) -> Iterator[str]:
+def iter_model_fields(model: type[BaseModel], prefix: str) -> Iterator[tuple[str, str, Any, bool]]:
+    """
+    One level of `model`'s own fields, each already unwrapped - the per-field step every
+    walk of a contract model's field tree needs (this module's own _iter_leaf_paths,
+    stats.compute_stats, and a generator's own field-mapping tests) instead of each
+    re-deriving it from field_info.annotation.
+
+    @param model: the pydantic model whose fields to walk (not recursive - one level only).
+    @param prefix: prepended to each field's own name to build its record-relative path.
+    @return: one (path, field_name, item_type, is_array) tuple per field, in declaration order.
+    """
     for field_name, field_info in model.model_fields.items():
-        item_type, is_array = _unwrap(field_info.annotation)
+        item_type, is_array = unwrap_field_type(field_info.annotation)
         path = f"{prefix}{field_name}[]" if is_array else f"{prefix}{field_name}"
+        yield path, field_name, item_type, is_array
+
+
+def _iter_leaf_paths(model: type[BaseModel], prefix: str) -> Iterator[str]:
+    for path, _field_name, item_type, _is_array in iter_model_fields(model, prefix):
         if isinstance(item_type, type) and issubclass(item_type, BaseModel):
             yield from _iter_leaf_paths(item_type, f"{path}.")
         else:

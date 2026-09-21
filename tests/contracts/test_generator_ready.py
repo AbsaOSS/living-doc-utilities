@@ -24,6 +24,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from living_doc_utilities.contracts import schema_export
 from living_doc_utilities.contracts.common import AcceptanceCriterion
 from living_doc_utilities.contracts.doc_entities import Entity
 from living_doc_utilities.contracts.generator_ready import (
@@ -211,22 +212,15 @@ TOOLKIT_FIELDS_NOT_CARRIED = {
 
 
 def _resolve(model, path: str) -> None:
-    """Walks a dotted field path through a chain of pydantic models, raising KeyError/
-    AttributeError if any segment does not resolve to a real field. A segment suffixed "[]"
-    crosses that field's list boundary onto its item type."""
+    """Walks a dotted field path through a chain of pydantic models, raising KeyError if any
+    segment does not resolve to a real field. A segment suffixed "[]" crosses that field's
+    list boundary onto its item type - schema_export.unwrap_field_type does the same
+    Optional/list peeling schema_export's own leaf-path walk and stats.compute_stats rely on."""
     current = model
     for raw_segment in path.split("."):
-        crosses_list = raw_segment.endswith("[]")
-        segment = raw_segment[:-2] if crosses_list else raw_segment
+        segment = raw_segment[:-2] if raw_segment.endswith("[]") else raw_segment
         field_info = current.model_fields[segment]
-        annotation = field_info.annotation
-        args = getattr(annotation, "__args__", None)
-        if args and type(None) in args:
-            (annotation,) = [arg for arg in args if arg is not type(None)]
-            args = getattr(annotation, "__args__", None)
-        if crosses_list:
-            (annotation,) = args
-        current = annotation
+        current, _is_array = schema_export.unwrap_field_type(field_info.annotation)
 
 
 @pytest.mark.parametrize("source_field, destination", TOOLKIT_FIELD_MAPPING.items(), ids=list(TOOLKIT_FIELD_MAPPING))
