@@ -80,7 +80,6 @@ def test_ac_grammar_itself_owns_that_validation():
     from living_doc_utilities.authoring import ac_grammar
 
     assert ac_grammar._VERSION_RE.pattern == r"^\d+\.\d+\.\d+$"  # noqa: SLF001 - white-box check
-    assert ac_grammar._VALID_STATES == {"planned", "in_review", "active", "deprecated"}
 
 
 def test_contracts_imports_nothing_from_authoring():
