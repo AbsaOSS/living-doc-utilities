@@ -75,7 +75,7 @@ The sections below explain each tool in more detail and how to scope it to a sin
 This project uses the [Pylint](https://pypi.org/project/pylint/) tool for static code analysis.
 Pylint analyses your code without actually running it.
 It checks for errors, enforces coding standards, looks for code smells, etc.
-Pylint runs twice: over `living_doc_utilities/` with every rule, and over `tests/` with the rules that do not suit tests switched off (`PYLINT_TESTS_DISABLE` in the `Makefile`).
+Pylint runs twice: over `living_doc_utilities/` with every rule, and over `tests/` with the rules that do not suit tests switched off (`PYLINT_TESTS_DISABLE` in the `Makefile`, explained in [Rules switched off for tests](#rules-switched-off-for-tests)).
 
 Pylint displays a global evaluation score for the code, rated out of a maximum score of 10.0.
 We are aiming to keep our code quality high above the score 9.5.
@@ -109,6 +109,31 @@ main.py:30:0: C0116: Missing function or method docstring (missing-function-docs
 ------------------------------------------------------------------
 Your code has been rated at 9.41/10 (previous run: 8.82/10, +0.59)
 ```
+
+### Rules switched off for tests
+
+`make lint` checks `tests/` with fewer Pylint rules than the package. Below, each switched-off rule is explained in plain words:
+what Pylint complains about, and why that does not help in tests.
+The list itself is `PYLINT_TESTS_DISABLE` in the `Makefile`. Change the list and this section together.
+
+Every rule that is not listed here stays on for tests, so unused imports, undefined names and similar mistakes are still caught.
+
+**Off because tests do these things on purpose**
+
+| Rule | What Pylint complains about | Why it is off for tests |
+|---|---|---|
+| `use-implicit-booleaness-not-comparison` | `assert result == []`. Pylint says: write `assert not result`. | A test should also fail when `result` is `None` or `{}`. `assert not result` passes for both, so it checks less. |
+| `redefined-outer-name` | A function argument has the same name as something defined above it. | This is how pytest fixtures (shared test setup) work. The fixture is defined once, and a test asks for it by using its name as an argument. |
+| `protected-access` | Code uses a name that starts with `_`, which means "private". | Some tests check a private helper or constant on purpose. |
+| `unsupported-membership-test`, `unsubscriptable-object` | `"x" in Model.model_fields` and `Model.model_fields["x"]`. Pylint says the object does not support that. | False alarm. `model_fields` is a normal dict, but Pylint does not understand how pydantic builds its classes and guesses wrong. A real mistake would fail when the test runs. |
+| `unidiomatic-typecheck` | `type(x) is Foo`. Pylint says: use `isinstance(x, Foo)`. | A test sometimes has to check the exact type: a `Foo`, not a subclass. `isinstance` also accepts subclasses. Pylint also flags the harmless `type(None)`. |
+| `unused-argument` | A function argument is never used. | pytest fills in the arguments. A test can receive a `parametrize` value (one of several inputs it runs with) that it does not need, or a fixture it needs only for its side effect, such as a temporary folder. |
+
+**Off for now**
+
+| Rule | What Pylint complains about | Why it is off for now |
+|---|---|---|
+| `missing-function-docstring`, `missing-module-docstring`, `missing-class-docstring` | A function, module or class has no docstring. | Each test should get a one-line docstring that says what it protects, so whoever changes the code later can see the target. Many tests have none yet, and the suite is still being merged and trimmed, so writing them now would be wasted work. When the suite is settled, delete the line marked `TEMPORARY` in the `Makefile` and this table, and add the missing docstrings. |
 
 ---
 ## Run Black Tool Locally
