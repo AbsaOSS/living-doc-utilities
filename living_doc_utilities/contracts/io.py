@@ -25,7 +25,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Union, cast
+from typing import Any, Union, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -67,6 +67,18 @@ _CONTRACTS: dict[str, tuple[type[BaseModel], dict[str, type[BaseModel]]]] = {
 }
 
 
+def _model_validate_or_raise(model_cls: type[BaseModel], contract_id: str, payload: Any) -> BaseModel:
+    """Re-validates payload against its typed model after schema validation passed - the only way
+    to catch a cross-field rule (e.g. an entity's AC-ownership check) plain JSON Schema cannot express."""
+    try:
+        return model_cls.model_validate(payload)
+    except ValidationError as exc:
+        raise ContractError(
+            Code.SCHEMA_VALIDATION_FAILED,
+            f"{contract_id}: payload passed schema validation but failed model validation: {exc}",
+        ) from exc
+
+
 def record_roots(contract_id: str) -> dict[str, type[BaseModel]]:
     """
     @param contract_id: one of the six contracts' CONTRACT_ID (e.g. "doc-entities-v1.0.0").
@@ -93,13 +105,7 @@ def read_artifact(path: Union[str, Path], expected: Union[str, set[str]]) -> Con
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     contract_id = compat.check_input(payload, expected)
     model_cls, _ = _CONTRACTS[contract_id]
-    try:
-        return cast(ContractResult, model_cls.model_validate(payload))
-    except ValidationError as exc:
-        raise ContractError(
-            Code.SCHEMA_VALIDATION_FAILED,
-            f"{contract_id}: payload passed schema validation but failed model validation: {exc}",
-        ) from exc
+    return cast(ContractResult, _model_validate_or_raise(model_cls, contract_id, payload))
 
 
 def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
@@ -124,18 +130,12 @@ def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
     filled.metadata.producer.utilities_version = compat.installed_utilities_version()
     filled.metadata.stats = stats.compute_stats(filled, record_roots, reported_cardinality)
 
-    payload = json.loads(filled.model_dump_json())
+    payload = filled.model_dump(mode="json")
     schema = schema_export.load_schema(contract_id)
     errors = validation.validate(payload, schema)
     if errors:
         raise compat.schema_validation_error(errors, payload)
-    try:
-        model_cls.model_validate(payload)
-    except ValidationError as exc:
-        raise ContractError(
-            Code.SCHEMA_VALIDATION_FAILED,
-            f"{contract_id}: payload passed schema validation but failed model validation: {exc}",
-        ) from exc
+    _model_validate_or_raise(model_cls, contract_id, payload)
 
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
