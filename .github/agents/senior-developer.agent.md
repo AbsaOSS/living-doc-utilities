@@ -97,7 +97,7 @@ Repo specifics
   - Tests: pytest tests/
   - Coverage: pytest --cov=. tests/ --cov-fail-under=80 --cov-report=html
   - Format: black $(git ls-files '*.py')
-  - Lint: pylint $(git ls-files '*.py')
+  - Lint: make lint (ruff, then Pylint over living_doc_utilities/ and over tests/)
   - Types: mypy .
 - Contract-sensitive outputs
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).

@@ -146,7 +146,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must run `make qa` before finishing a code change — it runs `format-check` → `lint` → `types` → `deptry` → `coverage` → `no-vendored-schemas` and fails on the first failing gate.
 - Must use the individual targets while iterating — `make format`, `make format-check`, `make lint`, `make types`, `make deptry`, `make test`, `make coverage`.
 - Must install the development environment with `make install` — it installs `requirements-dev.txt` (the tooling on top of the runtime `requirements.txt`) and this package in editable mode.
-- Must keep `make lint` clean — it runs ruff (`E` / `F` / `I` / `B` over tracked `*.py`, config in `pyproject.toml`) then Pylint, and Pylint must score 9.5 or higher.
+- Must keep `make lint` clean — it runs ruff (`E` / `F` / `I` / `B` over tracked `*.py`, config in `pyproject.toml`) then Pylint over `living_doc_utilities/` and over `tests/` (the rules that do not suit tests are switched off in the `Makefile`), and each Pylint run must score 9.5 or higher.
 - Must keep `make format-check` (Black, line length 120, config in `pyproject.toml`) clean, and Prefer `make format` (ruff autofix + Black) to fix import order and formatting in one step.
 - Must keep `make types` (mypy, config in `pyproject.toml`) clean, and Prefer fixing types over adding ignores.
 - Must keep `make deptry` clean — it fails on an import that is used but not declared in `pyproject.toml` (DEP001) and on a development-only tool imported by the library (DEP004).

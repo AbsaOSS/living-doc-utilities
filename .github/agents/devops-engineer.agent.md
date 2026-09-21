@@ -89,7 +89,7 @@ Repo specifics
   - Tests: pytest tests/
   - Coverage: pytest --cov=. tests/ --cov-fail-under=80 --cov-report=html
   - Format: black $(git ls-files '*.py')
-  - Lint: pylint $(git ls-files '*.py')
+  - Lint: make lint (ruff, then Pylint over living_doc_utilities/ and over tests/)
   - Types: mypy .
 - Dependencies
   - Prefer `make install` on runners — it installs requirements-dev.txt (the tooling on top of the runtime requirements.txt) and this package in editable mode.

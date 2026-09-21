@@ -55,7 +55,7 @@ failing gate. The individual targets are also available while iterating:
 
 | Target | Runs | Gate |
 |---|---|---|
-| `make lint` | Pylint over all tracked `*.py` | score ≥ 9.5 / 10 |
+| `make lint` | ruff, then Pylint over `living_doc_utilities/` and over `tests/` (rules that do not suit tests are off, see `PYLINT_TESTS_DISABLE` in the `Makefile`) | each Pylint run scores ≥ 9.5 / 10 |
 | `make format` | Black, rewriting files in place | line length 120 |
 | `make format-check` | Black in `--check` mode | line length 120 |
 | `make types` | mypy | clean |
@@ -75,7 +75,7 @@ The sections below explain each tool in more detail and how to scope it to a sin
 This project uses the [Pylint](https://pypi.org/project/pylint/) tool for static code analysis.
 Pylint analyses your code without actually running it.
 It checks for errors, enforces coding standards, looks for code smells, etc.
-We do exclude the `tests/` file from the Pylint check.
+Pylint runs twice: over `living_doc_utilities/` with every rule, and over `tests/` with the rules that do not suit tests switched off (`PYLINT_TESTS_DISABLE` in the `Makefile`).
 
 Pylint displays a global evaluation score for the code, rated out of a maximum score of 10.0.
 We are aiming to keep our code quality high above the score 9.5.
@@ -86,16 +86,17 @@ Follow these steps to run Pylint check locally:
 
 ### Run Pylint
 
-Run Pylint on all files that are currently tracked by Git in the project.
+Run both Pylint passes, as CI does (ruff runs first).
 ```shell
-pylint $(git ls-files '*.py')
+make lint
 ```
 
-To run Pylint on a specific file, follow the pattern `pylint <path_to_file>/<name_of_file>.py`.
+To run Pylint on a specific package file, follow the pattern `pylint <path_to_file>/<name_of_file>.py`.
+A test file also needs the `--disable` list from `PYLINT_TESTS_DISABLE`, otherwise the rules that do not suit tests are reported.
 
 Example:
 ```shell
-pylint src/living_doc_utilities/inputs/action_inputs.py
+pylint living_doc_utilities/inputs/action_inputs.py
 ``` 
 
 ### Expected Output

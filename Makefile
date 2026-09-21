@@ -10,6 +10,11 @@ PY_FILES     = $(shell git ls-files '*.py')
 PYLINT_MIN  ?= 9.5
 COV_MIN     ?= 80
 
+# Off for tests/ only: they flag deliberate test idioms (fixture names, white-box reads, exact asserts) and misread pydantic's model_fields.
+PYLINT_TESTS_DISABLE = use-implicit-booleaness-not-comparison,redefined-outer-name,protected-access,unsupported-membership-test,unsubscriptable-object,unidiomatic-typecheck,unused-argument
+# TEMPORARY: docstring checks stay off for tests while the suite is being merged and trimmed. Delete this line to enforce them.
+PYLINT_TESTS_DISABLE := $(PYLINT_TESTS_DISABLE),missing-function-docstring,missing-module-docstring,missing-class-docstring
+
 .DEFAULT_GOAL := help
 .PHONY: help install qa lint format format-check types deptry test coverage test-unit test-integration schemas docs no-vendored-schemas import-matrix
 
@@ -30,9 +35,10 @@ format: ## Reformat all tracked Python files (ruff autofix + Black).
 format-check: ## Check Black formatting without modifying files.
 	black --check $(PY_FILES)
 
-lint: ## Run ruff and Pylint (enforce the minimum score).
+lint: ## Run ruff, then Pylint over the package and over tests/ (each enforces the minimum score).
 	ruff check $(PY_FILES)
-	pylint --fail-under=$(PYLINT_MIN) $(PY_FILES)
+	pylint --fail-under=$(PYLINT_MIN) living_doc_utilities
+	pylint --fail-under=$(PYLINT_MIN) --disable=$(PYLINT_TESTS_DISABLE) tests
 
 types: ## Run the mypy static type checker.
 	mypy .
