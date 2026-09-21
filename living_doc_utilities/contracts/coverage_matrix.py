@@ -18,8 +18,8 @@
 The coverage-matrix-v1.0.0 contract: per-aspect acceptance-criterion coverage over the
 corpus (docs/contracts.md, section 4, "Coverage"). Coverage is computed only for `active`
 and `deprecated` acceptance criteria; `in_review` and `planned` criteria are never counted,
-and their test activity is reported as a warning instead (STALE_AC_REF and friends,
-docs/contracts.md section 5).
+and their test activity is reported as a warning instead (IN_REVIEW_AC_HAS_TESTS /
+PLANNED_AC_HAS_TESTS, docs/contracts.md section 5).
 """
 
 from typing import Annotated, Literal

@@ -28,7 +28,7 @@ from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 # A historical prefix such as "GH-" ahead of the real id is stripped simply by taking the
-# *last* id-shaped run in the title: "GH-US-001" itself is not id-shaped (letters directly
+# *first* id-shaped run in the title: "GH-US-001" itself is not id-shaped (letters directly
 # followed by "-" then digits fails to match starting at "GH", because what follows "GH-" is
 # "US", not a digit), so the search naturally lands on "US-001".
 _ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
