@@ -24,7 +24,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from living_doc_utilities.contracts.common import ContractModel, View
+from living_doc_utilities.contracts.common import ContractModel, ViewDocument
 from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
 from living_doc_utilities.contracts.ui_tests import Scenario
 
@@ -48,10 +48,7 @@ class FeatureFileCatalog(ContractModel):
     unlinked: list[Scenario] = Field(default_factory=list)
 
 
-class Document(ContractModel):
-    """What the generator filters by."""
-
-    view: View
+Document = ViewDocument
 
 
 class UiTestCatalogResult(ContractModel):

@@ -302,14 +302,6 @@
       "additionalProperties": false,
       "description": "What the generator titles and filters by (docs/contracts.md, \"The metadata envelope\").",
       "properties": {
-        "title": {
-          "title": "Title",
-          "type": "string"
-        },
-        "version": {
-          "title": "Version",
-          "type": "string"
-        },
         "view": {
           "enum": [
             "inner",
@@ -318,14 +310,22 @@
           "title": "View",
           "type": "string"
         },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
         "selection_summary": {
           "$ref": "#/$defs/SelectionSummary"
         }
       },
       "required": [
+        "view",
         "title",
         "version",
-        "view",
         "selection_summary"
       ],
       "title": "Document",

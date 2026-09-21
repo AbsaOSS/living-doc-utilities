@@ -31,7 +31,7 @@ from pydantic import BaseModel
 from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType
 from living_doc_utilities.contracts.coverage_matrix import AcCoverage
 from living_doc_utilities.contracts.envelope import Cardinality, ContractWarning, Stats
-from living_doc_utilities.contracts.schema_export import _unwrap
+from living_doc_utilities.contracts.schema_export import iter_model_fields
 from living_doc_utilities.contracts.ui_tests import Scenario
 
 
@@ -93,9 +93,7 @@ def _walk(instances: Sequence[Any], model: type[BaseModel], prefix: str, state: 
     if issubclass(model, Scenario):
         state.scenarios += len(instances)
 
-    for field_name, field_info in model.model_fields.items():
-        item_type, is_array = _unwrap(field_info.annotation)
-        path = f"{prefix}{field_name}[]" if is_array else f"{prefix}{field_name}"
+    for path, field_name, item_type, is_array in iter_model_fields(model, prefix):
         if isinstance(item_type, type) and issubclass(item_type, BaseModel):
             if is_array:
                 nested = [item for instance in instances for item in getattr(instance, field_name)]

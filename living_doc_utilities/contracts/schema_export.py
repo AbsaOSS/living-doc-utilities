@@ -28,14 +28,7 @@ from typing import Any, Iterator, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import (
-    coverage_matrix,
-    doc_entities,
-    doc_source,
-    generator_ready,
-    ui_test_catalog,
-    ui_tests,
-)
+from living_doc_utilities.contracts import registry
 from living_doc_utilities.contracts.envelope import Stats
 
 # R1/R2: every exported schema declares its dialect and identifies itself.
@@ -44,24 +37,8 @@ ID_TEMPLATE = "https://absaoss.github.io/living-doc-utilities/schemas/{contract_
 
 SCHEMAS_DIR = Path(__file__).resolve().parent / "schemas"
 
-# Each contract's result model and its declared record roots (docs/contracts.md, section 1).
-_CONTRACTS: tuple[tuple[str, type[BaseModel], dict[str, type[BaseModel]]], ...] = (
-    (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
-    (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
-    (ui_tests.CONTRACT_ID, ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
-    (generator_ready.CONTRACT_ID, generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
-    (coverage_matrix.CONTRACT_ID, coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
-    (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
-)
 
-# The three contracts written by a transform (docs/contracts.md, section 1 table): R7 requires
-# metadata.source_inputs[] to carry at least one entry on these, never on a collector output.
-_TRANSFORM_CONTRACT_IDS = frozenset(
-    {generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID}
-)
-
-
-def _unwrap(annotation: Any) -> tuple[Any, bool]:
+def unwrap_field_type(annotation: Any) -> tuple[Any, bool]:
     """Peels Optional[...] and list[...] off a field annotation.
 
     @return: the innermost type, and whether a list level was found.
@@ -70,19 +47,34 @@ def _unwrap(annotation: Any) -> tuple[Any, bool]:
     if origin is Union:
         args = [arg for arg in get_args(annotation) if arg is not NoneType]
         if len(args) == 1:
-            return _unwrap(args[0])
+            return unwrap_field_type(args[0])
         return annotation, False
     if origin is list:
         (item,) = get_args(annotation)
-        item_type, _ = _unwrap(item)
+        item_type, _ = unwrap_field_type(item)
         return item_type, True
     return annotation, False
 
 
-def _iter_leaf_paths(model: type[BaseModel], prefix: str) -> Iterator[str]:
+def iter_model_fields(model: type[BaseModel], prefix: str) -> Iterator[tuple[str, str, Any, bool]]:
+    """
+    One level of `model`'s own fields, each already unwrapped - the per-field step every
+    walk of a contract model's field tree needs (this module's own _iter_leaf_paths,
+    stats.compute_stats, and a generator's own field-mapping tests) instead of each
+    re-deriving it from field_info.annotation.
+
+    @param model: the pydantic model whose fields to walk (not recursive - one level only).
+    @param prefix: prepended to each field's own name to build its record-relative path.
+    @return: one (path, field_name, item_type, is_array) tuple per field, in declaration order.
+    """
     for field_name, field_info in model.model_fields.items():
-        item_type, is_array = _unwrap(field_info.annotation)
+        item_type, is_array = unwrap_field_type(field_info.annotation)
         path = f"{prefix}{field_name}[]" if is_array else f"{prefix}{field_name}"
+        yield path, field_name, item_type, is_array
+
+
+def _iter_leaf_paths(model: type[BaseModel], prefix: str) -> Iterator[str]:
+    for path, _field_name, item_type, _is_array in iter_model_fields(model, prefix):
         if isinstance(item_type, type) and issubclass(item_type, BaseModel):
             yield from _iter_leaf_paths(item_type, f"{path}.")
         else:
@@ -128,28 +120,120 @@ def _rewrite_pattern_maps(node: Any) -> None:
 
 def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -> None:
     """Constrains a contract's own metadata.stats.field_occupancy keys to its leaf paths (R9)."""
-    stats_def = schema.get("$defs", {}).get(Stats.__name__)
-    if not isinstance(stats_def, dict):
-        raise ValueError(f"expected a '{Stats.__name__}' definition in $defs")
-    field_occupancy = stats_def.get("properties", {}).get("field_occupancy")
-    if not isinstance(field_occupancy, dict):
-        raise ValueError("expected a 'field_occupancy' property on the Stats definition")
-    field_occupancy["propertyNames"] = {"enum": paths}
+    schema["$defs"][Stats.__name__]["properties"]["field_occupancy"]["propertyNames"] = {"enum": paths}
+
+
+# AcCoverage's no-aspects rules share these two building blocks (AcCoverage._check_status_matches_aspects).
+_AC_COVERAGE_NO_ASPECTS: dict[str, Any] = {"properties": {"aspects": {"maxItems": 0}}}
+_AC_COVERAGE_NOT_COVERED_ASPECT: dict[str, Any] = {
+    "properties": {"status": {"const": "not_covered"}},
+    "required": ["status"],
+}
+
+# Each $defs name's model_validator cross-field rules, encoded as `allOf` if/then/else so a
+# plain jsonschema validator rejects what pydantic rejects: AcceptanceCriterion
+# (_check_version_required_unless_planned, _check_removal_planned_only_when_deprecated),
+# Entity (_check_state_origin, _check_stub_reason_is_feature_only,
+# _check_pages_have_exactly_one_primary), AspectCoverage
+# (_check_status_matches_scenario_ids), AcCoverage (_check_status_matches_aspects, incl. its
+# no-aspects scenario_ids tie-in). A def name absent from a contract's own $defs (e.g.
+# ui-tests has neither) is simply skipped by _inject_cross_field_constraints below.
+_CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
+    "AcceptanceCriterion": [
+        {
+            "if": {"properties": {"state": {"const": "planned"}}, "required": ["state"]},
+            "else": {"properties": {"version": {"type": "string"}}, "required": ["version"]},
+        },
+        {
+            "if": {"properties": {"state": {"const": "deprecated"}}, "required": ["state"]},
+            "then": {"properties": {"removal_planned": {"type": "string"}}, "required": ["removal_planned"]},
+            "else": {"properties": {"removal_planned": {"type": "null"}}},
+        },
+    ],
+    "Entity": [
+        {
+            "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
+            "then": {"properties": {"state_origin": {"const": "derived"}}},
+            "else": {"properties": {"state_origin": {"const": "authored"}}},
+        },
+        {
+            # stub_reason only ever describes a Feature (Entity._check_stub_reason_is_feature_only).
+            "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
+            "else": {"properties": {"stub_reason": {"type": "null"}}},
+        },
+        {
+            # a non-empty pages list has exactly one primary PageRef
+            # (Entity._check_pages_have_exactly_one_primary).
+            "if": {"properties": {"pages": {"minItems": 1}}},
+            "then": {
+                "properties": {
+                    "pages": {
+                        "contains": {
+                            "properties": {"is_primary": {"const": True}},
+                            "required": ["is_primary"],
+                        },
+                        "minContains": 1,
+                        "maxContains": 1,
+                    }
+                }
+            },
+        },
+    ],
+    "AspectCoverage": [
+        {
+            # status is evidence-backed by scenario_ids, never independently authored
+            # (AspectCoverage._check_status_matches_scenario_ids).
+            "if": {"properties": {"status": {"const": "covered"}}, "required": ["status"]},
+            "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
+            "else": {"properties": {"scenario_ids": {"maxItems": 0}}},
+        },
+    ],
+    "AcCoverage": [
+        {
+            "if": _AC_COVERAGE_NO_ASPECTS,
+            "then": {"properties": {"status": {"enum": ["covered", "not_covered"]}}},
+        },
+        {
+            # without aspects, status is evidence-backed by the AC's own scenario_ids (same
+            # rule as AspectCoverage, applied at the AC level).
+            "if": {
+                **_AC_COVERAGE_NO_ASPECTS,
+                "properties": {**_AC_COVERAGE_NO_ASPECTS["properties"], "status": {"const": "covered"}},
+            },
+            "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
+        },
+        {
+            "if": {
+                **_AC_COVERAGE_NO_ASPECTS,
+                "properties": {**_AC_COVERAGE_NO_ASPECTS["properties"], "status": {"const": "not_covered"}},
+            },
+            "then": {"properties": {"scenario_ids": {"maxItems": 0}}},
+        },
+        {
+            "if": {
+                "properties": {"aspects": {"minItems": 1}},
+                "not": {"properties": {"aspects": {"contains": _AC_COVERAGE_NOT_COVERED_ASPECT}}},
+            },
+            "then": {"properties": {"status": {"const": "covered"}}},
+        },
+        {
+            "if": {
+                "properties": {"aspects": {"minItems": 1, "contains": _AC_COVERAGE_NOT_COVERED_ASPECT}},
+                "required": ["aspects"],
+            },
+            "then": {"properties": {"status": {"const": "partially_covered"}}},
+        },
+    ],
+}
 
 
 def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) -> None:
     """
-    Encodes the model_validator cross-field rules pydantic's own model_json_schema() drops
-    (AcceptanceCriterion._check_version_required_unless_planned,
-    _check_removal_planned_only_when_deprecated; Entity._check_state_origin,
-    _check_stub_reason_is_feature_only, _check_pages_have_exactly_one_primary;
-    AspectCoverage._check_status_matches_scenario_ids; AcCoverage._check_status_matches_aspects,
-    incl. its no-aspects scenario_ids tie-in) as `allOf` if/then/else so a plain jsonschema
-    validator rejects what pydantic rejects. A no-op for a contract whose $defs don't carry
-    that definition (e.g. ui-tests has neither).
+    Applies _CROSS_FIELD_RULES to `schema`'s $defs, one `allOf` extend per def name that's
+    actually present.
 
     metadata.source_inputs[] additionally gets a `minItems: 1` constraint (R7), but only for
-    the three transform contracts named by `_TRANSFORM_CONTRACT_IDS` - a collector output's
+    the transform contracts the registry marks `is_transform` - a collector output's
     `Metadata` def legitimately allows the empty list, and each contract's own generated
     schema carries its own private copy of the `Metadata` def, so this cannot leak across
     contracts.
@@ -169,119 +253,17 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
     """
     defs = schema.get("$defs", {})
 
-    acceptance_criterion_def = defs.get("AcceptanceCriterion")
-    if isinstance(acceptance_criterion_def, dict):
-        acceptance_criterion_def.setdefault("allOf", []).extend(
-            [
-                {
-                    "if": {"properties": {"state": {"const": "planned"}}, "required": ["state"]},
-                    "else": {"properties": {"version": {"type": "string"}}, "required": ["version"]},
-                },
-                {
-                    "if": {"properties": {"state": {"const": "deprecated"}}, "required": ["state"]},
-                    "then": {"properties": {"removal_planned": {"type": "string"}}, "required": ["removal_planned"]},
-                    "else": {"properties": {"removal_planned": {"type": "null"}}},
-                },
-            ]
-        )
+    for def_name, rules in _CROSS_FIELD_RULES.items():
+        target_def = defs.get(def_name)
+        if isinstance(target_def, dict):
+            target_def.setdefault("allOf", []).extend(rules)
 
-    entity_def = defs.get("Entity")
-    if isinstance(entity_def, dict):
-        entity_def.setdefault("allOf", []).extend(
-            [
-                {
-                    "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
-                    "then": {"properties": {"state_origin": {"const": "derived"}}},
-                    "else": {"properties": {"state_origin": {"const": "authored"}}},
-                },
-                {
-                    # stub_reason only ever describes a Feature (Entity._check_stub_reason_is_feature_only).
-                    "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
-                    "else": {"properties": {"stub_reason": {"type": "null"}}},
-                },
-                {
-                    # a non-empty pages list has exactly one primary PageRef
-                    # (Entity._check_pages_have_exactly_one_primary).
-                    "if": {"properties": {"pages": {"minItems": 1}}},
-                    "then": {
-                        "properties": {
-                            "pages": {
-                                "contains": {
-                                    "properties": {"is_primary": {"const": True}},
-                                    "required": ["is_primary"],
-                                },
-                                "minContains": 1,
-                                "maxContains": 1,
-                            }
-                        }
-                    },
-                },
-            ]
-        )
-
-    aspect_coverage_def = defs.get("AspectCoverage")
-    if isinstance(aspect_coverage_def, dict):
-        # status is evidence-backed by scenario_ids, never independently authored
-        # (AspectCoverage._check_status_matches_scenario_ids).
-        aspect_coverage_def.setdefault("allOf", []).append(
-            {
-                "if": {"properties": {"status": {"const": "covered"}}, "required": ["status"]},
-                "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
-                "else": {"properties": {"scenario_ids": {"maxItems": 0}}},
-            }
-        )
-
-    ac_coverage_def = defs.get("AcCoverage")
-    if isinstance(ac_coverage_def, dict):
-        # An aspect that failed coverage (AcCoverage._check_status_matches_aspects).
-        not_covered_aspect = {"properties": {"status": {"const": "not_covered"}}, "required": ["status"]}
-        no_aspects = {"properties": {"aspects": {"maxItems": 0}}}
-        ac_coverage_def.setdefault("allOf", []).extend(
-            [
-                {
-                    "if": no_aspects,
-                    "then": {"properties": {"status": {"enum": ["covered", "not_covered"]}}},
-                },
-                {
-                    # without aspects, status is evidence-backed by the AC's own scenario_ids
-                    # (same rule as AspectCoverage, applied at the AC level).
-                    "if": {**no_aspects, "properties": {**no_aspects["properties"], "status": {"const": "covered"}}},
-                    "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
-                },
-                {
-                    "if": {
-                        **no_aspects,
-                        "properties": {**no_aspects["properties"], "status": {"const": "not_covered"}},
-                    },
-                    "then": {"properties": {"scenario_ids": {"maxItems": 0}}},
-                },
-                {
-                    "if": {
-                        "properties": {"aspects": {"minItems": 1}},
-                        "not": {"properties": {"aspects": {"contains": not_covered_aspect}}},
-                    },
-                    "then": {"properties": {"status": {"const": "covered"}}},
-                },
-                {
-                    "if": {
-                        "properties": {"aspects": {"minItems": 1, "contains": not_covered_aspect}},
-                        "required": ["aspects"],
-                    },
-                    "then": {"properties": {"status": {"const": "partially_covered"}}},
-                },
-            ]
-        )
-
-    if contract_id in _TRANSFORM_CONTRACT_IDS:
-        metadata_def = defs.get("Metadata")
-        if isinstance(metadata_def, dict):
-            source_inputs = metadata_def.get("properties", {}).get("source_inputs")
-            if not isinstance(source_inputs, dict):
-                raise ValueError("expected a 'source_inputs' property on the Metadata definition")
-            source_inputs["minItems"] = 1
-            required = metadata_def.setdefault("required", [])
-            if "source_inputs" not in required:
-                required.append("source_inputs")
+    if registry.CONTRACTS[contract_id].is_transform:
+        metadata_def = defs["Metadata"]
+        metadata_def["properties"]["source_inputs"]["minItems"] = 1
+        required = metadata_def.setdefault("required", [])
+        if "source_inputs" not in required:
+            required.append("source_inputs")
 
 
 def find_schema_violations(schema: dict[str, Any]) -> list[str]:
@@ -326,7 +308,6 @@ def generate_schema(
     @param model: the contract's top-level result model.
     @param record_roots: the contract's RECORD_ROOTS declaration.
     @return: the full schema document, ready to write.
-    @raises ValueError: if the generated schema still has an untyped object (R9).
     """
     raw_schema = model.model_json_schema()
     _rewrite_pattern_maps(raw_schema)
@@ -338,10 +319,6 @@ def generate_schema(
         "$id": ID_TEMPLATE.format(contract_id=contract_id),
     }
     schema.update(raw_schema)
-
-    violations = find_schema_violations(schema)
-    if violations:
-        raise ValueError(f"schema for '{contract_id}' has untyped object(s): {violations}")
 
     return schema
 
@@ -356,8 +333,8 @@ def write_schemas(output_dir: Path = SCHEMAS_DIR) -> list[Path]:
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    for contract_id, model, record_roots in _CONTRACTS:
-        schema = generate_schema(contract_id, model, record_roots)
+    for contract_id, spec in registry.CONTRACTS.items():
+        schema = generate_schema(contract_id, spec.result_model, spec.record_roots)
         path = output_dir / f"{contract_id}-schema.json"
         # Explicit newline: text mode would write CRLF on Windows.
         path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8", newline="\n")

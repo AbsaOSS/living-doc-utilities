@@ -50,7 +50,7 @@ from living_doc_utilities.contracts.envelope import (
     SourceInputEntry,
     Stats,
 )
-from living_doc_utilities.contracts.io import ContractResult
+from living_doc_utilities.contracts.registry import ContractResult
 from living_doc_utilities.contracts.ui_tests import AcLink, Scenario
 
 _UTILITIES_VERSION = "0.5.1"

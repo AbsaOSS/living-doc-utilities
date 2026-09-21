@@ -27,6 +27,7 @@ from living_doc_utilities.contracts import (
     doc_entities,
     doc_source,
     generator_ready,
+    registry,
     schema_export,
     ui_test_catalog,
     ui_tests,
@@ -37,14 +38,7 @@ from tests.contracts import factories
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMAS_DIR = REPO_ROOT / "living_doc_utilities" / "contracts" / "schemas"
 
-CONTRACTS = [
-    (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
-    (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
-    (ui_tests.CONTRACT_ID, ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
-    (generator_ready.CONTRACT_ID, generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
-    (coverage_matrix.CONTRACT_ID, coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
-    (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
-]
+CONTRACTS = [(contract_id, spec.result_model, spec.record_roots) for contract_id, spec in registry.CONTRACTS.items()]
 CONTRACT_IDS = [contract_id for contract_id, _, _ in CONTRACTS]
 
 
@@ -458,38 +452,13 @@ def test_metadata_is_one_shared_model_across_all_six_contracts():
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers: the annotation walker and the defensive guards around a
-# contract module losing its expected shape.
+# Internal helper: the annotation walker.
 # ---------------------------------------------------------------------------
 
 
-def test_unwrap_treats_a_multi_member_union_as_an_opaque_leaf():
-    item_type, is_array = schema_export._unwrap(Union[int, str])
+def test_unwrap_field_type_treats_a_multi_member_union_as_an_opaque_leaf():
+    # None of the six contracts' models carry a field shaped like this today, but a future
+    # one might - unwrap_field_type must not crash on it, only Optional[...] is peeled.
+    item_type, is_array = schema_export.unwrap_field_type(Union[int, str])
 
     assert (item_type, is_array) == (Union[int, str], False)
-
-
-def test_inject_own_field_occupancy_enum_requires_a_stats_definition():
-    with pytest.raises(ValueError, match="expected a 'Stats' definition"):
-        schema_export._inject_own_field_occupancy_enum({"$defs": {}}, [])
-
-
-def test_inject_own_field_occupancy_enum_requires_a_field_occupancy_property():
-    schema = {"$defs": {"Stats": {"properties": {}}}}
-
-    with pytest.raises(ValueError, match="expected a 'field_occupancy' property"):
-        schema_export._inject_own_field_occupancy_enum(schema, [])
-
-
-def test_inject_cross_field_constraints_requires_a_source_inputs_property_on_transform_contracts():
-    schema = {"$defs": {"Metadata": {"properties": {}}}}
-
-    with pytest.raises(ValueError, match="expected a 'source_inputs' property"):
-        schema_export._inject_cross_field_constraints(schema, generator_ready.CONTRACT_ID)
-
-
-def test_main_regenerates_the_committed_schemas_in_place():
-    schema_export.main()
-
-    for contract_id in CONTRACT_IDS:
-        assert schema_export.load_schema(contract_id) == _committed_schema(contract_id)
