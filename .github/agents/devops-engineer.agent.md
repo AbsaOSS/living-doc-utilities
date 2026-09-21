@@ -84,7 +84,7 @@ Non-goals
 Repo specifics
 
 - Runtime/toolchain targets
-  - Python: 3.12+
+  - Python: 3.10+
 - Quality gates
   - Tests: pytest tests/
   - Coverage: pytest --cov=. tests/ --cov-fail-under=80 --cov-report=html

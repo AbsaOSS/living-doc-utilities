@@ -89,7 +89,7 @@ Non-goals
 Repo specifics
 
 - Runtime/toolchain targets
-  - Python: 3.12+
+  - Python: 3.10+
 - Logging conventions
   - Must use lazy % formatting in logs.
   - Prefer wiring via the repo logging configuration module.
