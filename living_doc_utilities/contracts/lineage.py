@@ -30,7 +30,7 @@ from typing import Mapping, Union
 
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import io, schema_export
+from living_doc_utilities.contracts import registry, schema_export
 from living_doc_utilities.contracts.codes import Code, ContractError
 from living_doc_utilities.contracts.envelope import AuditStats, Stats
 
@@ -68,7 +68,7 @@ def assert_complete(table: LineageTable, input_contract: Union[str, dict[str, ty
     @raises AssertionError: naming every input leaf path the table has no entry for.
     @raises ValueError: `input_contract` is a contract id that is not one of the six known ids.
     """
-    record_roots = io.record_roots(input_contract) if isinstance(input_contract, str) else input_contract
+    record_roots = registry.record_roots(input_contract) if isinstance(input_contract, str) else input_contract
     expected_paths = set(schema_export.field_occupancy_paths(record_roots))
     missing = expected_paths - table.entries.keys()
     if missing:

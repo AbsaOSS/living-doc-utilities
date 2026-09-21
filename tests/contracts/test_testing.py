@@ -31,21 +31,14 @@ from living_doc_utilities.contracts import (
     doc_entities,
     doc_source,
     generator_ready,
+    registry,
     schema_export,
     stats,
     testing,
     ui_test_catalog,
-    ui_tests,
 )
 
-CONTRACTS = [
-    (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
-    (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
-    (ui_tests.CONTRACT_ID, ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
-    (generator_ready.CONTRACT_ID, generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
-    (coverage_matrix.CONTRACT_ID, coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
-    (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
-]
+CONTRACTS = [(contract_id, spec.result_model, spec.record_roots) for contract_id, spec in registry.CONTRACTS.items()]
 CONTRACT_IDS = [contract_id for contract_id, _, _ in CONTRACTS]
 
 

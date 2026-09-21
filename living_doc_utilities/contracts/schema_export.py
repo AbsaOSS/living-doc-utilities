@@ -28,14 +28,7 @@ from typing import Any, Iterator, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import (
-    coverage_matrix,
-    doc_entities,
-    doc_source,
-    generator_ready,
-    ui_test_catalog,
-    ui_tests,
-)
+from living_doc_utilities.contracts import registry
 from living_doc_utilities.contracts.envelope import Stats
 
 # R1/R2: every exported schema declares its dialect and identifies itself.
@@ -43,22 +36,6 @@ SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 ID_TEMPLATE = "https://absaoss.github.io/living-doc-utilities/schemas/{contract_id}-schema.json"
 
 SCHEMAS_DIR = Path(__file__).resolve().parent / "schemas"
-
-# Each contract's result model and its declared record roots (docs/contracts.md, section 1).
-_CONTRACTS: tuple[tuple[str, type[BaseModel], dict[str, type[BaseModel]]], ...] = (
-    (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
-    (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
-    (ui_tests.CONTRACT_ID, ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
-    (generator_ready.CONTRACT_ID, generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
-    (coverage_matrix.CONTRACT_ID, coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
-    (ui_test_catalog.CONTRACT_ID, ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
-)
-
-# The three contracts written by a transform (docs/contracts.md, section 1 table): R7 requires
-# metadata.source_inputs[] to carry at least one entry on these, never on a collector output.
-_TRANSFORM_CONTRACT_IDS = frozenset(
-    {generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID}
-)
 
 
 def _unwrap(annotation: Any) -> tuple[Any, bool]:
@@ -149,7 +126,7 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
     that definition (e.g. ui-tests has neither).
 
     metadata.source_inputs[] additionally gets a `minItems: 1` constraint (R7), but only for
-    the three transform contracts named by `_TRANSFORM_CONTRACT_IDS` - a collector output's
+    the transform contracts the registry marks `is_transform` - a collector output's
     `Metadata` def legitimately allows the empty list, and each contract's own generated
     schema carries its own private copy of the `Metadata` def, so this cannot leak across
     contracts.
@@ -272,7 +249,7 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
             ]
         )
 
-    if contract_id in _TRANSFORM_CONTRACT_IDS:
+    if registry.CONTRACTS[contract_id].is_transform:
         metadata_def = defs.get("Metadata")
         if isinstance(metadata_def, dict):
             source_inputs = metadata_def.get("properties", {}).get("source_inputs")
@@ -356,8 +333,8 @@ def write_schemas(output_dir: Path = SCHEMAS_DIR) -> list[Path]:
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    for contract_id, model, record_roots in _CONTRACTS:
-        schema = generate_schema(contract_id, model, record_roots)
+    for contract_id, spec in registry.CONTRACTS.items():
+        schema = generate_schema(contract_id, spec.result_model, spec.record_roots)
         path = output_dir / f"{contract_id}-schema.json"
         # Explicit newline: text mode would write CRLF on Windows.
         path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8", newline="\n")

@@ -29,42 +29,9 @@ from typing import Any, Union, cast
 
 from pydantic import BaseModel, ValidationError
 
-from living_doc_utilities.contracts import (
-    compat,
-    coverage_matrix,
-    doc_entities,
-    doc_source,
-    generator_ready,
-    schema_export,
-    stats,
-    ui_test_catalog,
-    ui_tests,
-    validation,
-)
+from living_doc_utilities.contracts import compat, registry, schema_export, stats, validation
 from living_doc_utilities.contracts.codes import Code, ContractError
-
-# The six contract result models - a Union rather than a plain BaseModel so that
-# read_artifact's/write_artifact's callers (and mypy) see the shared fields every one of
-# them declares: schema_version, metadata, warnings.
-ContractResult = Union[
-    doc_entities.DocEntitiesResult,
-    doc_source.DocSourceResult,
-    ui_tests.UITestsResult,
-    generator_ready.GeneratorReadyResult,
-    coverage_matrix.CoverageMatrixResult,
-    ui_test_catalog.UiTestCatalogResult,
-]
-
-# Every contract's result model and record roots, keyed by contract id - the only place
-# read_artifact/write_artifact need to know which model a schema_version selects.
-_CONTRACTS: dict[str, tuple[type[BaseModel], dict[str, type[BaseModel]]]] = {
-    doc_entities.CONTRACT_ID: (doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS),
-    doc_source.CONTRACT_ID: (doc_source.DocSourceResult, doc_source.RECORD_ROOTS),
-    ui_tests.CONTRACT_ID: (ui_tests.UITestsResult, ui_tests.RECORD_ROOTS),
-    generator_ready.CONTRACT_ID: (generator_ready.GeneratorReadyResult, generator_ready.RECORD_ROOTS),
-    coverage_matrix.CONTRACT_ID: (coverage_matrix.CoverageMatrixResult, coverage_matrix.RECORD_ROOTS),
-    ui_test_catalog.CONTRACT_ID: (ui_test_catalog.UiTestCatalogResult, ui_test_catalog.RECORD_ROOTS),
-}
+from living_doc_utilities.contracts.registry import ContractResult
 
 
 def _model_validate_or_raise(model_cls: type[BaseModel], contract_id: str, payload: Any) -> BaseModel:
@@ -77,18 +44,6 @@ def _model_validate_or_raise(model_cls: type[BaseModel], contract_id: str, paylo
             Code.SCHEMA_VALIDATION_FAILED,
             f"{contract_id}: payload passed schema validation but failed model validation: {exc}",
         ) from exc
-
-
-def record_roots(contract_id: str) -> dict[str, type[BaseModel]]:
-    """
-    @param contract_id: one of the six contracts' CONTRACT_ID (e.g. "doc-entities-v1.0.0").
-    @return: that contract's RECORD_ROOTS declaration.
-    @raises ValueError: `contract_id` is not one of the six known contract ids.
-    """
-    try:
-        return _CONTRACTS[contract_id][1]
-    except KeyError:
-        raise ValueError(f"unknown contract id {contract_id!r}; expected one of {sorted(_CONTRACTS)!r}") from None
 
 
 def read_artifact(path: Union[str, Path], expected: Union[str, set[str]]) -> ContractResult:
@@ -104,8 +59,8 @@ def read_artifact(path: Union[str, Path], expected: Union[str, set[str]]) -> Con
     """
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     contract_id = compat.check_input(payload, expected)
-    model_cls, _ = _CONTRACTS[contract_id]
-    return cast(ContractResult, _model_validate_or_raise(model_cls, contract_id, payload))
+    spec = registry.CONTRACTS[contract_id]
+    return cast(ContractResult, _model_validate_or_raise(spec.result_model, contract_id, payload))
 
 
 def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
@@ -121,21 +76,21 @@ def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
     @raises ContractError: SCHEMA_VALIDATION_FAILED - leaves no file on disk at all.
     """
     contract_id = result.schema_version
-    if contract_id not in _CONTRACTS:
+    if contract_id not in registry.CONTRACTS:
         raise ContractError(Code.INVALID_CONTRACT_ID, f"unknown schema_version {contract_id!r}")
-    model_cls, record_roots = _CONTRACTS[contract_id]
+    spec = registry.CONTRACTS[contract_id]
 
     filled = result.model_copy(deep=True)
     reported_cardinality = filled.metadata.stats.cardinality
     filled.metadata.producer.utilities_version = compat.installed_utilities_version()
-    filled.metadata.stats = stats.compute_stats(filled, record_roots, reported_cardinality)
+    filled.metadata.stats = stats.compute_stats(filled, spec.record_roots, reported_cardinality)
 
     payload = filled.model_dump(mode="json")
     schema = schema_export.load_schema(contract_id)
     errors = validation.validate(payload, schema)
     if errors:
         raise compat.schema_validation_error(errors, payload)
-    _model_validate_or_raise(model_cls, contract_id, payload)
+    _model_validate_or_raise(spec.result_model, contract_id, payload)
 
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
