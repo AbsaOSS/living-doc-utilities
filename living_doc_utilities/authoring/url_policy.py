@@ -43,8 +43,6 @@ def safe_href(href: str) -> Optional[str]:
     (`//host/...` - inherits whatever scheme the embedding page was loaded over, so it
     carries no scheme of its own to vet), or a link using any other scheme.
     """
-    if href.startswith("//"):
-        return None
     scheme = urlsplit(href).scheme
     if scheme.lower() not in ALLOWED_SCHEMES:
         return None

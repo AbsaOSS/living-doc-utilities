@@ -47,7 +47,7 @@ def find_vendored_schemas(root: Path, allow: Sequence[Path] = ()) -> list[str]:
     @param allow: directories, relative to `root`, allowed to hold schema-shaped files.
     @return: offending paths, relative to `root`, sorted; empty when the tree is clean.
     """
-    tracked = subprocess.run(  # noqa: S603 - fixed argv, no shell, no untrusted input
+    tracked = subprocess.run(
         ["git", "-C", str(root), "ls-files", "-z", "--", *_PATTERNS],
         capture_output=True,
         check=True,
@@ -62,7 +62,7 @@ def find_vendored_schemas(root: Path, allow: Sequence[Path] = ()) -> list[str]:
         parts = Path(relative).parts
         if "tests" in parts[:-1]:
             continue
-        if any(Path(relative) == a or Path(relative).is_relative_to(a) for a in allow_dirs):
+        if any(Path(relative).is_relative_to(a) for a in allow_dirs):
             continue
         offenders.append(relative)
     return sorted(offenders)

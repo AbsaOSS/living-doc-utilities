@@ -57,8 +57,7 @@ class BaseActionInputs(ABC):
         return True
 
     @abstractmethod
-    def _validate(self) -> int:
-        raise NotImplementedError
+    def _validate(self) -> int: ...
 
     def print_effective_configuration(self) -> None:
         """
@@ -69,5 +68,4 @@ class BaseActionInputs(ABC):
         self._print_effective_configuration()
 
     @abstractmethod
-    def _print_effective_configuration(self) -> None:
-        raise NotImplementedError
+    def _print_effective_configuration(self) -> None: ...
