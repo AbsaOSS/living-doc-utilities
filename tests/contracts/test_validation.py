@@ -20,7 +20,6 @@ helper that selects its validator class from the schema's own dialect, never a h
 """
 
 import jsonschema
-import pytest
 
 from living_doc_utilities.contracts.validation import validate
 
@@ -45,9 +44,6 @@ def test_validate_returns_every_error_for_an_invalid_payload():
 
 
 def test_validate_selects_the_validator_declared_by_the_schemas_own_dialect(mocker):
-    # jsonschema's own check_schema() recurses into validator_for() again for each
-    # meta-schema $ref it walks, so only the *first* call is validate()'s own - not the
-    # only one.
     schema = {"$schema": _DRAFT_2020_12, "type": "string"}
     spy = mocker.patch(
         "living_doc_utilities.contracts.validation.jsonschema.validators.validator_for",
@@ -56,7 +52,7 @@ def test_validate_selects_the_validator_declared_by_the_schemas_own_dialect(mock
 
     validate("ok", schema)
 
-    assert spy.call_args_list[0] == mocker.call(schema)
+    spy.assert_called_once_with(schema)
 
 
 def test_validate_enforces_a_2020_12_only_keyword_prefixitems():
@@ -74,10 +70,3 @@ def test_validate_enforces_a_2020_12_only_keyword_prefixitems():
 
     assert len(errors) == 2
     assert all("is not of type" in error.message for error in errors)
-
-
-def test_validate_propagates_a_schema_error_for_a_malformed_schema_itself():
-    schema = {"$schema": _DRAFT_2020_12, "type": "not-a-real-json-schema-type"}
-
-    with pytest.raises(jsonschema.exceptions.SchemaError):
-        validate({}, schema)

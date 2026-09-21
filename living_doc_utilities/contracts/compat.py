@@ -64,8 +64,9 @@ def schema_validation_error(errors: list[ValidationError], payload: Any) -> Cont
     @return: the ContractError to raise.
     """
     worst = best_match(errors)
-    path = worst.json_path if worst is not None else "$"
-    detail = worst.message if worst is not None else "schema validation failed"
+    assert worst is not None  # best_match returns None only for an empty iterable
+    path = worst.json_path
+    detail = worst.message
 
     producer_version = _safe_get(payload, "metadata", "producer", "utilities_version")
     own_version = installed_utilities_version()
