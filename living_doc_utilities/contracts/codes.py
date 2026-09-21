@@ -59,8 +59,9 @@ class Code(Enum):
 
     def __new__(cls, kind: CodeKind, emitter: Emitter) -> "Code":
         member = object.__new__(cls)
-        # Unique per member: Enum aliases members whose values are equal, and many codes share (kind, emitter).
-        member._value_ = len(cls.__members__)
+        # Unique per member and 1-indexed to match the prior auto()-based numbering: Enum
+        # aliases members whose values are equal, and many codes share (kind, emitter).
+        member._value_ = len(cls.__members__) + 1
         member.kind = kind
         member.emitter = emitter
         return member

@@ -69,8 +69,8 @@ def test_compat_raised_codes_are_registered_as_errors_emitted_by_utilities(name)
 
 def test_every_code_member_is_a_distinct_object():
     # Guards against the Enum-aliasing bug class: two members sharing a value collapse into
-    # one (docs/contracts.md, section 5 - "Members use auto() rather than a (kind, emitter)
-    # tuple as their value" precisely to avoid this).
+    # one. Code.__new__ assigns each member a unique, sequential _value_ rather than using
+    # its (kind, emitter) tuple as the value precisely to avoid this.
     assert len(set(Code)) == len(list(Code)) == 35
 
 
