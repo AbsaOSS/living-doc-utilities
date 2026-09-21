@@ -25,8 +25,9 @@ criterion.
 import re
 from dataclasses import dataclass, field
 
-from living_doc_utilities.authoring.ac_grammar import MALFORMED_AC, is_valid_ac_id
+from living_doc_utilities.authoring.ac_grammar import is_valid_ac_id
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.envelope import ContractWarning
 from living_doc_utilities.contracts.ui_tests import AcLink
@@ -57,7 +58,7 @@ def _tags_to_ac_links(tags: list[str]) -> tuple[list[AcLink], list[ContractWarni
         ac_id = tag_m.group("id") if tag_m else ""
         if tag_m is None or not is_valid_ac_id(ac_id):
             warnings.append(
-                ContractWarning(code=MALFORMED_AC, message="'@AC:' tag is malformed.", context=f"tag={tag!r}")
+                ContractWarning(code=Code.MALFORMED_AC.name, message="'@AC:' tag is malformed.", context=f"tag={tag!r}")
             )
             continue
         links.append(AcLink(id=ac_id, aspect=tag_m.group("aspect")))

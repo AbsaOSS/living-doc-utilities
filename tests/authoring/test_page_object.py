@@ -17,7 +17,8 @@
 """PageObject header parsing: full header, cross-reference header, unrecognised key, and
 `normalize`-before-grammar."""
 
-from living_doc_utilities.authoring.page_object import IGNORED_AUTHORED_KEY, parse_page_object
+from living_doc_utilities.authoring.page_object import parse_page_object
+from living_doc_utilities.contracts.codes import Code
 
 _FULL_HEADER = """\
 /* =============================================================================
@@ -125,7 +126,7 @@ def test_unrecognised_key_produces_ignored_authored_key():
     result, warnings = parse_page_object(_HEADER_WITH_UNKNOWN_KEY)
 
     assert result is not None
-    assert [w.code for w in warnings] == [IGNORED_AUTHORED_KEY]
+    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
     assert "query_params" in warnings[0].message
 
 

@@ -18,11 +18,11 @@
 The coverage-matrix-v1.0.0 contract: per-aspect acceptance-criterion coverage over the
 corpus (docs/contracts.md, section 4, "Coverage"). Coverage is computed only for `active`
 and `deprecated` acceptance criteria; `in_review` and `planned` criteria are never counted,
-and their test activity is reported as a warning instead (STALE_AC_REF and friends,
-docs/contracts.md section 5).
+and their test activity is reported as a warning instead (IN_REVIEW_AC_HAS_TESTS /
+PLANNED_AC_HAS_TESTS, docs/contracts.md section 5).
 """
 
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
@@ -34,7 +34,6 @@ CONTRACT_ID: Literal["coverage-matrix-v1.0.0"] = "coverage-matrix-v1.0.0"
 # The only two entity states a coverage row is ever computed for (docs/contracts.md,
 # "Coverage" - `in_review` and `planned` acceptance criteria are never counted).
 CountedState = Literal["active", "deprecated"]
-COUNTED_STATES: frozenset[str] = frozenset(get_args(CountedState))
 
 CoverageStatus = Literal["covered", "partially_covered", "not_covered"]
 AspectStatus = Literal["covered", "not_covered"]

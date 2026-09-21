@@ -24,15 +24,24 @@ argument rather than keeping its own copy of which model belongs to which contra
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any, Protocol, Sequence
 
 from pydantic import BaseModel
 
 from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType
 from living_doc_utilities.contracts.coverage_matrix import AcCoverage
-from living_doc_utilities.contracts.envelope import Cardinality, Stats
+from living_doc_utilities.contracts.envelope import Cardinality, ContractWarning, Stats
 from living_doc_utilities.contracts.schema_export import _unwrap
 from living_doc_utilities.contracts.ui_tests import Scenario
+
+
+class _ContractResult(Protocol):
+    """Structural stand-in for io.ContractResult: every one of the six models declares
+    `warnings` (io.py's own Union docstring), but importing it here would cycle back (io
+    imports this module)."""
+
+    warnings: list[ContractWarning]
+
 
 # Record types whose lists tally into cardinality.acceptance_criteria / .scenarios
 # wherever they occur in a contract's record-root subtree - doc-entities/doc-source/
@@ -97,7 +106,7 @@ def _walk(instances: Sequence[Any], model: type[BaseModel], prefix: str, state: 
             state.occupancy[path] = sum(1 for instance in instances if not _is_empty(getattr(instance, field_name)))
 
 
-def compute_stats(result: BaseModel, record_roots: dict[str, type[BaseModel]], reported: Cardinality) -> Stats:
+def compute_stats(result: _ContractResult, record_roots: dict[str, type[BaseModel]], reported: Cardinality) -> Stats:
     """
     Computes a fresh metadata.stats for `result`: cardinality (entities, entities_by_type,
     acceptance_criteria, scenarios and warnings_by_code are derived from `result` itself;
@@ -119,7 +128,7 @@ def compute_stats(result: BaseModel, record_roots: dict[str, type[BaseModel]], r
         instances = list(_get_by_dotted_path(result, root_name))
         _walk(instances, root_model, f"{root_name}[].", state)
 
-    warnings_by_code: "Counter[str]" = Counter(warning.code for warning in getattr(result, "warnings", []))
+    warnings_by_code: "Counter[str]" = Counter(warning.code for warning in result.warnings)
 
     cardinality = Cardinality(
         entities=state.entities,

@@ -24,29 +24,25 @@ treats those as opaque tokens to reshape, never to validate.
 """
 
 import re
-from typing import Optional, get_args
+from dataclasses import dataclass, field
+from typing import Optional
 
 from pydantic import ValidationError
 
 from living_doc_utilities.authoring.normalize import compute_fence_flags
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import (
     AC_ID_PATTERN,
     PLACEHOLDER_NAME_PATTERN,
     VERSION_PATTERN,
     AcceptanceCriterion,
-    LifecycleState,
 )
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-MALFORMED_AC = "MALFORMED_AC"
-LEGACY_AC_STATE = "LEGACY_AC_STATE"
-UNPARSED_AC_LINE = "UNPARSED_AC_LINE"
 
 # The only place in the codebase that still recognises this literal string (docs/
 # contracts.md's AC grammar section) - everywhere else it is simply not a valid state.
 _LEGACY_DESCOPED_STATE = "descoped"
 
-_VALID_STATES = frozenset(get_args(LifecycleState))
 _VERSION_RE = re.compile(VERSION_PATTERN)
 _AC_ID_RE = re.compile(AC_ID_PATTERN)
 _PLACEHOLDER_NAME_RE = re.compile(PLACEHOLDER_NAME_PATTERN)
@@ -131,31 +127,32 @@ def _parse_header_inner(inner: str) -> tuple[Optional[str], Optional[str], Optio
     return None, None, None
 
 
+@dataclass
+class _Extensions:
+    description: Optional[str] = None
+    aspect: list[str] = field(default_factory=list)
+    preconditions: list[str] = field(default_factory=list)
+    not_in_scope: list[str] = field(default_factory=list)
+    rationale: Optional[str] = None
+    placeholder_values: dict[str, list[str]] = field(default_factory=dict)
+
+
 def _parse_extensions(
     block_lines: list[str], is_legacy_descoped: bool, context: str
-) -> tuple[dict, list[ContractWarning]]:
-    result: dict = {
-        "description": None,
-        "aspect": [],
-        "preconditions": [],
-        "not_in_scope": [],
-        "rationale": None,
-        "placeholder_values": {},
-    }
+) -> tuple[_Extensions, list[ContractWarning]]:
+    result = _Extensions()
     warnings: list[ContractWarning] = []
     pending_sublist_key: Optional[str] = None
     seen_description = False
-    # Where a following non-bullet line's hard-wrapped text is appended: a scalar `result`
-    # key, or the last entry of a list-valued one - a wrapped comment-block description or
-    # rationale (e.g. living-doc's own .feature-header examples) spans several physical
-    # lines, and only the first carries the "-" bullet marker.
-    continuation_key: Optional[str] = None
-    continuation_list: Optional[list] = None
+    # Field a following non-bullet line's hard-wrapped text is appended to (the last entry
+    # if it is a list): only the first physical line of a wrapped description, rationale or
+    # sub-list item carries the "-" bullet marker.
+    continuation: Optional[str] = None
 
     def _unparsed(raw_line: str) -> None:
         warnings.append(
             ContractWarning(
-                code=UNPARSED_AC_LINE,
+                code=Code.UNPARSED_AC_LINE.name,
                 message="Acceptance-criterion block line could not be assigned to any known field.",
                 context=f"{context} line={raw_line.strip()!r}",
             )
@@ -169,67 +166,69 @@ def _parse_extensions(
         sublist_m = _SUBLIST_KEY_RE.match(stripped)
         if sublist_m:
             pending_sublist_key = sublist_m.group("key")
-            continuation_key, continuation_list = None, None
+            continuation = None
             continue
 
         bullet_m = _BULLET_RE.match(stripped)
         if not bullet_m:
-            if continuation_list is not None:
-                continuation_list[-1] = f"{continuation_list[-1]} {stripped}".strip()
-            elif continuation_key is not None:
-                result[continuation_key] = f"{result[continuation_key]} {stripped}".strip()
-            else:
+            if continuation is None:
                 _unparsed(raw_line)
+            else:
+                current = getattr(result, continuation)
+                if isinstance(current, list):
+                    current[-1] = f"{current[-1]} {stripped}".strip()
+                else:
+                    setattr(result, continuation, f"{current} {stripped}".strip())
             continue
 
         text = bullet_m.group("text").strip()
 
         if pending_sublist_key is not None:
-            result[pending_sublist_key].append(text)
-            continuation_key, continuation_list = None, result[pending_sublist_key]
+            getattr(result, pending_sublist_key).append(text)
+            continuation = pending_sublist_key
             continue
 
         if not seen_description:
-            result["description"] = text
+            result.description = text
             seen_description = True
-            continuation_key, continuation_list = "description", None
+            continuation = "description"
             continue
 
         if is_legacy_descoped:
             legacy_reason_m = _LEGACY_DESCOPED_REASON_RE.match(text)
             if legacy_reason_m:
-                result["rationale"] = legacy_reason_m.group("text").strip()
-                continuation_key, continuation_list = "rationale", None
+                result.rationale = legacy_reason_m.group("text").strip()
+                continuation = "rationale"
                 continue
             if _LEGACY_DISCARD_RE.match(text):
                 # descoped_at / future_release: no home in the canon model (there is no
                 # descoped state any more), silently dropped as part of the one legacy
                 # conversion path.
-                continuation_key, continuation_list = None, None
+                continuation = None
                 continue
 
         aspect_m = _ASPECT_RE.match(text)
         if aspect_m:
-            result["aspect"] = [v.strip() for v in aspect_m.group("values").split(",")]
-            continuation_key, continuation_list = None, None
+            result.aspect = [v.strip() for v in aspect_m.group("values").split(",")]
+            continuation = None
             continue
 
         rationale_m = _RATIONALE_RE.match(text)
         if rationale_m:
-            result["rationale"] = rationale_m.group("text").strip()
-            continuation_key, continuation_list = "rationale", None
+            result.rationale = rationale_m.group("text").strip()
+            continuation = "rationale"
             continue
 
         placeholder_m = _PLACEHOLDER_BULLET_RE.match(text)
         if placeholder_m:
             name = _slug_placeholder_name(placeholder_m.group("name"))
             if _PLACEHOLDER_NAME_RE.match(name):
-                result["placeholder_values"][name] = [v.strip() for v in placeholder_m.group("values").split(",")]
-                continuation_key, continuation_list = None, None
+                result.placeholder_values[name] = [v.strip() for v in placeholder_m.group("values").split(",")]
+                continuation = None
                 continue
 
         _unparsed(raw_line)
-        continuation_key, continuation_list = None, None
+        continuation = None
 
     return result, warnings
 
@@ -245,7 +244,9 @@ def _build_ac(
 
     if not id_valid or state is None:
         warnings.append(
-            ContractWarning(code=MALFORMED_AC, message="Acceptance-criterion header is malformed.", context=context)
+            ContractWarning(
+                code=Code.MALFORMED_AC.name, message="Acceptance-criterion header is malformed.", context=context
+            )
         )
         return None, warnings
 
@@ -255,7 +256,7 @@ def _build_ac(
         if not legacy_shape_valid:
             warnings.append(
                 ContractWarning(
-                    code=MALFORMED_AC,
+                    code=Code.MALFORMED_AC.name,
                     message="Legacy 'descoped' acceptance criterion requires the strict versioned form "
                     "'vX.Y.Z - descoped'.",
                     context=context,
@@ -264,7 +265,7 @@ def _build_ac(
             return None, warnings
         warnings.append(
             ContractWarning(
-                code=LEGACY_AC_STATE,
+                code=Code.LEGACY_AC_STATE.name,
                 message="Legacy 'descoped' state converted to a version-less 'planned' acceptance criterion.",
                 context=context,
             )
@@ -272,50 +273,6 @@ def _build_ac(
         state = "planned"
         version = None
         removal_planned = None
-
-    if state not in _VALID_STATES:
-        warnings.append(
-            ContractWarning(
-                code=MALFORMED_AC, message=f"Unrecognised acceptance-criterion state {state!r}.", context=context
-            )
-        )
-        return None, warnings
-    if state != "planned" and version is None:
-        warnings.append(
-            ContractWarning(
-                code=MALFORMED_AC,
-                message="A version is required unless the acceptance-criterion state is 'planned'.",
-                context=context,
-            )
-        )
-        return None, warnings
-    if version is not None and not _VERSION_RE.match(version):
-        warnings.append(
-            ContractWarning(
-                code=MALFORMED_AC,
-                message=f"Acceptance-criterion version {version!r} is not of the form x.y.z.",
-                context=context,
-            )
-        )
-        return None, warnings
-    if state == "deprecated" and removal_planned is None:
-        warnings.append(
-            ContractWarning(
-                code=MALFORMED_AC,
-                message="A deprecated acceptance criterion requires 'removal planned'.",
-                context=context,
-            )
-        )
-        return None, warnings
-    if state != "deprecated" and removal_planned is not None:
-        warnings.append(
-            ContractWarning(
-                code=MALFORMED_AC,
-                message="'removal planned' is only valid when state is 'deprecated'.",
-                context=context,
-            )
-        )
-        return None, warnings
 
     extensions, ext_warnings = _parse_extensions(block_lines, is_legacy_descoped, context)
     warnings.extend(ext_warnings)
@@ -326,17 +283,22 @@ def _build_ac(
             state=state,  # type: ignore[arg-type]
             version=version,
             removal_planned=removal_planned,
-            description=extensions["description"],
-            aspect=extensions["aspect"],
-            preconditions=extensions["preconditions"],
-            not_in_scope=extensions["not_in_scope"],
-            rationale=extensions["rationale"],
-            placeholder_values=extensions["placeholder_values"],
+            description=extensions.description,  # type: ignore[arg-type]
+            aspect=extensions.aspect,
+            preconditions=extensions.preconditions,
+            not_in_scope=extensions.not_in_scope,
+            rationale=extensions.rationale,
+            placeholder_values=extensions.placeholder_values,
         )
     except ValidationError as exc:
+        first = exc.errors()[0]
+        field_path = ".".join(str(part) for part in first["loc"])
+        detail = f"{field_path}: {first['msg']}" if field_path else first["msg"]
         warnings.append(
             ContractWarning(
-                code=MALFORMED_AC, message=f"Acceptance criterion failed validation: {exc}", context=context
+                code=Code.MALFORMED_AC.name,
+                message=f"Acceptance criterion failed validation: {detail}",
+                context=context,
             )
         )
         return None, warnings
@@ -382,7 +344,7 @@ def parse_acceptance_criteria(
         if header_m is None:
             warnings.append(
                 ContractWarning(
-                    code=MALFORMED_AC,
+                    code=Code.MALFORMED_AC.name,
                     message="Acceptance-criterion header is malformed.",
                     context=f"entity={entity_id!r} header={raw_lines[index].strip()!r}",
                 )

@@ -45,9 +45,8 @@ from html.parser import HTMLParser
 from typing import Optional
 
 from living_doc_utilities.authoring.url_policy import safe_href, sanitize_html_fragment, sanitized_tag_allowlist
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-HTML_CONTENT_DROPPED = "HTML_CONTENT_DROPPED"
 
 _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 _LIST_TAGS = {"ul", "ol"}
@@ -245,7 +244,7 @@ def _build_warnings(counts: dict[str, int]) -> list[ContractWarning]:
     summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
     return [
         ContractWarning(
-            code=HTML_CONTENT_DROPPED,
+            code=Code.HTML_CONTENT_DROPPED.name,
             message=f"HTML-to-Markdown conversion dropped disallowed or unsupported content: {summary}.",
             context=summary,
         )

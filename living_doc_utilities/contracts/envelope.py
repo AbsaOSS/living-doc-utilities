@@ -39,8 +39,9 @@ WARNING_CODE_PATTERN = r"^[A-Z][A-Z0-9_]*$"
 # instead - see schema_export.py.
 AUDIT_FIELD_PATH_PATTERN = r"^[a-z][a-z0-9_]*(\[\])?(\.[a-z][a-z0-9_]*(\[\])?)*$"
 
-# schema_version format shared by every contract artifact (R4/R5): "<name>-v<major.minor.patch>".
-CONTRACT_ID_PATTERN = r"^[a-z][a-z-]*-v\d+\.\d+\.\d+$"
+# schema_version format shared by every contract artifact (R4/R5): "<name>-v<major.minor.patch>",
+# name = lowercase-alphanumeric segments joined by single hyphens; group 1 is the name alone.
+CONTRACT_ID_PATTERN = r"^([a-z0-9]+(?:-[a-z0-9]+)*)-v\d+\.\d+\.\d+$"
 
 
 class Producer(ContractModel):

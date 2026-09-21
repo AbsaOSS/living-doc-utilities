@@ -27,12 +27,9 @@ from dataclasses import replace
 from typing import Iterable
 
 from living_doc_utilities.authoring.issue_body import ParsedEntity
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import AcceptanceCriterion
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-MISSING_STATUS = "MISSING_STATUS"
-STATUS_AC_MISMATCH = "STATUS_AC_MISMATCH"
-ORPHAN_FEATURE = "ORPHAN_FEATURE"
 
 
 # active > in_review > (all-deprecated) > planned - shared by both derivation tables (a User
@@ -71,7 +68,7 @@ def _derive_us_or_func(entity: ParsedEntity, warnings: list[ContractWarning]) ->
         state = _majority_state(_ac_states(entity.acceptance_criteria))
         warnings.append(
             ContractWarning(
-                code=MISSING_STATUS,
+                code=Code.MISSING_STATUS.name,
                 message="No authored status; derived from acceptance criteria.",
                 context=f"entity_id={entity.entity_id!r} derived={state!r}",
             )
@@ -81,7 +78,7 @@ def _derive_us_or_func(entity: ParsedEntity, warnings: list[ContractWarning]) ->
     if _is_mismatch(entity.state, entity.acceptance_criteria):
         warnings.append(
             ContractWarning(
-                code=STATUS_AC_MISMATCH,
+                code=Code.STATUS_AC_MISMATCH.name,
                 message="Authored status contradicts the entity's own acceptance criteria.",
                 context=f"entity_id={entity.entity_id!r} authored={entity.state!r}",
             )
@@ -124,7 +121,7 @@ def _derive_feature(
 
     warnings.append(
         ContractWarning(
-            code=ORPHAN_FEATURE,
+            code=Code.ORPHAN_FEATURE.name,
             message="Feature has no linked Functionality and no linked User Story in this run.",
             context=f"entity_id={feature.entity_id!r}",
         )

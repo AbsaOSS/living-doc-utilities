@@ -28,8 +28,9 @@ below exercises the same code path with its own minimal, synthetic header.
 """
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
-from living_doc_utilities.authoring.page_object import IGNORED_AUTHORED_KEY, parse_page_object
+from living_doc_utilities.authoring.page_object import parse_page_object
 from living_doc_utilities.authoring.status import derive_statuses
+from living_doc_utilities.contracts.codes import Code
 from tests.authoring.golden.helpers import load_expected, read_fixture
 
 
@@ -96,5 +97,5 @@ def test_status_key_is_ignored_with_the_documented_message():
     assert result is not None
     assert result.entity is not None
     assert result.entity.state is None
-    assert [w.code for w in warnings] == [IGNORED_AUTHORED_KEY]
+    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
     assert warnings[0].message == "Feature state is derived; use `stub-reason:` for an uninstrumented surface"

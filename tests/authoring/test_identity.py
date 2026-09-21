@@ -18,7 +18,8 @@
 
 import pytest
 
-from living_doc_utilities.authoring.identity import MISSING_ENTITY_ID, derive_entity_id
+from living_doc_utilities.authoring.identity import derive_entity_id
+from living_doc_utilities.contracts.codes import Code
 
 
 @pytest.mark.parametrize(
@@ -41,5 +42,5 @@ def test_title_with_no_parseable_id_produces_no_entity_and_a_warning():
     entity_id, warnings = derive_entity_id("Customer Login")
 
     assert entity_id is None
-    assert [w.code for w in warnings] == [MISSING_ENTITY_ID]
+    assert [w.code for w in warnings] == [Code.MISSING_ENTITY_ID.name]
     assert "Customer Login" in warnings[0].context

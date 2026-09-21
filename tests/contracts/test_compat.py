@@ -74,7 +74,15 @@ def test_check_input_non_string_schema_version_raises_invalid_contract_id():
 
 @pytest.mark.parametrize(
     "schema_version",
-    ["doc-entities-1.0.0", "DocEntities-v1.0.0", "doc_entities-v1.0.0", "doc-entities-v1.0", "doc-entities-vX.Y.Z"],
+    [
+        "doc-entities-1.0.0",
+        "DocEntities-v1.0.0",
+        "doc_entities-v1.0.0",
+        "doc-entities-v1.0",
+        "doc-entities-vX.Y.Z",
+        "a--x-v1.0.0",
+        "Doc-v1.0.0",
+    ],
 )
 def test_check_input_malformed_schema_version_raises_invalid_contract_id(schema_version):
     with pytest.raises(ContractError) as excinfo:

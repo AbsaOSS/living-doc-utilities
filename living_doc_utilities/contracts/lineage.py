@@ -77,13 +77,12 @@ def assert_complete(table: LineageTable, input_contract: Union[str, dict[str, ty
 
 def check_field_loss(table: LineageTable, input_selected_stats: AuditStats, output_stats: Stats) -> None:
     """
-    R11's transform-time hard error: for every path `table` maps to an output path (skipping
-    the ones marked Dropped, which are a legitimate, declared omission rather than a loss), a
-    mapped path with non-zero input occupancy and zero output occupancy means the transform
-    silently lost a field that was actually authored - raised as `FIELD_LOSS` naming the path
-    and both occupancies, for every such path in one error. `input_selected_stats` must already be the occupancy computed over
-    the records the transform's view filter *kept* for this input (R7's `selected_stats`), so
-    a record dropped by a legitimate view filter is never mistaken for a field loss.
+    R11's transform-time hard error: for every path `table` maps to an output path (skipping the ones marked Dropped,
+    which are a legitimate, declared omission rather than a loss), a mapped path with non-zero input occupancy and zero
+    output occupancy means the transform silently lost a field that was actually authored - raised as `FIELD_LOSS`
+    naming the path and both occupancies, for every such path in one error. `input_selected_stats` must already be the
+    occupancy computed over the records the transform's view filter *kept* for this input (R7's `selected_stats`), so a
+    record dropped by a legitimate view filter is never mistaken for a field loss.
 
     @param table: the transform's own lineage table.
     @param input_selected_stats: the input's `selected_stats` for this run (R7) - occupancy

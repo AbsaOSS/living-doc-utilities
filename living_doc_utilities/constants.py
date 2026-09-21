@@ -23,6 +23,3 @@ GITHUB_TOKEN = "GITHUB_TOKEN"
 
 # Output related
 OUTPUT_PATH = "./output"
-
-# Symbol, when no project is attached to an issue
-NO_PROJECT_DATA = "---"

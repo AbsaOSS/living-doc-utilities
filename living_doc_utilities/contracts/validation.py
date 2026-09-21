@@ -39,6 +39,5 @@ def validate(payload: Any, schema: dict[str, Any]) -> list[ValidationError]:
         list when `payload` is valid.
     """
     validator_cls = jsonschema.validators.validator_for(schema)
-    validator_cls.check_schema(schema)
     validator = validator_cls(schema)
     return list(validator.iter_errors(payload))

@@ -116,10 +116,9 @@ _AC_HEADER_FULL_RE = re.compile(r"^(?P<lead>[#*]{0,3}\s*)AC:(?P<id>\S+)\s*\((?P<
 _AC_TRAIL_DESC_RE = re.compile(r"^\s*[-–—]\s*(?P<desc>.+)$")
 
 
-def _fix_bullet_marker(line: str) -> tuple[str, bool]:
-    m = _BULLET_START_RE.match(line)
-    if not m:
-        return line, False
+def _fix_bullet_marker(line: str, m: "re.Match[str]") -> tuple[str, bool]:
+    """`m` is the caller's own `_BULLET_START_RE.match(line)` - callers already need it to
+    decide whether to call this at all, so it is passed in rather than matched again here."""
     new_line = f"{m.group('indent')}-{m.group('sp')}{m.group('rest')}"
     return new_line, new_line != line
 
@@ -374,8 +373,9 @@ def _normalize_markdown(lines: list[str], profile: TypeProfile, changes: list[Ch
             continue
 
         if in_ac_block or (current_section is not None and current_section in profile.bullet_sections):
-            if _BULLET_START_RE.match(raw):
-                new_line, changed = _fix_bullet_marker(raw)
+            bullet_m = _BULLET_START_RE.match(raw)
+            if bullet_m:
+                new_line, changed = _fix_bullet_marker(raw, bullet_m)
                 if changed:
                     _emit(out_lines, changes, {RULE_BULLET_MARKER}, raw, new_line)
                 else:
@@ -389,7 +389,6 @@ def _normalize_markdown(lines: list[str], profile: TypeProfile, changes: list[Ch
 
 _FH_KEY_LIST_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):\s*$")
 _FH_KEY_SCALAR_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):(?P<sep>\s+)(?P<val>.*)$")
-_SUBLIST_KEY_RE = re.compile(r"^(?:preconditions|not_in_scope):\s*$")
 
 
 def _split_comment_prefix(raw: str) -> tuple[str, str]:
@@ -473,15 +472,13 @@ def _normalize_feature_header(lines: list[str], profile: TypeProfile, changes: l
             continue
 
         if in_ac_block or (current_section is not None and current_section in profile.bullet_sections):
-            if _BULLET_START_RE.match(content):
-                new_content, changed = _fix_bullet_marker(content)
+            bullet_m = _BULLET_START_RE.match(content)
+            if bullet_m:
+                new_content, changed = _fix_bullet_marker(content, bullet_m)
                 if changed:
                     _emit(out_lines, changes, {RULE_BULLET_MARKER}, raw, prefix + new_content)
                 else:
                     out_lines.append(raw)
-                continue
-            if _SUBLIST_KEY_RE.match(stripped):
-                out_lines.append(raw)
                 continue
 
         out_lines.append(raw)

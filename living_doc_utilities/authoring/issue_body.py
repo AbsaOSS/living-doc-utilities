@@ -32,12 +32,10 @@ from typing import Any, Optional
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.identity import derive_entity_id
 from living_doc_utilities.authoring.normalize import SourceFormat, compute_fence_flags, normalize, normalize_title
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType
 from living_doc_utilities.contracts.doc_entities import PageRef
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-UNKNOWN_SECTION = "UNKNOWN_SECTION"
-IGNORED_AUTHORED_KEY = "IGNORED_AUTHORED_KEY"
 
 # Glossary-defined headings that map to no model field, with the reason each is dropped
 # rather than stored (docs/contracts.md, "State and `state_origin`"). A key found here
@@ -244,7 +242,7 @@ def parse_issue_body(
         if spec is None:
             warnings.append(
                 ContractWarning(
-                    code=UNKNOWN_SECTION,
+                    code=Code.UNKNOWN_SECTION.name,
                     message=f"Unrecognised heading '## {heading_text}'.",
                     context=f"entity_id={entity_id!r}",
                 )
@@ -255,7 +253,7 @@ def parse_issue_body(
         if spec.kind == _KIND_IGNORED_STATUS:
             warnings.append(
                 ContractWarning(
-                    code=IGNORED_AUTHORED_KEY,
+                    code=Code.IGNORED_AUTHORED_KEY.name,
                     message=IGNORED_AUTHORED_KEYS["Status"],
                     context=f"entity_id={entity_id!r} heading='## {heading_text}'",
                 )

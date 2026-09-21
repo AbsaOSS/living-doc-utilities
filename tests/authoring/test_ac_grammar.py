@@ -25,13 +25,9 @@ from pathlib import Path
 
 import pytest
 
-from living_doc_utilities.authoring.ac_grammar import (
-    LEGACY_AC_STATE,
-    MALFORMED_AC,
-    UNPARSED_AC_LINE,
-    parse_acceptance_criteria,
-)
+from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.contracts.codes import Code
 
 FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "agentic_toolkit_descope.md"
 
@@ -117,20 +113,20 @@ def test_malformed_headers_produce_malformed_ac(inner):
     acs, warnings = _parse_one(f"AC:US-001-01 ({inner})\n- desc\n")
 
     assert acs == []
-    assert [w.code for w in warnings] == [MALFORMED_AC]
+    assert [w.code for w in warnings] == [Code.MALFORMED_AC.name]
 
 
 def test_header_with_no_id_is_malformed():
     acs, warnings = _parse_one("AC: (v1.0.0 - active)\n- desc\n")
 
     assert acs == []
-    assert [w.code for w in warnings] == [MALFORMED_AC]
+    assert [w.code for w in warnings] == [Code.MALFORMED_AC.name]
 
 
 def test_legacy_descoped_state_converts_to_version_less_planned():
     acs, warnings = _parse_one("AC:US-001-03 (v1.2.0 - descoped)\n- desc\n- Rationale: deferred\n")
 
-    assert [w.code for w in warnings] == [LEGACY_AC_STATE]
+    assert [w.code for w in warnings] == [Code.LEGACY_AC_STATE.name]
     ac = acs[0]
     assert ac.state == "planned"
     assert ac.version is None
@@ -154,7 +150,7 @@ def test_unassignable_ac_block_line_produces_unparsed_ac_line():
     acs, warnings = _parse_one(text)
 
     assert len(acs) == 1
-    assert [w.code for w in warnings] == [UNPARSED_AC_LINE]
+    assert [w.code for w in warnings] == [Code.UNPARSED_AC_LINE.name]
 
 
 @pytest.mark.parametrize(
@@ -196,7 +192,7 @@ def test_non_canonical_version_prefix_is_malformed(inner):
     acs, warnings = _parse_one(f"AC:US-001-01 ({inner})\n- desc\n")
 
     assert acs == []
-    assert [w.code for w in warnings] == [MALFORMED_AC]
+    assert [w.code for w in warnings] == [Code.MALFORMED_AC.name]
 
 
 def test_complete_feature_file_stops_at_the_closing_banner():
@@ -248,7 +244,7 @@ def test_agentic_toolkit_descope_fixture_round_trips_with_only_legacy_warning():
     normalized = normalize(fixture_text, SourceFormat.ISSUE_BODY, "DocumentedUserStory")
     acs, warnings = parse_acceptance_criteria(normalized.text, entity_id="US-042")
 
-    assert [w.code for w in warnings] == [LEGACY_AC_STATE]
+    assert [w.code for w in warnings] == [Code.LEGACY_AC_STATE.name]
     assert len(acs) == 1
     ac = acs[0]
     assert ac.id == "US-042-03"
