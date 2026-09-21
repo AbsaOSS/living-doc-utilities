@@ -152,7 +152,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep `make deptry` clean — it fails on an import that is used but not declared in `pyproject.toml` (DEP001) and on a development-only tool imported by the library (DEP004).
 - Must keep `make coverage` (pytest, `--cov-fail-under=80`) passing.
 - Must not add an `integration` marker, a `test-unit` / `test-integration` target or `--ignore=tests/integration` to `test` / `coverage` — this repo has no integration tests, a deliberate difference from the shared `Makefile` vocabulary in `AbsaOSS/living-doc`.
-- Must run `make import-matrix` after touching an import or `pyproject.toml` dependencies — it builds the wheel and proves, in three clean virtual environments (no extra, `github`, `html`), which modules import and which need an extra; CI runs the same target; on Windows run `scripts\import_matrix.bat` instead (its Python checks live in `scripts/import_matrix_check.py`) — Must keep it doing the same checks as `scripts/import_matrix.sh`.
+- Must run `make import-matrix` after touching an import or `pyproject.toml` dependencies — it builds the wheel and proves, in three clean virtual environments (no extra, `github`, `html`), which modules import and which need an extra; CI runs the same target; it needs a POSIX shell (Linux, macOS, or WSL on Windows).
 - Must run `make schemas` and commit the regenerated `contracts/schemas/*.json` when a `contracts/` model changes — `make qa` does not regenerate them itself, and CI's Schema Regeneration Check fails the build on any diff.
 
 ## Common pitfalls

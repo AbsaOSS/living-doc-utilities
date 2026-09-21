@@ -65,7 +65,7 @@ failing gate. The individual targets are also available while iterating:
 | `make schemas` | regenerates `living_doc_utilities/contracts/schemas/*.json` from the pydantic contract models | committed schemas byte-for-byte up to date |
 | `make no-vendored-schemas` | `python -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas` (R12 check 1) | no git-tracked `*-schema.json` / `*.schema.json` outside `tests/` and this package's own schemas dir; files not yet `git add`ed are not seen |
 | `make docs` | regenerates `docs/authoring.md`'s worked-examples table from `normalisation_cases.yaml` | committed table byte-for-byte up to date |
-| `make import-matrix` (Windows: `scripts\import_matrix.bat`) | builds the wheel and installs it into three clean virtual environments (no extra / `github` / `html`) — not part of `make qa`, CI runs it as its own job | every module imports with only the extras it needs, `pip check` clean in each |
+| `make import-matrix` (Linux / macOS; on Windows use WSL) | builds the wheel and installs it into three clean virtual environments (no extra / `github` / `html`) — not part of `make qa`, CI runs it as its own job | every module imports with only the extras it needs, `pip check` clean in each |
 
 The sections below explain each tool in more detail and how to scope it to a single file.
 
@@ -261,7 +261,7 @@ When you add a third-party import:
 
 - Declare it in `pyproject.toml` (in the core list only if a no-extra module needs it, otherwise in the extra it belongs to) and pin it in `requirements-dev.txt`.
 - Run `make deptry` — it fails on an undeclared import (DEP001) and on a development-only tool imported by the library (DEP004). The one accepted DEP004 is `yaml`: `authoring/docs_export.py` is a repository script and imports PyYAML inside `_load_cases()`, so it is ignored per rule in `pyproject.toml`. deptry treats an extra as declared for the whole package, so it cannot tell that a no-extra module imported a `github`-extra library.
-- Run `make import-matrix` (on Windows `scripts\import_matrix.bat`, which needs no POSIX shell; set `PYTHON` to choose the interpreter) — it builds the wheel and imports every module in three clean environments, so a no-extra module that reaches for PyGithub, `requests`, or `nh3` fails here.
+- Run `make import-matrix` (Linux / macOS; on Windows use WSL) — it builds the wheel and imports every module in three clean environments, so a no-extra module that reaches for PyGithub, `requests`, or `nh3` fails here.
 
 `requirements-dev.txt` and the `[dependency-groups] dev` list in `pyproject.toml` name the same
 tools: the pinned versions live in the requirements file, and deptry reads the group's names to
