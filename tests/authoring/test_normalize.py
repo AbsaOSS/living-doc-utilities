@@ -46,10 +46,10 @@ def test_module_never_branches_on_entity_type():
 
 
 def test_type_profiles_is_the_only_place_with_bullet_section_data():
-    assert TYPE_PROFILES["DocumentedFeature"].bullet_sections == frozenset()
-    assert "business_value" in TYPE_PROFILES["DocumentedUserStory"].bullet_sections
-    assert "rationale" in TYPE_PROFILES["DocumentedFunctionality"].bullet_sections
-    assert "rationale" not in TYPE_PROFILES["DocumentedUserStory"].bullet_sections
+    assert TYPE_PROFILES["DocumentedFeature"] == frozenset()
+    assert "business_value" in TYPE_PROFILES["DocumentedUserStory"]
+    assert "rationale" in TYPE_PROFILES["DocumentedFunctionality"]
+    assert "rationale" not in TYPE_PROFILES["DocumentedUserStory"]
 
 
 def test_normalized_source_text_joins_lines():
