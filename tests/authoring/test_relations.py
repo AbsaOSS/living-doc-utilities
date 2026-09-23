@@ -198,6 +198,30 @@ def test_no_type_mismatch_for_a_correctly_typed_relation_set():
     assert warnings == []
 
 
+def test_check_relations_preserves_field_order_within_one_entity():
+    # Regression pin for the S-13 refactor (relations.py: check_relations iterates a
+    # (field, target_id, expected_type) table instead of one hand-written block per
+    # field): a Feature's user_stories must still be reported before its
+    # functionalities before its superseded_by, and a Functionality's parent still
+    # comes from that entity's own turn through `entities` - the same order the
+    # original one-block-per-field code produced.
+    feature = _feature(user_stories=["US-999"], functionalities=["FUNC-001"], superseded_by="FEAT-999")
+    func = _func(parent="FEAT-002")
+
+    warnings = check_relations([feature, func])
+
+    assert [w.code for w in warnings] == [
+        Code.UNRESOLVED_RELATION.name,
+        Code.RELATION_MISMATCH.name,
+        Code.UNRESOLVED_RELATION.name,
+        Code.UNRESOLVED_RELATION.name,
+    ]
+    assert "target='US-999'" in warnings[0].context
+    assert "functionality='FUNC-001'" in warnings[1].context
+    assert "target='FEAT-999'" in warnings[2].context
+    assert "target='FEAT-002'" in warnings[3].context
+
+
 def test_no_relation_warnings_for_the_golden_entity_fixtures():
     # Regression: the project's three canonical example issues (FEAT-001/FUNC-001/US-001),
     # correctly typed and cross-linked, must clear check_relations with no warnings at all.
