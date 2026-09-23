@@ -29,10 +29,8 @@ from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import (
     _EXTRACTORS,
-    _KIND_BULLETS,
-    _KIND_PROSE_BULLET,
-    _KIND_SCALAR,
     ParsedEntity,
+    _SectionKind,
     _SectionSpec,
 )
 from living_doc_utilities.authoring.normalize import _FEATURE_LINE_RE, SourceFormat, _split_comment_prefix, normalize
@@ -44,29 +42,27 @@ _BANNER_RE = re.compile(r"^#\s*=+\s*$")
 _AC_HEADER_LOOKALIKE_RE = re.compile(r"^AC:\S+\s*\(")
 _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z_][a-zA-Z0-9_]*):\s*(?P<val>.*)$")
 
-_KIND_IGNORED = "ignored"
-
 _COMMON_KEYS = {
-    "source": _SectionSpec("source", _KIND_SCALAR),
-    "status": _SectionSpec("state", _KIND_SCALAR),
-    "deprecated_at": _SectionSpec("deprecated_at", _KIND_SCALAR),
-    "deprecation_reason": _SectionSpec("deprecation_reason", _KIND_SCALAR),
-    "superseded_by": _SectionSpec("superseded_by", _KIND_SCALAR),
-    "preconditions": _SectionSpec("preconditions", _KIND_BULLETS),
-    "not_in_scope": _SectionSpec("not_in_scope", _KIND_BULLETS),
-    "acceptance_criteria": _SectionSpec(None, _KIND_IGNORED),
+    "source": _SectionSpec("source", _SectionKind.SCALAR),
+    "status": _SectionSpec("state", _SectionKind.SCALAR),
+    "deprecated_at": _SectionSpec("deprecated_at", _SectionKind.SCALAR),
+    "deprecation_reason": _SectionSpec("deprecation_reason", _SectionKind.SCALAR),
+    "superseded_by": _SectionSpec("superseded_by", _SectionKind.SCALAR),
+    "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
+    "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
+    "acceptance_criteria": _SectionSpec(None, _SectionKind.IGNORED),
 }
 
 _KEYS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
     "DocumentedUserStory": {
         **_COMMON_KEYS,
-        "business_value": _SectionSpec("business_value", _KIND_BULLETS),
+        "business_value": _SectionSpec("business_value", _SectionKind.BULLETS),
     },
     "DocumentedFunctionality": {
         **_COMMON_KEYS,
-        "parent": _SectionSpec("parent", _KIND_SCALAR),
-        "func_type": _SectionSpec("func_type", _KIND_SCALAR),
-        "rationale": _SectionSpec("rationale", _KIND_PROSE_BULLET),
+        "parent": _SectionSpec("parent", _SectionKind.SCALAR),
+        "func_type": _SectionSpec("func_type", _SectionKind.SCALAR),
+        "rationale": _SectionSpec("rationale", _SectionKind.PROSE_BULLET),
     },
 }
 
@@ -122,7 +118,7 @@ def _parse_keys(header_lines: list[str], key_specs: dict[str, _SectionSpec]) -> 
         key_m = key_re.match(stripped)
         if key_m:
             key = key_m.group("key")
-            if key_specs[key].kind == _KIND_IGNORED:
+            if key_specs[key].kind == _SectionKind.IGNORED:
                 current_key = None
                 continue
             current_key = key

@@ -26,7 +26,8 @@ those are only settled once `status.derive_statuses` has run over the whole coll
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from enum import Enum, auto
+from typing import Any, Callable, Optional
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.identity import derive_entity_id
@@ -92,58 +93,64 @@ class ParsedEntity:
 
 # --- section kinds -------------------------------------------------------------------
 
-_KIND_PROSE = "prose"  # free-flowing paragraph, joined into one string
-_KIND_SCALAR = "scalar"  # a single value, possibly wrapped across lines
-_KIND_BULLETS = "bullets"  # a `- ...` list, one entry per bullet
-_KIND_PROSE_BULLET = "prose_bullet"  # a single `- ...` value (still one string field)
-_KIND_ID_LIST = "id_list"  # a comma-separated list of ids/names, or "none"
-_KIND_AC = "ac"  # the "## Acceptance Criteria" heading itself - content parsed separately
-_KIND_IGNORED_STATUS = "ignored_status"  # "## Status" on a Feature - not a real field
+
+class _SectionKind(Enum):
+    """What shape a section's raw lines take, and so how `_EXTRACTORS` turns them into a
+    field value - or, for the sentinel members below, that they carry no field at all."""
+
+    PROSE = auto()  # free-flowing paragraph, joined into one string
+    SCALAR = auto()  # a single value, possibly wrapped across lines
+    BULLETS = auto()  # a `- ...` list, one entry per bullet
+    PROSE_BULLET = auto()  # a single `- ...` value (still one string field)
+    ID_LIST = auto()  # a comma-separated list of ids/names, or "none"
+    AC = auto()  # the "## Acceptance Criteria" heading itself - content parsed separately
+    IGNORED_STATUS = auto()  # "## Status" on a Feature - not a real field
+    IGNORED = auto()  # a declared key whose content is parsed elsewhere (feature_header's "acceptance_criteria:")
 
 
 @dataclass(frozen=True)
 class _SectionSpec:
     field_name: Optional[str]
-    kind: str
+    kind: _SectionKind
 
 
 _DEPRECATION_SECTIONS = {
-    "deprecated_at": _SectionSpec("deprecated_at", _KIND_SCALAR),
-    "deprecation_reason": _SectionSpec("deprecation_reason", _KIND_SCALAR),
-    "superseded_by": _SectionSpec("superseded_by", _KIND_SCALAR),
+    "deprecated_at": _SectionSpec("deprecated_at", _SectionKind.SCALAR),
+    "deprecation_reason": _SectionSpec("deprecation_reason", _SectionKind.SCALAR),
+    "superseded_by": _SectionSpec("superseded_by", _SectionKind.SCALAR),
 }
 
 # heading slug (normalize.py's `_slugify_section`: lowercase, spaces/underscores -> "_") ->
 # spec, per entity type. Mirrors tests/contracts/test_authored_field_set.py exactly.
 _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
     "DocumentedUserStory": {
-        "description": _SectionSpec("narrative", _KIND_PROSE),
-        "status": _SectionSpec("state", _KIND_SCALAR),
-        "business_value": _SectionSpec("business_value", _KIND_BULLETS),
-        "acceptance_criteria": _SectionSpec(None, _KIND_AC),
-        "preconditions": _SectionSpec("preconditions", _KIND_BULLETS),
-        "not_in_scope": _SectionSpec("not_in_scope", _KIND_BULLETS),
+        "description": _SectionSpec("narrative", _SectionKind.PROSE),
+        "status": _SectionSpec("state", _SectionKind.SCALAR),
+        "business_value": _SectionSpec("business_value", _SectionKind.BULLETS),
+        "acceptance_criteria": _SectionSpec(None, _SectionKind.AC),
+        "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
+        "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
         **_DEPRECATION_SECTIONS,
     },
     "DocumentedFeature": {
-        "description": _SectionSpec("purpose", _KIND_PROSE),
-        "status": _SectionSpec(None, _KIND_IGNORED_STATUS),
-        "surface_type": _SectionSpec("surface_type", _KIND_SCALAR),
-        "owners": _SectionSpec("owners", _KIND_ID_LIST),
-        "user_stories": _SectionSpec("user_stories", _KIND_ID_LIST),
-        "functionalities": _SectionSpec("functionalities", _KIND_ID_LIST),
-        "external_dependencies": _SectionSpec("external_dependencies", _KIND_ID_LIST),
+        "description": _SectionSpec("purpose", _SectionKind.PROSE),
+        "status": _SectionSpec(None, _SectionKind.IGNORED_STATUS),
+        "surface_type": _SectionSpec("surface_type", _SectionKind.SCALAR),
+        "owners": _SectionSpec("owners", _SectionKind.ID_LIST),
+        "user_stories": _SectionSpec("user_stories", _SectionKind.ID_LIST),
+        "functionalities": _SectionSpec("functionalities", _SectionKind.ID_LIST),
+        "external_dependencies": _SectionSpec("external_dependencies", _SectionKind.ID_LIST),
         **_DEPRECATION_SECTIONS,
     },
     "DocumentedFunctionality": {
-        "description": _SectionSpec("narrative", _KIND_PROSE),
-        "status": _SectionSpec("state", _KIND_SCALAR),
-        "parent_feature": _SectionSpec("parent", _KIND_SCALAR),
-        "func_type": _SectionSpec("func_type", _KIND_SCALAR),
-        "acceptance_criteria": _SectionSpec(None, _KIND_AC),
-        "rationale": _SectionSpec("rationale", _KIND_PROSE_BULLET),
-        "preconditions": _SectionSpec("preconditions", _KIND_BULLETS),
-        "not_in_scope": _SectionSpec("not_in_scope", _KIND_BULLETS),
+        "description": _SectionSpec("narrative", _SectionKind.PROSE),
+        "status": _SectionSpec("state", _SectionKind.SCALAR),
+        "parent_feature": _SectionSpec("parent", _SectionKind.SCALAR),
+        "func_type": _SectionSpec("func_type", _SectionKind.SCALAR),
+        "acceptance_criteria": _SectionSpec(None, _SectionKind.AC),
+        "rationale": _SectionSpec("rationale", _SectionKind.PROSE_BULLET),
+        "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
+        "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
         **_DEPRECATION_SECTIONS,
     },
 }
@@ -216,12 +223,12 @@ def _extract_id_list(lines: list[str]) -> list[str]:
     return split_id_list(_extract_prose(lines))
 
 
-_EXTRACTORS = {
-    _KIND_PROSE: _extract_prose,
-    _KIND_SCALAR: _extract_prose,
-    _KIND_BULLETS: extract_bullets,
-    _KIND_PROSE_BULLET: _extract_prose_bullet,
-    _KIND_ID_LIST: _extract_id_list,
+_EXTRACTORS: dict[_SectionKind, Callable[[list[str]], Any]] = {
+    _SectionKind.PROSE: _extract_prose,
+    _SectionKind.SCALAR: _extract_prose,
+    _SectionKind.BULLETS: extract_bullets,
+    _SectionKind.PROSE_BULLET: _extract_prose_bullet,
+    _SectionKind.ID_LIST: _extract_id_list,
 }
 
 
@@ -254,9 +261,9 @@ def parse_issue_body(
                 )
             )
             continue
-        if spec.kind == _KIND_AC:
+        if spec.kind == _SectionKind.AC:
             continue
-        if spec.kind == _KIND_IGNORED_STATUS:
+        if spec.kind == _SectionKind.IGNORED_STATUS:
             warnings.append(
                 ContractWarning(
                     code=Code.IGNORED_AUTHORED_KEY.name,

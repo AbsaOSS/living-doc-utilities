@@ -231,7 +231,7 @@ def _slugify_section(text: str) -> str:
     return re.sub(r"[\s_]+", "_", text.strip().lower())
 
 
-def _emit(out_lines: list[str], changes: list[Change], fired: set, before: str, after: str) -> None:
+def _emit(out_lines: list[str], changes: list[Change], fired: set[str], before: str, after: str) -> None:
     out_lines.append(after)
     for rule in sorted(fired):
         changes.append(Change(len(out_lines), rule, before, after))
@@ -244,13 +244,13 @@ def _in_bullet_context(in_ac_block: bool, current_section: Optional[str], profil
     return in_ac_block or (current_section is not None and current_section in profile)
 
 
-def _fired_if(changed: bool, rule: str) -> set:
+def _fired_if(changed: bool, rule: str) -> set[str]:
     """`{rule}` when `changed`, else the empty set - the single-rule `fired` shape most
     `_emit_if_changed` call sites below build from a plain before/after comparison."""
     return {rule} if changed else set()
 
 
-def _emit_if_changed(out_lines: list[str], changes: list[Change], fired: set, before: str, after: str) -> None:
+def _emit_if_changed(out_lines: list[str], changes: list[Change], fired: set[str], before: str, after: str) -> None:
     """`_emit`'s `after` when `fired` is non-empty, else `before` unchanged and no
     `Change` recorded - the "rewrite this line only if some rule actually fired" shape
     every per-format handler below repeats."""

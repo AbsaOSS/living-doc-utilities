@@ -71,8 +71,8 @@ class _Elem:
     attributes, and its children (nested `_Elem` instances and/or literal text)."""
 
     tag: str
-    attrs: dict
-    children: list = field(default_factory=list)
+    attrs: dict[str, Optional[str]]
+    children: "list[_Elem | str]" = field(default_factory=list)
 
 
 class _DropCountingParser(HTMLParser):
