@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import NamedTuple, Optional
 
+from living_doc_utilities.authoring.identity import _ENTITY_ID_RE
 from living_doc_utilities.contracts.common import DocType
 
 # Rule names (authoring rules 1-7 plus 5b, per AbsaOSS/living-doc's docs/specs/issues/
@@ -104,6 +105,10 @@ class NormalizedSource:
 # looks like - they only reshape whatever token a caller hands them, based on where it
 # sits in the line. Validation lives in ac_grammar.py alone.
 
+# A canonical "- " bullet line - shared by ac_grammar (an AC block's own bullets) and
+# issue_body (extract_bullets), so imported by both rather than redefined.
+_BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
+
 _BULLET_START_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>[–—*•+])(?P<sp>\s)(?P<rest>.*)$")
 # A dash separates header segments only when whitespace sits on at least one side -
 # otherwise it is indistinguishable from a hyphen inside a state token (e.g. the
@@ -134,8 +139,13 @@ def _reshape_version_form(token: str) -> tuple[str, bool]:
     return reshaped, reshaped != token
 
 
+# Shared with ac_grammar._slug_placeholder_name - both fold a token to lowercase
+# snake_case, only the return shape (plain string vs. a (value, changed) pair) differs.
+_WORD_SEP_RE = re.compile(r"[\s\-]+")
+
+
 def _canonicalize_token_case(token: str) -> tuple[str, bool]:
-    canon = re.sub(r"[\s\-]+", "_", token.strip().lower())
+    canon = _WORD_SEP_RE.sub("_", token.strip().lower())
     return canon, canon != token
 
 
@@ -224,6 +234,7 @@ def _rewrite_ac_header_content(
 
 
 def _slugify_section(text: str) -> str:
+    """Shared with issue_body._split_h2_sections, which slugifies the same way."""
     return re.sub(r"[\s_]+", "_", text.strip().lower())
 
 
@@ -234,8 +245,9 @@ def _emit(out_lines: list[str], changes: list[Change], fired: set, before: str, 
 
 
 # --- entity/title rules (5, 5b) -----------------------------------------------------
+# _ENTITY_ID_RE itself lives in identity.py (entity-id derivation is that module's job);
+# imported here rather than redefined, since normalize_title also needs to locate one.
 
-_ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
 _TITLE_SEP_AFTER_ID_RE = re.compile(r"^\s*([-–—:|·])\s*")
 # An en/em dash is always the structural Feature-name/Functionality-name separator
 # (English compound words use a plain hyphen, never an en/em dash), so it is rewritten
@@ -279,6 +291,11 @@ def _record_title_dash(dm: "re.Match[str]", changes: list[Change]) -> str:
 
 
 # --- per-format handlers -------------------------------------------------------------
+
+# A Gherkin `Feature:` declaration line - shared by feature_header (bounds its header-
+# block banner search) and scenario (resets a pending tag block), so imported by both
+# rather than redefined.
+_FEATURE_LINE_RE = re.compile(r"^Feature:\s*.*$")
 
 _MD_HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.*)$")
 # CommonMark fence syntax (spec, "Fenced code blocks"): up to three literal leading
@@ -391,13 +408,18 @@ _FH_KEY_LIST_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):\s*$")
 _FH_KEY_SCALAR_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):(?P<sep>\s+)(?P<val>.*)$")
 
 
+# Shared with feature_header._strip_comment_prefix, which only needs the second half of
+# the split this function returns.
+_COMMENT_PREFIX_RE = re.compile(r"^#\s?")
+
+
 def _split_comment_prefix(raw: str) -> tuple[str, str]:
     """Strips the feature-header comment marker: a leading '#' plus at most one
-    following space. Returns (prefix, content) so callers can reattach the exact
-    prefix that was removed."""
-    if raw.startswith("# "):
-        return raw[:2], raw[2:]
-    return raw[:1], raw[1:]
+    following whitespace character. Returns (prefix, content) so callers can reattach
+    the exact prefix that was removed."""
+    m = _COMMENT_PREFIX_RE.match(raw)
+    prefix = m.group(0) if m else ""
+    return prefix, raw[len(prefix) :]
 
 
 def _normalize_feature_header(lines: list[str], profile: TypeProfile, changes: list[Change]) -> list[str]:
@@ -514,6 +536,9 @@ def _normalize_scenario_file(lines: list[str], changes: list[Change]) -> list[st
     return out_lines
 
 
+# Shared with page_object._content_lines. The optional trailing char is a literal space,
+# not \s: a tab or NBSP there must fall into `content`, where _fix_indentation_whitespace
+# can still rewrite it - absorbing it into `lead` here would let it slip through unfixed.
 _PO_LINE_RE = re.compile(r"^(?P<lead>\s*\*[ ]?)(?P<content>.*)$")
 
 

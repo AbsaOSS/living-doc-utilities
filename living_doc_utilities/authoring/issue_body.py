@@ -25,13 +25,20 @@ docs/contracts.md's "Entity identity") and with `state`/`state_origin` optional,
 those are only settled once `status.derive_statuses` has run over the whole collected set.
 """
 
-import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.identity import derive_entity_id
-from living_doc_utilities.authoring.normalize import SourceFormat, compute_fence_flags, normalize, normalize_title
+from living_doc_utilities.authoring.normalize import (
+    _BULLET_RE,
+    _MD_HEADING_RE,
+    SourceFormat,
+    _slugify_section,
+    compute_fence_flags,
+    normalize,
+    normalize_title,
+)
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType
 from living_doc_utilities.contracts.doc_entities import PageRef
@@ -144,12 +151,6 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
 
 # --- markdown H2 section splitting -----------------------------------------------------
 
-_HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.*)$")
-
-
-def _slugify(text: str) -> str:
-    return re.sub(r"[\s_]+", "_", text.strip().lower())
-
 
 def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
     """Every exactly-`##` heading outside a fenced code block, as `(slug, heading_text,
@@ -159,10 +160,10 @@ def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
     current: Optional[list[str]] = None
     for line, fenced in zip(lines, fence_flags, strict=True):
         if not fenced:
-            heading_m = _HEADING_RE.match(line)
+            heading_m = _MD_HEADING_RE.match(line)
             if heading_m and len(heading_m.group("hashes")) == 2:
                 current = []
-                sections.append((_slugify(heading_m.group("text")), heading_m.group("text").strip(), current))
+                sections.append((_slugify_section(heading_m.group("text")), heading_m.group("text").strip(), current))
                 continue
         if current is not None:
             current.append(line)
@@ -170,8 +171,6 @@ def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
 
 
 # --- content extraction per section kind -----------------------------------------------
-
-_BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
 
 
 def extract_bullets(lines: list[str]) -> list[str]:
@@ -203,11 +202,18 @@ def _extract_prose_bullet(lines: list[str]) -> Optional[str]:
     return " ".join(items) if items else None
 
 
-def _extract_id_list(lines: list[str]) -> list[str]:
-    joined = _extract_prose(lines)
-    if not joined or joined.strip().lower() == "none":
+def split_id_list(value: Optional[str], sep: str = ",") -> list[str]:
+    """Splits an already-joined `sep`-separated id/name list into its items, or `[]` for
+    a blank or literal "none" value. Shared with page_object.py, whose header keys carry
+    the same list shape already joined to one string (there with `sep=" · "` for
+    wizard-steps)."""
+    if not value or value.strip().lower() == "none":
         return []
-    return [token.strip() for token in joined.split(",") if token.strip()]
+    return [token.strip() for token in value.split(sep) if token.strip()]
+
+
+def _extract_id_list(lines: list[str]) -> list[str]:
+    return split_id_list(_extract_prose(lines))
 
 
 _EXTRACTORS = {

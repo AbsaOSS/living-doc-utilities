@@ -29,7 +29,7 @@ from typing import Optional
 
 from pydantic import ValidationError
 
-from living_doc_utilities.authoring.normalize import compute_fence_flags
+from living_doc_utilities.authoring.normalize import _BULLET_RE, _WORD_SEP_RE, compute_fence_flags
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import (
     AC_ID_PATTERN,
@@ -76,7 +76,6 @@ _SECTION_BANNER_RE = re.compile(r"^=+$")
 _MD_SECTION_HEADING_RE = re.compile(r"^ {0,3}#{2,6}\s+\S")
 
 _REMOVAL_PLANNED_RE = re.compile(r"^removal planned (?P<version>\S+)$")
-_BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
 _SUBLIST_KEY_RE = re.compile(r"^(?P<key>preconditions|not_in_scope):\s*$")
 _ASPECT_RE = re.compile(r"^Aspect:\s*(?P<values>.+)$")
 _RATIONALE_RE = re.compile(r"^Rationale:\s*(?P<text>.+)$")
@@ -95,7 +94,7 @@ def _strip_leading_v(token: str) -> Optional[str]:
 
 
 def _slug_placeholder_name(name: str) -> str:
-    return re.sub(r"[\s\-]+", "_", name.strip().lower())
+    return _WORD_SEP_RE.sub("_", name.strip().lower())
 
 
 def _parse_header_inner(inner: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
