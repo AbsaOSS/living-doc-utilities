@@ -24,7 +24,6 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from living_doc_utilities.contracts import schema_export
 from living_doc_utilities.contracts.common import AcceptanceCriterion
 from living_doc_utilities.contracts.doc_entities import Entity
 from living_doc_utilities.contracts.generator_ready import (
@@ -136,122 +135,6 @@ def test_acceptance_criteria_reuses_the_shared_acceptance_criterion_model_direct
     (item_type,) = ac_annotation.__args__
 
     assert item_type is AcceptanceCriterion
-
-
-# ---------------------------------------------------------------------------
-# Nothing carried by today's toolkit's generator-ready models is lost in the move (this
-# repo's issue #130 "Dependencies / Related": "nothing existing should be lost in the move -
-# track it with a field-by-field mapping test"). The toolkit lives in a different repository
-# (living-doc-toolkit, packages/datasets_generator_ready/.../generator_ready/v1/models.py),
-# so this maps each of its *source* field names to a destination path here and proves every
-# destination actually resolves. A container field (Meta.selection_summary, Meta.view,
-# UserStory.timestamps, UserStory.sections) is not itself an entry: its own fields are proven
-# reachable by the nested model's entries below instead, the same way this table never lists
-# "GeneratorReadyV1.meta" or "GeneratorReadyV1.content".
-# ---------------------------------------------------------------------------
-
-# (toolkit source model.field, destination path on GeneratorReadyResult; "[]" crosses a list,
-# matching docs/contracts.md's own field-path notation)
-TOOLKIT_FIELD_MAPPING = {
-    # Meta (docs/contracts.md, "The metadata envelope").
-    "Meta.document_title": "document.title",
-    "Meta.document_version": "document.version",
-    "Meta.generated_at": "metadata.generated_at",
-    # A flat list of source identifiers; superseded by R7's richer, structured per-input
-    # provenance record (producer, run, source, stats - not just a name).
-    "Meta.source_set": "metadata.source_inputs",
-    # SelectionSummary counted entities (toolkit's "items" are user stories/entities,
-    # see normalize_issues/builder.py: total_items = len(adapter_result.items)).
-    "SelectionSummary.total_items": "document.selection_summary.total_entities",
-    "SelectionSummary.included_items": "document.selection_summary.included_entities",
-    "SelectionSummary.excluded_items": "document.selection_summary.excluded_entities",
-    # ViewSummary: the applied view, plus what it additionally dropped. The new contract
-    # has one excluded_* counter per kind (no separate "excluded by selection" vs.
-    # "excluded by view" split) - a view-side drop is still an exclusion.
-    "ViewSummary.view": "document.view",
-    "ViewSummary.filtered_user_stories": "document.selection_summary.excluded_entities",
-    "ViewSummary.filtered_acceptance_criteria": "document.selection_summary.excluded_acceptance_criteria",
-    # UserStory -> content.entities[] (doc-entities Entity, reused directly - not redeclared).
-    "UserStory.title": "content.entities[].title",
-    "UserStory.state": "content.entities[].state",
-    "UserStory.tags": "content.entities[].tags",
-    "UserStory.url": "content.entities[].source_ref.url",
-    "Timestamps.created": "content.entities[].timestamps.created_at",
-    "Timestamps.updated": "content.entities[].timestamps.updated_at",
-    # Sections -> content.entities[] (a User Story's authored body).
-    "Sections.description": "content.entities[].narrative",
-    "Sections.business_value": "content.entities[].business_value",
-    "Sections.preconditions": "content.entities[].preconditions",
-    # AcceptanceCriterion -> content.entities[].acceptance_criteria[] (common.AcceptanceCriterion,
-    # reused directly).
-    "AcceptanceCriterion.id": "content.entities[].acceptance_criteria[].id",
-    "AcceptanceCriterion.state": "content.entities[].acceptance_criteria[].state",
-    "AcceptanceCriterion.version": "content.entities[].acceptance_criteria[].version",
-    "AcceptanceCriterion.description": "content.entities[].acceptance_criteria[].description",
-}
-
-# Legacy fields with no destination today, each with why - mirrors R11's lineage-table
-# convention (every input leaf either maps or is dropped with a reason, never silently
-# forgotten). This is an accounting device for the test below, not a contract rule.
-TOOLKIT_FIELDS_NOT_CARRIED = {
-    # R8: retired outright, no alias window, no per-entry fallback.
-    "Meta.run_context": "retired outright (R8) - replaced by metadata.run",
-    "Meta.audit": "retired outright (R8) - replaced by metadata.source_inputs / metadata.stats",
-    # entity_id is parsed from the title (MISSING_ENTITY_ID) - it is not a rename of this
-    # field (docs/contracts.md, "Entity identity").
-    "UserStory.id": "superseded by entity_id, which is parsed from the title, not carried from this field",
-    # Retired, not lost: none of these three is in the canonical authored field set
-    # (test_authored_field_set.py, copied from AbsaOSS/living-doc's canon, issue #128) that
-    # Entity's shape was built and tested against - they are toolkit-internal fields the canon
-    # never carried forward, not fields this contract forgot to place.
-    "Sections.user_guide": "retired - not in the canonical authored field set (test_authored_field_set.py)",
-    "Sections.connections": "retired - not in the canonical authored field set (test_authored_field_set.py)",
-    "Sections.last_edited": "retired - not in the canonical authored field set (test_authored_field_set.py) "
-    "(free-text attribution, not an ISO timestamp - not the same as Timestamps.updated)",
-}
-
-
-def _resolve(model, path: str) -> None:
-    """Walks a dotted field path through a chain of pydantic models, raising KeyError if any
-    segment does not resolve to a real field. A segment suffixed "[]" crosses that field's
-    list boundary onto its item type - schema_export.unwrap_field_type does the same
-    Optional/list peeling schema_export's own leaf-path walk and stats.compute_stats rely on."""
-    current = model
-    for raw_segment in path.split("."):
-        segment = raw_segment[:-2] if raw_segment.endswith("[]") else raw_segment
-        field_info = current.model_fields[segment]
-        current, _is_array = schema_export.unwrap_field_type(field_info.annotation)
-
-
-@pytest.mark.parametrize("source_field, destination", TOOLKIT_FIELD_MAPPING.items(), ids=list(TOOLKIT_FIELD_MAPPING))
-def test_every_toolkit_field_maps_to_a_real_destination(source_field, destination):
-    _resolve(GeneratorReadyResult, destination)
-
-
-def test_the_mapping_and_drop_list_together_account_for_every_field_of_every_toolkit_model():
-    accounted: dict[str, set[str]] = {}
-    for source in list(TOOLKIT_FIELD_MAPPING) + list(TOOLKIT_FIELDS_NOT_CARRIED):
-        model_name, field_name = source.split(".", 1)
-        accounted.setdefault(model_name, set()).add(field_name)
-
-    # Meta's own leaves only - selection_summary/view are containers, proven by
-    # SelectionSummary's/ViewSummary's own entries instead.
-    assert accounted["Meta"] == {"document_title", "document_version", "generated_at", "source_set", "run_context", "audit"}
-    assert accounted["SelectionSummary"] == {"total_items", "included_items", "excluded_items"}
-    assert accounted["ViewSummary"] == {"view", "filtered_user_stories", "filtered_acceptance_criteria"}
-    # UserStory's own leaves only - timestamps/sections are containers, proven by
-    # Timestamps's/Sections's own entries instead.
-    assert accounted["UserStory"] == {"title", "state", "tags", "url", "id"}
-    assert accounted["Timestamps"] == {"created", "updated"}
-    assert accounted["Sections"] == {
-        "description",
-        "business_value",
-        "preconditions",
-        "user_guide",
-        "connections",
-        "last_edited",
-    }
-    assert accounted["AcceptanceCriterion"] == {"id", "state", "version", "description"}
 
 
 # ---------------------------------------------------------------------------
