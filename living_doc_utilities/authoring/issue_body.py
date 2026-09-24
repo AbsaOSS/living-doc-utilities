@@ -20,14 +20,17 @@ GitHub issue-body parsing (living-doc's docs/examples/README.md, "GitHub issue-b
 AC:<id> (v<version> - <state>)` sub-headings parsed by `ac_grammar` alone.
 
 Also defines `ParsedEntity`, the pre-`Entity` shape every parser in this package returns:
-every `Entity` field except `source_ref` (collector-filled, never parser-filled - see
-docs/contracts.md's "Entity identity") and with `state`/`state_origin` optional, since
-those are only settled once `status.derive_statuses` has run over the whole collected set.
+every `Entity` field except `source_ref`, `tags` and `timestamps` (collector-filled, never
+parser-filled - see docs/contracts.md's "Entity identity") and with `state`/`state_origin`
+optional, since those are only settled once `status.derive_statuses` has run over the whole
+collected set.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any, Callable, Optional
+
+from pydantic import ValidationError
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.identity import derive_entity_id
@@ -41,8 +44,8 @@ from living_doc_utilities.authoring.normalize import (
     normalize_title,
 )
 from living_doc_utilities.contracts.codes import Code
-from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType
-from living_doc_utilities.contracts.doc_entities import PageRef
+from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType, LifecycleState, StateOrigin
+from living_doc_utilities.contracts.doc_entities import EntityContent
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 # Glossary-defined headings that map to no model field, with the reason each is dropped
@@ -55,9 +58,9 @@ IGNORED_AUTHORED_KEYS = {
 }
 
 
-@dataclass
-class ParsedEntity:
-    """Every `Entity` field except `source_ref`. `state` is `None` until authored (issue
+class ParsedEntity(EntityContent):
+    """Every `Entity` field except `source_ref`, `tags` and `timestamps`: `EntityContent`'s
+    authored fields plus this entity's identity. `state` is `None` until authored (issue
     body / feature header) or derived (`status.derive_statuses`) fills it in; `state_origin`
     likewise. Built up field-by-field by whichever authoring-format parser produced it -
     a given parser only ever sets the subset of fields its format carries.
@@ -66,29 +69,8 @@ class ParsedEntity:
     entity_id: str
     type: DocType
     title: str
-    narrative: Optional[str] = None
-    purpose: Optional[str] = None
-    source: Optional[str] = None
-    state: Optional[str] = None
-    state_origin: Optional[str] = None
-    business_value: list[str] = field(default_factory=list)
-    acceptance_criteria: list[AcceptanceCriterion] = field(default_factory=list)
-    preconditions: list[str] = field(default_factory=list)
-    not_in_scope: list[str] = field(default_factory=list)
-    deprecated_at: Optional[str] = None
-    deprecation_reason: Optional[str] = None
-    superseded_by: Optional[str] = None
-    surface_type: Optional[str] = None
-    owners: list[str] = field(default_factory=list)
-    user_stories: list[str] = field(default_factory=list)
-    functionalities: list[str] = field(default_factory=list)
-    external_dependencies: list[str] = field(default_factory=list)
-    stub_reason: Optional[str] = None
-    wizard_steps: list[str] = field(default_factory=list)
-    pages: list[PageRef] = field(default_factory=list)
-    parent: Optional[str] = None
-    func_type: Optional[str] = None
-    rationale: Optional[str] = None
+    state: Optional[LifecycleState] = None
+    state_origin: Optional[StateOrigin] = None
 
 
 # --- section kinds -------------------------------------------------------------------
@@ -232,6 +214,46 @@ _EXTRACTORS: dict[_SectionKind, Callable[[list[str]], Any]] = {
 }
 
 
+def _build_parsed_entity(
+    entity_id: str,
+    entity_type: DocType,
+    title: str,
+    acceptance_criteria: list[AcceptanceCriterion],
+    fields: dict[str, Any],
+) -> tuple[ParsedEntity, list[ContractWarning]]:
+    """Constructs a `ParsedEntity` from already-extracted field values, shared by
+    `parse_issue_body` and `feature_header.parse_feature_header` - the two parsers that
+    build one from free-form authored text. `state` is the only field that can fail the
+    contract's own validation here (it narrows to `LifecycleState`, everything else is an
+    unconstrained `str`/`list[str]`); an authored value the reader mistyped must become a
+    warning, not an exception - every other unrecognised authored value in this contract
+    does (docs/contracts.md, section 5), and pydantic validates eagerly on construction.
+    """
+    try:
+        return (
+            ParsedEntity(
+                entity_id=entity_id, type=entity_type, title=title, acceptance_criteria=acceptance_criteria, **fields
+            ),
+            [],
+        )
+    except ValidationError as exc:
+        warnings: list[ContractWarning] = []
+        for error in exc.errors():
+            field_path = ".".join(str(part) for part in error["loc"])
+            fields.pop(field_path, None)
+            warnings.append(
+                ContractWarning(
+                    code=Code.MALFORMED_STATUS.name,
+                    message=f"Authored '{field_path}' value {error['input']!r} failed validation: {error['msg']}",
+                    context=f"entity_id={entity_id!r}",
+                )
+            )
+        parsed = ParsedEntity(
+            entity_id=entity_id, type=entity_type, title=title, acceptance_criteria=acceptance_criteria, **fields
+        )
+        return parsed, warnings
+
+
 def parse_issue_body(
     text: str, title: str, entity_type: DocType
 ) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
@@ -278,11 +300,6 @@ def parse_issue_body(
     acceptance_criteria, ac_warnings = parse_acceptance_criteria(normalized.text, entity_id)
     warnings.extend(ac_warnings)
 
-    parsed = ParsedEntity(
-        entity_id=entity_id,
-        type=entity_type,
-        title=normalized_title,
-        acceptance_criteria=acceptance_criteria,
-        **fields,
-    )
+    parsed, build_warnings = _build_parsed_entity(entity_id, entity_type, normalized_title, acceptance_criteria, fields)
+    warnings.extend(build_warnings)
     return parsed, warnings

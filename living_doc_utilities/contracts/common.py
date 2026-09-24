@@ -43,6 +43,11 @@ DocType = Literal["DocumentedUserStory", "DocumentedFeature", "DocumentedFunctio
 # state_origin").
 LifecycleState = Literal["planned", "in_review", "active", "deprecated"]
 
+# Whether an entity's settled state came from its author or was derived from other entities'
+# states (docs/contracts.md, "State and state_origin") - shared so ParsedEntity's pre-settled
+# state_origin narrows to the same literals as Entity's, not a second hand-spelled copy.
+StateOrigin = Literal["authored", "derived"]
+
 # A transform-output document's declared presentation (docs/contracts.md, section 4): shared by
 # every contract that carries a `document` block (generator-ready, coverage-matrix,
 # ui-test-catalog).
@@ -152,6 +157,6 @@ class EntityCore(ContractModel):
     type: DocType
     title: str
     state: LifecycleState
-    state_origin: Literal["authored", "derived"]
+    state_origin: StateOrigin
     tags: list[str] = Field(default_factory=list)
     timestamps: Timestamps = Field(default_factory=Timestamps)

@@ -148,3 +148,20 @@ def test_en_dash_input_is_normalized_before_ac_grammar_runs():
     assert entity.entity_id == "US-003"
     assert entity.acceptance_criteria[0].state == "active"
     assert entity.acceptance_criteria[0].version == "1.0.0"
+
+
+def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — US-005 · Bad Status Story\n"
+        "# =============================================================================\n"
+        "# status:          shipped\n"
+        "# =============================================================================\n"
+        "\n@US_ID:US-005\nFeature: Bad Status Story\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None
+    assert entity.state is None
+    assert [w.code for w in warnings] == [Code.MALFORMED_STATUS.name]
+    assert "shipped" in warnings[0].message

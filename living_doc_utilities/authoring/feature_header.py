@@ -30,6 +30,7 @@ from living_doc_utilities.authoring.identity import derive_entity_id, extract_li
 from living_doc_utilities.authoring.issue_body import (
     _EXTRACTORS,
     ParsedEntity,
+    _build_parsed_entity,
     _SectionKind,
     _SectionSpec,
 )
@@ -181,11 +182,6 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
     acceptance_criteria, ac_warnings = parse_acceptance_criteria(header_text, entity_id)
     warnings.extend(ac_warnings)
 
-    parsed = ParsedEntity(
-        entity_id=entity_id,
-        type=entity_type,
-        title=title,
-        acceptance_criteria=acceptance_criteria,
-        **fields,
-    )
+    parsed, build_warnings = _build_parsed_entity(entity_id, entity_type, title, acceptance_criteria, fields)
+    warnings.extend(build_warnings)
     return parsed, warnings
