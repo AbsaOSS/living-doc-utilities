@@ -23,9 +23,14 @@ check over a repository's git-tracked files, run as
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from living_doc_utilities.contracts import check_no_vendored_schemas as vendor_check
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+_requires_repo_git = pytest.mark.skipif(
+    not (REPO_ROOT / ".git").exists(), reason="requires this package's own git checkout, absent from a git-less export"
+)
 
 
 def _git_repo(tmp_path: Path) -> Path:
@@ -137,6 +142,7 @@ def test_main_returns_zero_on_a_clean_tree(tmp_path):
 # ---------------------------------------------------------------------------
 
 
+@_requires_repo_git
 def test_this_packages_own_tree_fails_without_allow():
     offenders = vendor_check.find_vendored_schemas(REPO_ROOT)
 
@@ -144,6 +150,7 @@ def test_this_packages_own_tree_fails_without_allow():
     assert all("living_doc_utilities/contracts/schemas" in offender for offender in offenders)
 
 
+@_requires_repo_git
 def test_this_packages_own_tree_passes_with_its_schemas_dir_allowed():
     offenders = vendor_check.find_vendored_schemas(REPO_ROOT, allow=[Path("living_doc_utilities/contracts/schemas")])
 

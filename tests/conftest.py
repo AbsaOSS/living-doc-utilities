@@ -13,32 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import time
-
 import pytest
-from github import Github
-from github.Rate import Rate
-
-from living_doc_utilities.github.rate_limiter import GithubRateLimiter
-
-
-@pytest.fixture
-def rate_limiter(mocker, request):
-    mock_github_client = mocker.Mock(spec=Github)
-    mock_github_client.get_rate_limit.return_value = request.getfixturevalue("mock_rate_limiter")
-    return GithubRateLimiter(mock_github_client)
-
-
-@pytest.fixture
-def mock_rate_limiter(mocker):
-    mock_rate = mocker.Mock(spec=Rate)
-    mock_rate.timestamp = mocker.Mock(return_value=time.time() + 3600)
-    mock_rate.remaining = 10
-    # Provide .rate attribute directly
-    mock_rate_limit = mocker.Mock(spec=GithubRateLimiter)
-    mock_rate_limit.rate = mock_rate
-    # Remove .core and mock_core
-    return mock_rate_limit
 
 
 @pytest.fixture

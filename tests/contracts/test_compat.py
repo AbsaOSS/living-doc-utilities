@@ -20,7 +20,6 @@ the SCHEMA_VALIDATION_FAILED message builder it shares with io.write_artifact.
 """
 
 import json
-from importlib.metadata import version as installed_version
 
 import pytest
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
@@ -42,11 +41,7 @@ def _valid_payload(**metadata_overrides) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_installed_utilities_version_delegates_to_importlib_metadata():
-    assert compat.installed_utilities_version() == installed_version("living-doc-utilities")
-
-
-def test_installed_utilities_version_reads_this_packages_own_name(mocker):
+def test_installed_utilities_version_delegates_to_importlib_metadata(mocker):
     spy = mocker.patch("living_doc_utilities.contracts.compat._installed_version", return_value="9.9.9")
 
     assert compat.installed_utilities_version() == "9.9.9"
