@@ -47,16 +47,14 @@ class PageRef(ContractModel):
     functionalities: list[str] = Field(default_factory=list)
 
 
-class Entity(EntityCore):
-    """A documented User Story, Feature or Functionality.
-
-    Every authored field of every entity type lives here, at its authored level; a field
-    that does not apply to a given entity's type is simply absent. Which headings are
-    required for which type is a parsing-time concern (a later package) - this model only
-    fixes the contract's shape. The cross-cutting invariants that are structural, not
-    parsing-time, are enforced below: a Feature's state is always derived, stub_reason
-    only ever describes a Feature, and every acceptance criterion's id belongs to its
-    entity.
+class EntityContent(ContractModel):
+    """Every authored field of every entity type, at its authored level; a field that does
+    not apply to a given entity's type is simply absent. Which headings are required for
+    which type is a parsing-time concern (a later package) - this model only fixes the
+    contract's shape. Shared by `Entity` (authored content plus identity/provenance/
+    lifecycle) and `authoring.issue_body.ParsedEntity` (authored content plus identity
+    alone, `state`/`state_origin` unsettled) - the one place each field is declared, so a
+    field added here appears on both without a second edit.
     """
 
     # User Story / Functionality description; a Feature's is `purpose` instead (the two
@@ -91,6 +89,24 @@ class Entity(EntityCore):
     parent: Optional[str] = None
     func_type: Optional[str] = None
     rationale: Optional[str] = None
+
+
+# Base order is (EntityContent, EntityCore), not the other way round: pydantic v2 collects a
+# model's fields by walking the MRO base-to-derived, so this order keeps the exported schemas'
+# property order identical to before EntityContent existed (entity_id/source_ref/type/title/
+# state/state_origin/tags/timestamps, then the authored fields) - verified by running
+# schema_export and diffing against the committed schemas.
+class Entity(EntityContent, EntityCore):
+    """A documented User Story, Feature or Functionality.
+
+    Every authored field of every entity type lives here, at its authored level; a field
+    that does not apply to a given entity's type is simply absent. Which headings are
+    required for which type is a parsing-time concern (a later package) - this model only
+    fixes the contract's shape. The cross-cutting invariants that are structural, not
+    parsing-time, are enforced below: a Feature's state is always derived, stub_reason
+    only ever describes a Feature, and every acceptance criterion's id belongs to its
+    entity.
+    """
 
     @model_validator(mode="after")
     def _check_state_origin(self) -> "Entity":

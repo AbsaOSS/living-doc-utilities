@@ -23,7 +23,6 @@ derived - from its deprecation, else its Functionalities, else its User Stories,
 `active` with an `ORPHAN_FEATURE` warning.
 """
 
-from dataclasses import replace
 from typing import Iterable
 
 from living_doc_utilities.authoring.issue_body import ParsedEntity
@@ -73,7 +72,7 @@ def _derive_us_or_func(entity: ParsedEntity, warnings: list[ContractWarning]) ->
                 context=f"entity_id={entity.entity_id!r} derived={state!r}",
             )
         )
-        return replace(entity, state=state, state_origin="authored")
+        return entity.model_copy(update={"state": state, "state_origin": "authored"})
 
     if _is_mismatch(entity.state, entity.acceptance_criteria):
         warnings.append(
@@ -83,7 +82,7 @@ def _derive_us_or_func(entity: ParsedEntity, warnings: list[ContractWarning]) ->
                 context=f"entity_id={entity.entity_id!r} authored={entity.state!r}",
             )
         )
-    return replace(entity, state_origin="authored")
+    return entity.model_copy(update={"state_origin": "authored"})
 
 
 def _linked_functionalities(feature: ParsedEntity, by_id: dict[str, ParsedEntity]) -> list[ParsedEntity]:
@@ -107,17 +106,17 @@ def _derive_feature(
     feature: ParsedEntity, resolved_non_features: dict[str, ParsedEntity], warnings: list[ContractWarning]
 ) -> ParsedEntity:
     if feature.deprecated_at is not None:
-        return replace(feature, state="deprecated", state_origin="derived")
+        return feature.model_copy(update={"state": "deprecated", "state_origin": "derived"})
 
     linked_functionalities = _linked_functionalities(feature, resolved_non_features)
     if linked_functionalities:
         state = _majority_state(f.state for f in linked_functionalities if f.state is not None)
-        return replace(feature, state=state, state_origin="derived")
+        return feature.model_copy(update={"state": state, "state_origin": "derived"})
 
     linked_user_stories = _linked_user_stories(feature, resolved_non_features)
     if linked_user_stories:
         state = _majority_state(u.state for u in linked_user_stories if u.state is not None)
-        return replace(feature, state=state, state_origin="derived")
+        return feature.model_copy(update={"state": state, "state_origin": "derived"})
 
     warnings.append(
         ContractWarning(
@@ -126,7 +125,7 @@ def _derive_feature(
             context=f"entity_id={feature.entity_id!r}",
         )
     )
-    return replace(feature, state="active", state_origin="derived")
+    return feature.model_copy(update={"state": "active", "state_origin": "derived"})
 
 
 def derive_statuses(entities: list[ParsedEntity]) -> tuple[list[ParsedEntity], list[ContractWarning]]:

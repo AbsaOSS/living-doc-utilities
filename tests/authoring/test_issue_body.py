@@ -254,3 +254,18 @@ def test_en_dash_input_is_normalized_before_ac_grammar_runs():
     assert warnings == []
     assert entity.acceptance_criteria[0].state == "active"
     assert entity.acceptance_criteria[0].version == "1.0.0"
+
+
+def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
+    # A mistyped `## Status` value must not raise: ParsedEntity.state narrows to
+    # LifecycleState, so pydantic validates it eagerly on construction - it must be caught
+    # and reported the same way every other unrecognised authored value is (MALFORMED_AC,
+    # UNKNOWN_SECTION): a warning, entity still returned, docs/contracts.md section 5.
+    body = "## Description\n\ndesc\n\n## Status\n\nDone\n\n## Business Value\n\n- v\n"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert entity is not None
+    assert entity.state is None
+    assert [w.code for w in warnings] == [Code.MALFORMED_STATUS.name]
+    assert "done" in warnings[0].message
+    assert entity.business_value == ["v"]

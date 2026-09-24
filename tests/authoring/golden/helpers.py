@@ -50,37 +50,11 @@ def load_expected(name: str) -> dict:
 def to_entity_dict(parsed: ParsedEntity) -> dict:
     """Builds a full, schema-valid `Entity` from `parsed` (a dummy `source_ref`, empty
     `tags`, default `timestamps`) and dumps it with `source_ref` excluded - the same shape
-    as a hand-written golden JSON file.
+    as a hand-written golden JSON file. `parsed`'s own fields are exactly `Entity`'s minus
+    `source_ref`/`tags`/`timestamps` (both derive from `EntityContent` plus identity), so
+    no field list is spelled here.
     """
-    entity = Entity(
-        entity_id=parsed.entity_id,
-        source_ref=_DUMMY_SOURCE_REF,
-        type=parsed.type,
-        title=parsed.title,
-        state=parsed.state,
-        state_origin=parsed.state_origin,
-        narrative=parsed.narrative,
-        purpose=parsed.purpose,
-        source=parsed.source,
-        business_value=parsed.business_value,
-        acceptance_criteria=parsed.acceptance_criteria,
-        preconditions=parsed.preconditions,
-        not_in_scope=parsed.not_in_scope,
-        deprecated_at=parsed.deprecated_at,
-        deprecation_reason=parsed.deprecation_reason,
-        superseded_by=parsed.superseded_by,
-        surface_type=parsed.surface_type,
-        owners=parsed.owners,
-        user_stories=parsed.user_stories,
-        functionalities=parsed.functionalities,
-        external_dependencies=parsed.external_dependencies,
-        stub_reason=parsed.stub_reason,
-        wizard_steps=parsed.wizard_steps,
-        pages=parsed.pages,
-        parent=parsed.parent,
-        func_type=parsed.func_type,
-        rationale=parsed.rationale,
-    )
+    entity = Entity(source_ref=_DUMMY_SOURCE_REF, **parsed.model_dump())
     dumped = entity.model_dump(mode="json")
     del dumped["source_ref"]
     return dumped

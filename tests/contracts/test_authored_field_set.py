@@ -30,6 +30,7 @@ Feature" pairs with `parent`, "User Stories"/"Functionalities" are unprefixed li
 
 import pytest
 
+from living_doc_utilities.authoring.issue_body import ParsedEntity
 from living_doc_utilities.contracts.common import AcceptanceCriterion
 from living_doc_utilities.contracts.doc_entities import Entity
 
@@ -125,3 +126,9 @@ def test_every_heading_in_this_table_is_exercised():
     # Guards the table itself: if a future edit empties one of the lists above, the
     # parametrized test would just silently stop covering it.
     assert len(ALL_HEADINGS) == 9 + 9 + 11 + 7 + 2 + 5
+
+
+def test_parsed_entity_field_set_equals_entity_minus_provenance_by_construction():
+    # Both derive their authored fields from the one shared EntityContent base, so this
+    # holds structurally - not from two hand-kept lists (S-11/Q-04).
+    assert set(ParsedEntity.model_fields) == set(Entity.model_fields) - {"source_ref", "tags", "timestamps"}

@@ -41,10 +41,10 @@ _KNOWN_CODES = [
 _COMPAT_RAISED_CODES = ["INVALID_CONTRACT_ID", "CONTRACT_MISMATCH", "SCHEMA_VALIDATION_FAILED"]
 
 
-def test_all_codes_has_exactly_35_entries():
-    # Canary: docs/contracts.md, section 5 currently enumerates exactly 35 codes. A change
+def test_all_codes_has_exactly_36_entries():
+    # Canary: docs/contracts.md, section 5 currently enumerates exactly 36 codes. A change
     # to this count means a code was added/removed there without a matching Code member.
-    assert len(ALL_CODES) == 35
+    assert len(ALL_CODES) == 36
 
 
 @pytest.mark.parametrize("name, kind, emitter", _KNOWN_CODES)
@@ -71,7 +71,7 @@ def test_every_code_member_is_a_distinct_object():
     # Guards against the Enum-aliasing bug class: two members sharing a value collapse into
     # one. Code.__new__ assigns each member a unique, sequential _value_ rather than using
     # its (kind, emitter) tuple as the value precisely to avoid this.
-    assert len(set(Code)) == len(list(Code)) == 35
+    assert len(set(Code)) == len(list(Code)) == 36
 
 
 def test_every_code_has_a_kind_and_an_emitter():

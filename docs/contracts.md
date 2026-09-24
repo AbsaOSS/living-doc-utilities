@@ -709,6 +709,7 @@ with the input named in its context.
 | `UNKNOWN_SECTION` | warning | an unrecognised heading in an issue body |
 | `MISSING_ENTITY_ID` | warning; item not emitted | a title with no recognised entity-id prefix |
 | `IGNORED_AUTHORED_KEY` | warning | a key the contract doesn't carry, including a written Feature status |
+| `MALFORMED_STATUS` | warning; authored value dropped | a `## Status` / `status:` value that isn't one of the four lifecycle states - falls through to `MISSING_STATUS`'s derivation |
 | `MISSING_STATUS` | warning; status derived | a User Story / Functionality with no authored status |
 | `STATUS_AC_MISMATCH` | warning; authored value wins | authored status contradicts the entity's own ACs |
 | `ORPHAN_FEATURE` | warning; state set to `active` | a Feature with no Functionality and no User Story in the run |
