@@ -56,7 +56,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 1: bullet marker
 
-- Constant `bullet_marker` → `authoring/normalize.py::RULE_BULLET_MARKER`
+`bullet_marker` → `authoring/normalize.py::RULE_BULLET_MARKER`:
+
 - Rewrites: a leading `–`, `—`, `•`, `*` or `+` bullet marker to `-`, in a criterion block or a bullet section.
 - Never touches: a bullet-shaped character that is not the leading marker, or a line outside a bullet section or criterion block.
   - A Gherkin `*` step and a PageObject ` * key: value` line both start with `*` and stay untouched.
@@ -65,7 +66,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 2: criterion header separator
 
-- Constant `ac_header_separator` → `authoring/normalize.py::RULE_AC_HEADER_SEPARATOR`
+`ac_header_separator` → `authoring/normalize.py::RULE_AC_HEADER_SEPARATOR`:
+
 - Rewrites: the separator between segments in `AC:<id> (<version> - <state>[ - removal planned <version>])` to exactly `" - "`.
 - Never touches: a hyphen inside a state token (`in-review`); the separator needs whitespace on at least one side.
 - Why: the grammar splits the header on the literal `" - "` and has no dash tolerance of its own.
@@ -73,7 +75,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 3: state casing
 
-- Constant `state_casing` → `authoring/normalize.py::RULE_STATE_CASING`
+`state_casing` → `authoring/normalize.py::RULE_STATE_CASING`:
+
 - Rewrites: a `## Status` / `status:` value or a header's state segment to lowercase, spaces and hyphens to one `_` (`In Review` → `in_review`).
 - Also folds the fixed phrase `Removal Planned` to `removal planned`.
 - Never touches: any other word, including prose that mentions a state word ("the Active tab").
@@ -82,7 +85,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 4: version form
 
-- Constant `version_form` → `authoring/normalize.py::RULE_VERSION_FORM`
+`version_form` → `authoring/normalize.py::RULE_VERSION_FORM`:
+
 - Rewrites: a version token to `vX.Y.Z` with a lowercase `v` and three parts: `V1.2`, `1.2` and `v1.2` become `v1.2.0`.
 - Never touches: a version with no minor part (`v1`); the grammar then reports it as `MALFORMED_AC`.
   - Why: with no minor digit there is nothing to infer a patch number from.
@@ -91,7 +95,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 5: entity name dash
 
-- Constant `entity_name_dash` → `authoring/normalize.py::RULE_ENTITY_NAME_DASH`
+`entity_name_dash` → `authoring/normalize.py::RULE_ENTITY_NAME_DASH`:
+
 - Rewrites: the dash between the two halves of a compound name to `" - "` (`Login Page–Validate Password Strength`).
 - An en-dash or em-dash always; a plain hyphen only with whitespace on at least one side.
 - Never touches: a hyphen inside a word, such as `Password-reset` or `Sign-in`.
@@ -100,7 +105,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 5b: title id separator
 
-- Constant `title_id_separator` → `authoring/normalize.py::RULE_TITLE_ID_SEPARATOR`
+`title_id_separator` → `authoring/normalize.py::RULE_TITLE_ID_SEPARATOR`:
+
 - Rewrites: the character right after an entity id in a title to `" · "`: `US-001 - Customer Login` → `US-001 · Customer Login`.
 - Never touches: anything before the id, such as a `LIVING DOC — ` prefix or a historical `GH-` prefix.
 - Why: issue titles and both comment banners (`LIVING DOC — <id> · <title>`) converge on one separator here.
@@ -108,7 +114,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 6: whitespace
 
-- Constant `whitespace` → `authoring/normalize.py::RULE_WHITESPACE`
+`whitespace` → `authoring/normalize.py::RULE_WHITESPACE`:
+
 - Rewrites: CRLF line endings to LF, and a tab or non-breaking space used as leading indentation to a space.
 - Never touches: a tab or non-breaking space inside a value, past its leading indentation.
 - Why: a stray `\r` breaks comparisons; a pasted tab breaks the fixed-width alignment of PageObject headers.
@@ -116,7 +123,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 7: inline criterion description
 
-- Constant `inline_ac_description` → `authoring/normalize.py::RULE_INLINE_AC_DESCRIPTION`
+`inline_ac_description` → `authoring/normalize.py::RULE_INLINE_AC_DESCRIPTION`:
+
 - Rewrites: a description written on the header line (`AC:US-001-01 (v1.0.0 - active) — the description`) onto its own `- ` bullet.
 - Applies to the issue-body and feature-header formats, whose grammar expects the description as a bullet.
 - Never touches: a scenario-file `# AC:` comment's inline description; only its separator is canonicalised.

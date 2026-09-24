@@ -35,7 +35,7 @@ One small policy decides which links survive into rendered documentation → `au
 - `sanitize_html_fragment(html)` cleans a fragment with [`nh3`](https://pypi.org/project/nh3/), an `ammonia`-based sanitiser → `authoring/url_policy.py::sanitize_html_fragment`
 - It strips every `<img>` tag → `authoring/url_policy.py::sanitized_tag_allowlist`
 - It passes every `href` through `safe_href`; a rejected `href` is dropped and the element's text kept → `authoring/url_policy.py::sanitize_html_fragment`
-- nh3's default allow-list handles the rest: `<script>` and `<style>` with their content, event-handler attributes, tags outside its set.
+- nh3's default allow-list handles the rest: `<script>` and `<style>` with their content, event-handler attributes, tags outside its set → `authoring/url_policy.py::sanitized_tag_allowlist`
 - `nh3` needs the `html` extra and is imported inside the two functions that use it → `tests/authoring/test_isolation.py::test_nh3_is_imported_only_inside_a_function_that_needs_it`
   - Why: most consumers never touch HTML; importing a module or calling `safe_href` never needs the extra.
 - Its only consumer today is `html_to_markdown`; a future PDF-generator text filter can reuse the same policy → `authoring/url_policy.py::sanitize_html_fragment`

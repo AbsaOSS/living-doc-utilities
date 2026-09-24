@@ -6,14 +6,9 @@ belongs in the live docs, not in the design doc.
 
 ## The live docs
 
-The live docs are a tree by depth; `DEVELOPER.md`, "Writing documentation", holds the page rules.
-
-- `README.md` — overview, usage tip and "where next" routing only; it defines no rule.
-- `docs/contracts.md`, `docs/authoring.md` — hubs: principle, one line per rule or decision, routing; they define nothing.
-- `docs/contracts/*.md`, `docs/authoring/*.md` — detail pages: the fact lists, option lists and examples.
-- `docs/api.md` — the module list, extras and versioning (a depth-2 leaf, so it may define).
-- `DEVELOPER.md` — the local-dev and release workflow, and the page rules.
-- `CONTRIBUTING.md` — how to contribute.
+The live docs are `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` and every page under `docs/`, listed in
+`tests/docs/pages.py::APPROVED_PAGES`. Where a fact belongs, and how a page is written, is defined only in
+`DEVELOPER.md`, "Writing documentation".
 
 ## The rule
 
@@ -21,9 +16,8 @@ When a PR implements a design-doc section, that same PR must:
 
 1. **Delete** the implemented content from the design doc (the whole section, or the
    specific subsections that are now shipped).
-2. **Add** the equivalent "what actually exists" description to the live page that defines
-   it — the deepest page that needs the fact — and name it with a link on the hub (and in
-   `README.md` only when it is a new area).
+2. **Add** the equivalent "what actually exists" description to the live docs, placed as
+   `DEVELOPER.md`, "Writing documentation", says.
 
 This is a **move**, not a copy. After the PR, the information exists in exactly one place —
 the live docs — and the design doc is smaller. Design docs trend toward empty as the
@@ -37,7 +31,6 @@ library fills in.
   unshipped part stays in the design doc.
 - Cross-references that pointed at the moved section must be repointed to its new home in
   the same PR (keep link checking green).
-- A new live page goes into `tests/docs/pages.py::APPROVED_PAGES` and is linked from its hub.
 
 ## Current state of this repo
 

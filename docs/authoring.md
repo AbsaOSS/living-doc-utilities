@@ -28,8 +28,7 @@ The canonical forms come from `AbsaOSS/living-doc`'s [glossary](https://github.c
   - Why: two layers that both tolerated variance would disagree about what is valid.
 - The parsers share one grammar instead of reimplementing it → `tests/authoring/test_normalize_first.py::test_feature_header_issue_body_and_scenario_import_ac_grammar` · [grammar](authoring/ac-grammar.md#header)
 - One helper decides where a fenced code block starts and ends → `authoring/normalize.py::compute_fence_flags` · [normalisation](authoring/normalisation.md#where-normalisation-runs)
-- A parser never raises and never logs; every information-losing skip is a coded warning → `tests/authoring/test_warning_coverage.py::test_no_authoring_module_uses_the_logging_module` · [parsers](authoring/parsers.md#common-behaviour)
-  - Why: a caller always has a structured way to see what was lost.
+- Parsers report, never raise or log → `authoring/issue_body.py::parse_issue_body` · [parsers](authoring/parsers.md#common-behaviour)
 - A warning is a `ContractWarning`, and its code is defined once → `contracts/envelope.py::ContractWarning` · [errors](contracts/errors.md#codes)
 - `authoring` stays source-agnostic: no GitHub- or Azure-DevOps-specific import → `tests/authoring/test_isolation.py::test_authoring_imports_nothing_github_or_azure_devops_specific`
 - `contracts` never imports `authoring`; the dependency runs one way → `tests/authoring/test_isolation.py::test_contracts_imports_nothing_from_authoring`

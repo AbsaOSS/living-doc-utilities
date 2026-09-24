@@ -34,14 +34,14 @@ How a parser finds the id in a title: [Parsers, finding the entity id](../author
 
 ## State and state origin
 
-An entity's and an acceptance criterion's `state` is one of four values → `contracts/common.py::LifecycleState`.
+An entity's and an acceptance criterion's `state` is one of four values, as the [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md#acceptance-criterion-ac) defines them → `contracts/common.py::LifecycleState`.
 
 | `state` | Meaning |
 |---|---|
-| `planned` | Planned work, not built yet; an acceptance criterion may name a target version or none (backlog) |
-| `in_review` | Built, but still in review and not on `master` yet |
-| `active` | Built and current |
-| `deprecated` | Retired; carries deprecation fields, and an acceptance criterion carries `removal_planned` |
+| `planned` | Agreed, not built yet; an acceptance criterion names a target version, or none (backlog) |
+| `in_review` | Built on a branch, not yet accepted into `master` |
+| `active` | Accepted, part of the shipped solution |
+| `deprecated` | Shipped behaviour on its way out; an acceptance criterion carries `removal_planned` |
 
 Every entity also carries `state_origin` → `contracts/common.py::StateOrigin`.
 

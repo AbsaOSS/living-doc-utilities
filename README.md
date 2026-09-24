@@ -22,12 +22,12 @@ This page gives the overview, a usage tip, and the page to read next.
 
 ## Overview
 
-- **Contracts** (`living_doc_utilities.contracts`): typed models of the six documentation contracts, their JSON Schemas, and the helpers every component shares → [Documentation contracts](docs/contracts.md)
-- **Authoring** (`living_doc_utilities.authoring`): normalisation, the acceptance-criterion grammar, and the parsers for every authoring surface → [Authoring](docs/authoring.md)
-- **GitHub** (`living_doc_utilities.github`): action input and output, a rate limiter, a call decorator that never swallows a failure → [GitHub helpers](docs/api.md#github-helpers)
-- **Inputs** (`living_doc_utilities.inputs`): a base class for a GitHub Action's inputs → [Action inputs and logging](docs/api.md#action-inputs-and-logging)
-- **Runtime helpers**: `setup_logging()` and shared constants → [Action inputs and logging](docs/api.md#action-inputs-and-logging)
-- **AI-free**: every pipeline step is deterministic tooling, with no LLM call → [AI-free principle](CONTRIBUTING.md#ai-free-principle)
+- **Contracts** (`living_doc_utilities.contracts`): typed models of the six documentation contracts, their JSON Schemas, and the helpers every component shares → [Documentation contracts](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/contracts.md)
+- **Authoring** (`living_doc_utilities.authoring`): normalisation, the acceptance-criterion grammar, and the parsers for every authoring surface → [Authoring](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/authoring.md)
+- **GitHub** (`living_doc_utilities.github`): action input and output, a rate limiter, a call decorator that never swallows a failure → [GitHub helpers](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#github-helpers)
+- **Inputs** (`living_doc_utilities.inputs`): a base class for a GitHub Action's inputs → [Action inputs and logging](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#action-inputs-and-logging)
+- **Runtime helpers**: `setup_logging()` and shared constants → [Action inputs and logging](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#action-inputs-and-logging)
+- **AI-free**: every pipeline step is deterministic tooling, with no LLM call → [AI-free principle](https://github.com/AbsaOSS/living-doc-utilities/blob/master/CONTRIBUTING.md#ai-free-principle)
 
 ## Usage tip
 
@@ -43,30 +43,30 @@ pip install "living-doc-utilities[html]==0.5.0"    # adds the HTML sanitiser
 from living_doc_utilities.contracts.io import read_artifact, write_artifact
 ```
 
-Which module needs which extra: [Extras](docs/api.md#extras). Pinning rules: [Versioning](docs/api.md#versioning).
+Which module needs which extra: [Extras](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#extras). Pinning rules: [Versioning](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#versioning).
 
 ## Where next
 
 | I want to… | Read |
 |---|---|
-| find a module and what it needs installed | [API](docs/api.md) |
-| read or write a contract file | [Documentation contracts](docs/contracts.md) |
-| parse authored documents | [Authoring](docs/authoring.md) |
-| look up an error or warning code | [Errors and warnings](docs/contracts/errors.md) |
-| set up the repository, run the gates, release | [Developer guide](DEVELOPER.md) |
-| contribute a change | [Contributing](CONTRIBUTING.md) |
+| find a module and what it needs installed | [API](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md) |
+| read or write a contract file | [Documentation contracts](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/contracts.md) |
+| parse authored documents | [Authoring](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/authoring.md) |
+| look up an error or warning code | [Errors and warnings](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/contracts/errors.md) |
+| set up the repository, run the gates, release | [Developer guide](https://github.com/AbsaOSS/living-doc-utilities/blob/master/DEVELOPER.md) |
+| contribute a change | [Contributing](https://github.com/AbsaOSS/living-doc-utilities/blob/master/CONTRIBUTING.md) |
 
 ## Developer guide
 
-Setup, quality gates, regeneration, release and documentation rules: [DEVELOPER.md](DEVELOPER.md).
+Setup, quality gates, regeneration, release and documentation rules: [DEVELOPER.md](https://github.com/AbsaOSS/living-doc-utilities/blob/master/DEVELOPER.md).
 
 ## Contributing
 
-Issues, branches, pull requests and the AI-free principle: [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues, branches, pull requests and the AI-free principle: [CONTRIBUTING.md](https://github.com/AbsaOSS/living-doc-utilities/blob/master/CONTRIBUTING.md).
 
 ## License
 
-Apache License 2.0; see [LICENSE](LICENSE).
+Apache License 2.0; see [LICENSE](https://github.com/AbsaOSS/living-doc-utilities/blob/master/LICENSE).
 
 ## Contact
 

@@ -67,10 +67,8 @@ repo's own risk areas and review expectations; it is not shared with other repos
 
 ## Documentation
 
-- Must review a change to `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` or a page under `docs/` against `DEVELOPER.md`, "Writing documentation" — depth, Purpose then Contents, one fact on one page, the parts and their limits.
+- Must review a change to `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` or a page under `docs/` against `DEVELOPER.md`, "Writing documentation" — that section is the only copy of the page rules; Must not restate them here.
 - Must check a sample of ten decision- or fact-list items per changed page against the code their `path::symbol` names, and flag any item the code does not bear out.
-- Must flag a fact defined on two pages, a hub that defines instead of naming and linking, a limit exceeded without an `<!-- over limit: … -->` reason, and an anchor by line number.
-- Must flag a new page missing from `tests/docs/pages.py::APPROVED_PAGES` or not linked from its hub.
 
 ## Repo specifics
 

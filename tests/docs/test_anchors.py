@@ -23,7 +23,7 @@ from typing import Optional
 
 import pytest
 
-from tests.docs.pages import APPROVED_PAGES, REPO_ROOT, read_page, section
+from tests.docs.pages import APPROVED_PAGES, REPO_ROOT, read_page, section, unfenced_lines
 
 PACKAGE_DIR = REPO_ROOT / "living_doc_utilities"
 
@@ -32,6 +32,7 @@ _ANCHOR_RE = re.compile(
 )
 _LINE_NUMBER_RE = re.compile(r"\.(?:py|md|yml|yaml|toml|sh)(?::\d+|#L\d+)")
 _API_MODULE_RE = re.compile(r"^\| `(?P<module>[a-z_.]+)` \|")
+_LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.) ")
 
 
 def _resolve(path: str) -> Optional[Path]:
@@ -93,6 +94,52 @@ def test_anchor_resolution_rejects_a_missing_file_and_a_missing_symbol():
     assert _anchor_problem("contracts/nowhere.py", "x") == "no file 'contracts/nowhere.py'"
     assert _anchor_problem("contracts/io.py", "read_everything") == "'contracts/io.py' defines no 'read_everything'"
     assert _anchor_problem("Makefile", "no-such-target") == "'Makefile' does not contain 'no-such-target'"
+
+
+def unplaced_list_items(page: str, text: str) -> list[str]:
+    """Top-level list items that say nowhere where they are realised: no `→` (an anchor, a component or a link), no
+    anchor, no link, and no lead-in line that carries an anchor. `Contents` and `Pages` are routing, not facts."""
+    problems: list[str] = []
+    chapter, lead_in, previous = "", "", "blank"
+    for line in unfenced_lines(text):
+        stripped = line.strip()
+        if not stripped:
+            previous = "blank"
+            continue
+        if stripped.startswith("#"):
+            chapter = stripped.lstrip("#").strip() if stripped.startswith("## ") else chapter
+            lead_in, previous = "", "blank"
+            continue
+        if line.startswith(" ") or stripped.startswith("|"):
+            continue  # a sub-item (`Why:`, detail) or a table row
+        if _LIST_ITEM_RE.match(line) is None:
+            lead_in = f"{lead_in} {stripped}" if previous == "text" else stripped
+            previous = "text"
+            continue
+        previous = "item"
+        if chapter in ("Contents", "Pages"):
+            continue
+        if "→" in stripped or "](" in stripped or _ANCHOR_RE.search(stripped) or "→" in lead_in:
+            continue
+        problems.append(f"{page}: '{stripped[:80]}' names no anchor, component or link, and its lead-in none either")
+    return problems
+
+
+@pytest.mark.parametrize("page", sorted(page for page, depth in APPROVED_PAGES.items() if depth > 1))
+def test_every_list_item_says_where_it_is_realised(page):
+    """Each fact or decision on a depth-2 or depth-3 page ends in `→` and an anchor, a component, or a link;
+    an item under a lead-in that carries an anchor inherits it."""
+    assert unplaced_list_items(page, read_page(page)) == []
+
+
+def test_an_unplaced_list_item_is_reported_and_a_lead_in_anchor_covers_its_items():
+    """A bare fact fails; the same fact under an anchored lead-in passes."""
+    bare = "## Facts\n\n- a fact with no home\n"
+    covered = "## Facts\n\nThe cases → `contracts/io.py::read_artifact`:\n\n- a fact with no home\n"
+    assert unplaced_list_items("docs/x.md", bare) == [
+        "docs/x.md: '- a fact with no home' names no anchor, component or link, and its lead-in none either"
+    ]
+    assert unplaced_list_items("docs/x.md", covered) == []
 
 
 def test_api_page_lists_every_module():

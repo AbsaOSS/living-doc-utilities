@@ -23,7 +23,9 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 ## Common behaviour
 
 - Each parser accepts one layout, the canon of `AbsaOSS/living-doc`'s [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md) and [header types](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-header-types.md).
-- Each parser returns `(parsed_or_none, warnings)` and never raises on malformed input → `tests/authoring/test_warning_coverage.py::test_information_losing_skip_produces_a_coded_warning_and_no_log_record`
+- Each parser returns `(parsed_or_none, warnings)` and never raises on malformed input; every information-losing skip is a coded warning → `tests/authoring/test_warning_coverage.py::test_information_losing_skip_produces_a_coded_warning_and_no_log_record`
+  - Why: a caller always has a structured way to see what was lost.
+- No authoring module uses `logging` → `tests/authoring/test_warning_coverage.py::test_no_authoring_module_uses_the_logging_module`
 - `None` with `MISSING_ENTITY_ID` means the title or banner had no id; nothing else is inspected then → `authoring/identity.py::derive_entity_id`
 - A parsed entity has every entity field except `source_ref`, `tags` and `timestamps`; the collector fills those → `authoring/issue_body.py::ParsedEntity`
   - Why: a parser only ever sees document text.
@@ -163,8 +165,8 @@ An authored state contradicts its criteria when → `authoring/status.py::_is_mi
 
 ## Golden fixtures
 
-- `tests/fixtures/golden/` holds three canonical documents, copied verbatim from `AbsaOSS/living-doc`'s `docs/examples/`, plus hand-written expected entities → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`
-- Other repositories' parsers compare their own output against these: `living-doc-collector-gh`, `living-doc-toolkit`, `living-doc-collector-ad`.
+- `tests/fixtures/golden/` holds the canonical documents of `AbsaOSS/living-doc`'s `docs/examples/`, copied verbatim under a provenance header, plus hand-written expected entities → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`
+- Other repositories compare their parsers' output against these → `living-doc-collector-gh`, `living-doc-toolkit`, `living-doc-collector-ad`
 
 ## Example
 

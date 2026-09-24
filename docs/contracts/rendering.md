@@ -70,5 +70,5 @@ Coverage is computed per aspect → `contracts/coverage_matrix.py::AcCoverage._c
 
 - The coverage matrix always carries a planned-work summary: `total`, `backlog` and `by_target_version` → `contracts/coverage_matrix.py::PlannedSummary`
 - Only the inner view renders it → `contracts/testing.py::shown_paths`
-- Each planned criterion is backlog (no target version) or targets exactly one version.
+- Each planned criterion is backlog (no target version) or targets exactly one version → `contracts/coverage_matrix.py::PlannedSummary`
 - So `total` equals `backlog` plus the sum of `by_target_version` → `contracts/coverage_matrix.py::PlannedSummary._check_total_equals_backlog_plus_targeted`

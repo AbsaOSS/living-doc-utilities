@@ -36,7 +36,7 @@ holds the records; every field path starts there.
 - Each contract module declares `CONTRACT_ID` and `RECORD_ROOTS`; one registry collects them → `contracts/registry.py::CONTRACTS`
   - Why: stats, schema export and the test helpers read one declaration, so a renamed root leaves none behind.
 - Both issue-tracker collectors, GitHub and Azure DevOps, write `doc-entities.json` → `contracts/doc_entities.py::DocEntitiesResult`
-- The file name is the contract, never the source system; the writer is named in `metadata.producer.name` (R6).
+- The file name is the contract, never the source system; the writer is named in `metadata.producer.name` (R6) → `contracts/envelope.py::Producer`
 - `generator-ready` carries the `doc-entities` entity model unchanged under `content.entities[]` → `contracts/generator_ready.py::Content`
 - `ui-test-catalog` carries the `ui-tests` scenario model unchanged → `contracts/ui_test_catalog.py::FeatureFileCatalog`
 
@@ -74,7 +74,7 @@ A contract id has the form `<contract-name>-v<major>.<minor>.<patch>` → `contr
 - Every artifact has a top-level `schema_version`, a `metadata` envelope and a `warnings[]` array → `contracts/doc_entities.py::DocEntitiesResult`
 - `metadata.producer` names the tool that wrote this file, not the tool the data came from → `contracts/envelope.py::Producer`
   - Why: "which tool do I fix?" is then answerable from the file alone.
-- For a transform output, the producer is the transform; upstream identity is kept in `source_inputs[]` (R7).
+- For a transform output, the producer is the transform; upstream identity is kept in `source_inputs[]` (R7) → transforms
 
 ## R7: transform provenance in source inputs
 
@@ -96,7 +96,7 @@ No component reads or writes these, under any historical name; closed records re
 
 The retirement has no alias window:
 
-- A reader's fallback to a legacy field goes in the same change that adopts the envelope.
+- A reader's fallback to a legacy field goes in the same change that adopts the envelope → transforms, generators
   - Why: a kept fallback lets a producer write the old shape unnoticed; removing the reader ends it.
 
 ## R11: every file carries its own stats

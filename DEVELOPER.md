@@ -25,9 +25,7 @@ Read before: [README](README.md)
 
 - The editable install of the package itself is required → `contracts/compat.py::installed_utilities_version`
   - Why: that function reads this package's own version from its installed metadata.
-- `requirements.txt` holds only the runtime of this repository's CI tooling: `make schemas`, `make docs`, `make no-vendored-schemas`.
-- `requirements-dev.txt` includes it and adds the test, lint, type and packaging tools.
-- Neither file is the package's install-time dependency list; that is `pyproject.toml` → [Dependencies](#dependencies)
+- The requirements files are this repository's tooling, not the package's dependency list → [Dependencies](#dependencies)
 - To develop the library alongside another project, run `pip install -e ../living-doc-utilities` in that project's environment.
 
 ## Gates
@@ -68,13 +66,11 @@ table together; every other rule stays on for tests.
 
 ## Dependencies
 
-| Declared in | For | Today |
-|---|---|---|
-| `pyproject.toml` `dependencies` | modules that import with no extra ([Extras](docs/api.md#extras)) | `pydantic`, `jsonschema` |
-| `pyproject.toml` extra `github` | `github.rate_limiter`, `github.decorators` | `PyGithub`, `requests` |
-| `pyproject.toml` extra `html` | calling the HTML sanitiser; `nh3` is imported inside the function | `nh3` |
-| `requirements.txt` | this repository's CI tooling | `pydantic`, `jsonschema`, `PyYAML` (for `make docs` and the tests only), pinned |
-| `requirements-dev.txt` | everything else `make qa` and CI need, plus the extras' libraries for the tests | pinned |
+| Declared in | For |
+|---|---|
+| `pyproject.toml` `dependencies` and extras | the package's install-time dependencies; which module needs which extra: [Extras](docs/api.md#extras) |
+| `requirements.txt` | the runtime of this repository's CI tooling (`make schemas`, `make docs`, `make no-vendored-schemas`), pinned; `PyYAML` only for `make docs` and the tests |
+| `requirements-dev.txt` | it includes `requirements.txt` and adds the test, lint, type and packaging tools, plus the extras' libraries for the tests, pinned |
 
 To add a third-party import:
 
@@ -168,7 +164,10 @@ A one-line redirect stub is exempt.
 - `symbol` is a module-level name, or a dotted one for a member: `Entity._check_state_origin`.
 - A test is `tests/<path>.py::test_name`; a non-Python file names a text it contains: `Makefile::qa`.
 - Never use line numbers; they drift.
-- A fact realised outside this repository names the component instead of an anchor: `→ collectors`, `→ toolkit`.
+- A rule another component must realise names that component instead of an anchor: `→ collectors`, `→ toolkit`.
+- On a depth-2 or depth-3 page, every top-level list item ends in `→` and an anchor, a component or a link.
+- Items under a lead-in that carries `→` inherit it, e.g. a rule's lead-in `` `bullet_marker` → `…::RULE_BULLET_MARKER`: ``.
+- `README.md` is also the PyPI description, so it links repository files as `https://github.com/AbsaOSS/living-doc-utilities/blob/master/<path>`.
 
 ### Examples
 
@@ -181,11 +180,12 @@ A one-line redirect stub is exempt.
 
 | Check | Where |
 |---|---|
-| page list, `Purpose` then `Contents`, Contents links, no orphan page | `tests/docs/test_page_structure.py` |
-| every `path::symbol` resolves; no line-number anchor; `docs/api.md` lists every module | `tests/docs/test_anchors.py` |
+| page list, `Purpose` then `Contents`, Contents links, no orphan page, README links absolute | `tests/docs/test_page_structure.py` |
+| every `path::symbol` resolves; no line-number anchor; every list item says where it is realised; `docs/api.md` lists every module | `tests/docs/test_anchors.py` |
 | every example runs or validates | `tests/docs/test_examples.py` |
 | the error page lists exactly `ALL_CODES`, kind and emitter included | `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes` |
-| links and `#fragments` resolve | `.github/workflows/link-check.yml::lychee` |
+| links and `#fragments` resolve; README's absolute links are checked against the checkout (`--remap`) | `.github/workflows/link-check.yml::lychee` |
+| a pull request that changes only pages still runs these tests | `.github/workflows/test.yml::docs_changed` |
 | the generated table is current | `.github/workflows/test.yml::docs-regeneration-check` |
 
 To add a page: put it at its depth, add it to `tests/docs/pages.py::APPROVED_PAGES`, and link it from its hub.

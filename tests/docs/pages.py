@@ -26,6 +26,10 @@ from typing import NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# README.md is also the PyPI long description, so it links repository files by this absolute prefix; the link
+# check remaps it onto the checked-out files (.github/workflows/link-check.yml).
+REPO_BLOB_URL = "https://github.com/AbsaOSS/living-doc-utilities/blob/master/"
+
 # Every shipped page and its depth; a new page is added here and linked from its hub.
 APPROVED_PAGES: dict[str, int] = {
     "README.md": 1,
@@ -175,15 +179,19 @@ def check_contents_links(page: str, text: str) -> list[str]:
 
 
 def _resolved_links(page: str, text: str) -> set[str]:
-    """Every relative link of the page, as a repository-relative path without its fragment."""
+    """Every link of the page into the repository, relative or by `REPO_BLOB_URL`, as a repository path without its
+    fragment."""
     base = PurePosixPath(page).parent
     resolved: set[str] = set()
     for link_m in _LINK_TARGET_RE.finditer(text):
         target = link_m.group("target").split("#", 1)[0]
+        target_base = base
+        if target.startswith(REPO_BLOB_URL):
+            target, target_base = target[len(REPO_BLOB_URL) :], PurePosixPath(".")
         if not target or "://" in target or target.startswith("mailto:"):
             continue
         parts: list[str] = []
-        for part in (base / target).parts:
+        for part in (target_base / target).parts:
             if part == "..":
                 if parts:
                     parts.pop()

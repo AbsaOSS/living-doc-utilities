@@ -85,6 +85,7 @@ jobs:
             --max-retries 3
             --retry-wait-time 5
             --exclude 'https://opensource\.org/licenses/'
+            --remap 'https://github\.com/AbsaOSS/living-doc-utilities/blob/master/ file://${{ github.workspace }}/'
             './**/*.md'
           fail: true
         env:

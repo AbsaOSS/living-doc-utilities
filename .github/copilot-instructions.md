@@ -155,7 +155,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep `make coverage` (pytest, `--cov-fail-under=80`) passing.
 - Must not add an `integration` marker, a `test-unit` / `test-integration` target or `--ignore=tests/integration` to `test` / `coverage` — this repo has no integration tests, a deliberate difference from the shared `Makefile` vocabulary in `AbsaOSS/living-doc`.
 - Must run `make import-matrix` after touching an import or `pyproject.toml` dependencies — it builds the wheel and proves, in three clean virtual environments (no extra, `github`, `html`), which modules import and which need an extra; CI runs the same target; it needs a POSIX shell (Linux, macOS, or WSL on Windows).
-- Must follow `DEVELOPER.md`, "Writing documentation", for `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` and every page under `docs/`; Must add a new page to `tests/docs/pages.py::APPROVED_PAGES` and link it from its hub — the page tests in `tests/docs/` fail otherwise.
+- Must follow `DEVELOPER.md`, "Writing documentation", for `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` and every page under `docs/` — it holds the page rules, including how to add a page; the tests in `tests/docs/` check them.
 - Must run `make schemas` and commit the regenerated `contracts/schemas/*.json` when a `contracts/` model changes — `make qa` does not regenerate them itself, and CI's Schema Regeneration Check fails the build on any diff.
 
 ## Common pitfalls

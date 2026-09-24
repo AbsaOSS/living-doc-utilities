@@ -17,10 +17,13 @@
 """The page rules' structure (DEVELOPER.md, "Writing documentation"): the approved page list, `Purpose` then
 `Contents`, `Contents` links, and no orphan page - checked on the real pages and on planted violations."""
 
+import re
+
 import pytest
 
 from tests.docs.pages import (
     APPROVED_PAGES,
+    REPO_BLOB_URL,
     REPO_ROOT,
     check_contents_links,
     check_no_orphans,
@@ -89,6 +92,19 @@ def test_contents_links_every_chapter_and_nothing_else(page):
 def test_no_page_is_an_orphan():
     """Every approved page is linked from its hub or from `README.md`."""
     assert check_no_orphans({page: read_page(page) for page in APPROVED_PAGES}) == []
+
+
+def test_readme_links_work_on_pypi():
+    """README.md is the PyPI long description, so it links repository files absolutely; relative links 404 there."""
+    targets = re.findall(r"\]\(([^)\s]+)\)", read_page("README.md"))
+    relative = [target for target in targets if not target.startswith(("#", "https://", "http://", "mailto:"))]
+    assert relative == [], f"README.md: use {REPO_BLOB_URL}<path> for these links: {relative}"
+
+
+def test_an_absolute_repository_link_counts_as_a_link_into_the_tree():
+    """A README link by `REPO_BLOB_URL` puts a hub into the tree, exactly as a relative link does."""
+    pages = {"README.md": f"[Hub]({REPO_BLOB_URL}docs/topic.md#principle)", "docs/topic.md": ""}
+    assert check_no_orphans(pages) == []
 
 
 def test_a_well_formed_page_passes_every_check():

@@ -20,7 +20,7 @@ Read before: [Rendering](rendering.md) · Next: back to [Documentation contracts
 - A test keeps the table below equal to the registry, kind and emitter included → `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes`
 - A hard error is raised with a code, a message and an optional context → `contracts/codes.py::ContractError`
 - A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context` → `contracts/envelope.py::ContractWarning`
-- Nothing elsewhere redefines a code; other pages name it and link here.
+- Nothing elsewhere redefines a code; other pages name it and link here → [one fact, one page](../../DEVELOPER.md#depth)
 
 ## Codes
 

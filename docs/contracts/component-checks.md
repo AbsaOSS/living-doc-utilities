@@ -18,11 +18,10 @@ Read before: [Pipeline rules](pipeline-rules.md) · Next: [Rendering](rendering.
 
 ## R12: no component mirrors a contract
 
-- Outside this library, no repository commits a copy of a schema, and none defines its own contract model.
+- Outside this library, no repository commits a copy of a schema or defines its own contract model → [checks 1 and 2](#check-1-no-vendored-schemas)
 - Components import the shared models and validate against the schemas shipped in the installed library → `contracts/schema_export.py::load_schema`
-- Every component's QA run carries the three checks below.
-- A model-similarity heuristic, flagging models that look like contract records, was rejected.
-  - Why: legitimate internal models look like records, and a mirror with renamed fields would escape it.
+- Every component's QA run carries the three checks below → collectors, toolkit, generators
+  - Why not a model-similarity heuristic: internal models look like records, and a renamed mirror would escape it.
 
 ## Check 1: no vendored schemas
 
@@ -59,9 +58,9 @@ Two properties of the sample:
 
 Each kind of component uses the sample differently:
 
-- A transform runs over it in every view and shows no field loss (R11 below).
+- A transform runs over it in every view and shows no field loss (R11 below) → transforms
 - A generator renders it per view and asserts what each view shows and hides → `contracts/testing.py::shown_paths`
-- A collector runs over a fully authored fixture; every contract field has non-zero occupancy, bar documented exceptions.
+- A collector runs over a fully authored fixture; every contract field has non-zero occupancy, bar documented exceptions → collectors
   - Why: ordinary fixtures fill only what a test cares about; field loss hides behind them.
 
 ## R11: a transform proves it lost nothing
@@ -74,10 +73,9 @@ Each kind of component uses the sample differently:
 - The transform-time check compares the input's `selected_stats` (R7) with the output's stats → `contracts/lineage.py::check_field_loss`
 - A mapped path with input occupancy above 0 and output occupancy 0 is a hard `FIELD_LOSS`, naming each path → `contracts/lineage.py::check_field_loss`
 - The comparison runs against the one documentation input, which makes it well defined → [One documentation source](pipeline-rules.md#one-project-one-pipeline-one-documentation-source)
-- A partial drop, occupancy reduced but not to 0, is not an error at transform time; it is reported later.
+- A partial drop, occupancy reduced but not to 0, is not an error at transform time; it is reported later → transforms
   - Why: a transform cannot tell a legitimate record filter from a bug at that point.
-- R11 guards transforms only; the authoring-to-collector stage has no JSON input to compare.
-- That stage is guarded by golden-entity tests and snapshot CI instead → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`
+- R11 guards transforms only; the authoring-to-collector stage, with no JSON input to compare, has golden-entity tests and snapshot CI → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`
 
 ## Example
 

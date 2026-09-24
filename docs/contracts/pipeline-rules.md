@@ -3,8 +3,8 @@
 ## Purpose
 
 Collector and transform authors read this page. It defines what one pipeline run covers, where a collector
-writes, and how a collector fails and retries (R13). Most of these rules run in the collectors and the toolkit,
-so a line with no `path::symbol` names the component that realises it.
+writes, and how a collector fails and retries (R13). Most of these rules bind the collectors and the toolkit,
+so a line with no `path::symbol` names the component that must realise it.
 
 Read before: [Artifact rules](artifact-rules.md) · Next: [Component checks](component-checks.md)
 
@@ -39,11 +39,11 @@ Read before: [Artifact rules](artifact-rules.md) · Next: [Component checks](com
 ## Collector output layout
 
 - A collector writes `<output-path>/<mode>/<artifact>.json`, e.g. `output/collector-gh/doc-issues/doc-entities.json` → collectors
-- `output-path` is an input on both collectors, with a per-collector default → `constants.py::OUTPUT_PATH`
+- `output-path` is an input on both collectors, with a per-collector default under `./output` → collectors; the base is `constants.py::OUTPUT_PATH`
 - A collector clears only its own `<output-path>/<mode>/` directory, never a shared parent → collectors
   - Why: two collectors writing into one output tree cannot delete each other's results.
 - The file name is always the contract name; the source system lives in `metadata` → [Contracts](artifact-rules.md#contracts)
-- Project separation is pipeline configuration (one output location per project), not a path convention in the tools.
+- Project separation is pipeline configuration (one output location per project), not a path convention in the tools → pipeline workflows
 
 ## R13: a collector collects everything it was configured for, or fails
 
@@ -64,7 +64,7 @@ Read before: [Artifact rules](artifact-rules.md) · Next: [Component checks](com
   - Why: a partial collection stays visible in the final document, several steps later.
 - A source that answers with zero entities is the warning `EMPTY_SOURCE`, not an error → `contracts/codes.py::Code`
   - Why: a repository with no documentation yet is a normal state.
-- The shared GitHub call decorator logs and re-raises every exception; it never turns a failure into `None` → `github/decorators.py::safe_call_decorator`
+- Shared code never turns a failure into `None`; the GitHub call decorator re-raises ([GitHub helpers](../api.md#github-helpers)) → `github/decorators.py::safe_call_decorator`
   - Why: a `None` for "failed" and one for "absent" look the same, and a retry policy cannot act on a value.
 
 ## Retries

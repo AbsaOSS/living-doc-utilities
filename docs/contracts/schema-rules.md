@@ -58,7 +58,7 @@ Pydantic emits a `dict[str, int]` map like this:
 { "type": "object", "additionalProperties": { "type": "integer" } }
 ```
 
-- `additionalProperties: false` on a map would accept only `{}`, so every artifact with stats would fail.
+- `additionalProperties: false` on a map would accept only `{}`, so every artifact with stats would fail → `contracts/schema_export.py::find_schema_violations`
   - Why not fixed properties: each new type, code or field path would need a hand-written schema change.
 
 Each map constrains its keys with `propertyNames`:

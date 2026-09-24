@@ -38,6 +38,7 @@ jobs:
       python_changed: ${{ steps.changes.outputs.python_changed }}
       schema_changed: ${{ steps.changes.outputs.schema_changed }}
       authoring_docs_changed: ${{ steps.changes.outputs.authoring_docs_changed }}
+      docs_changed: ${{ steps.changes.outputs.docs_changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -77,6 +78,13 @@ jobs:
             echo "authoring_docs_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "authoring_docs_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # A documentation page change runs the tests job too: tests/docs/ checks page structure, anchors and examples.
+          if echo "$changed_files" | grep -E '^((README|DEVELOPER|CONTRIBUTING)\.md|docs/.*\.md)$' > /dev/null; then
+            echo "docs_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
   # Static checks give the same result on every interpreter, so they run once, on the
@@ -119,7 +127,7 @@ jobs:
 
   tests:
     needs: detect
-    if: needs.detect.outputs.python_changed == 'true'
+    if: needs.detect.outputs.python_changed == 'true' || needs.detect.outputs.docs_changed == 'true'
     runs-on: ubuntu-latest
     name: Python Tests (Python ${{ matrix.python-version }})
     strategy:
