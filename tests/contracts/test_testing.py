@@ -22,6 +22,7 @@ shown_paths against every row of the field-by-view table.
 
 import inspect
 import json
+from dataclasses import dataclass
 
 import jsonschema
 import pytest
@@ -144,81 +145,128 @@ _INNER = "inner"
 _RELEASE = "release"
 
 
-def test_shown_paths_shows_derived_feature_state_in_both_views():
-    assert "content.entities[].state" in testing.shown_paths(_CID, _INNER)
-    assert "content.entities[].state" in testing.shown_paths(_CID, _RELEASE)
+@dataclass(frozen=True)
+class ShownPathCase:
+    """One canon §0e table row, for one view: the paths that view must show or hide."""
+
+    row: str
+    view: str
+    shown: tuple[str, ...] = ()
+    hidden: tuple[str, ...] = ()
 
 
-def test_shown_paths_shows_feature_stub_reason_in_inner_only():
-    assert "content.entities[].stub_reason" in testing.shown_paths(_CID, _INNER)
-    assert "content.entities[].stub_reason" not in testing.shown_paths(_CID, _RELEASE)
+SHOWN_PATH_CASES = [
+    ShownPathCase("entity_state", _INNER, shown=("content.entities[].state",)),
+    ShownPathCase("entity_state", _RELEASE, shown=("content.entities[].state",)),
+    ShownPathCase("feature_stub_reason", _INNER, shown=("content.entities[].stub_reason",)),
+    ShownPathCase("feature_stub_reason", _RELEASE, hidden=("content.entities[].stub_reason",)),
+    ShownPathCase(
+        "entity_not_in_scope_and_preconditions",
+        _INNER,
+        shown=("content.entities[].not_in_scope[]", "content.entities[].preconditions[]"),
+    ),
+    ShownPathCase(
+        "entity_not_in_scope_and_preconditions",
+        _RELEASE,
+        shown=("content.entities[].not_in_scope[]", "content.entities[].preconditions[]"),
+    ),
+    ShownPathCase(
+        "ac_not_in_scope_and_preconditions",
+        _INNER,
+        shown=(
+            "content.entities[].acceptance_criteria[].not_in_scope[]",
+            "content.entities[].acceptance_criteria[].preconditions[]",
+        ),
+    ),
+    ShownPathCase(
+        "ac_not_in_scope_and_preconditions",
+        _RELEASE,
+        shown=(
+            "content.entities[].acceptance_criteria[].not_in_scope[]",
+            "content.entities[].acceptance_criteria[].preconditions[]",
+        ),
+    ),
+    ShownPathCase(
+        "deprecation_date_and_reason",
+        _INNER,
+        shown=("content.entities[].deprecated_at", "content.entities[].deprecation_reason"),
+    ),
+    ShownPathCase(
+        "deprecation_date_and_reason",
+        _RELEASE,
+        hidden=("content.entities[].deprecated_at", "content.entities[].deprecation_reason"),
+    ),
+    ShownPathCase("ac_removal_planned", _INNER, shown=("content.entities[].acceptance_criteria[].removal_planned",)),
+    ShownPathCase(
+        "ac_removal_planned", _RELEASE, shown=("content.entities[].acceptance_criteria[].removal_planned",)
+    ),
+    ShownPathCase(
+        "ac_header_state_and_version",
+        _INNER,
+        shown=(
+            "content.entities[].acceptance_criteria[].state",
+            "content.entities[].acceptance_criteria[].version",
+        ),
+    ),
+    ShownPathCase(
+        "ac_header_state_and_version",
+        _RELEASE,
+        shown=(
+            "content.entities[].acceptance_criteria[].state",
+            "content.entities[].acceptance_criteria[].version",
+        ),
+    ),
+    ShownPathCase("ac_aspect", _INNER, shown=("content.entities[].acceptance_criteria[].aspect[]",)),
+    ShownPathCase("ac_aspect", _RELEASE, shown=("content.entities[].acceptance_criteria[].aspect[]",)),
+    ShownPathCase(
+        "ac_and_functionality_rationale",
+        _INNER,
+        shown=(
+            "content.entities[].acceptance_criteria[].rationale",
+            "content.entities[].acceptance_criteria[].placeholder_values",
+            "content.entities[].rationale",
+        ),
+    ),
+    ShownPathCase(
+        "ac_and_functionality_rationale",
+        _RELEASE,
+        shown=(
+            "content.entities[].acceptance_criteria[].rationale",
+            "content.entities[].acceptance_criteria[].placeholder_values",
+            "content.entities[].rationale",
+        ),
+    ),
+    ShownPathCase(
+        "source_ref_area_and_iteration_path",
+        _INNER,
+        shown=("content.entities[].source_ref.area_path", "content.entities[].source_ref.iteration_path"),
+    ),
+    ShownPathCase(
+        "source_ref_area_and_iteration_path",
+        _RELEASE,
+        hidden=("content.entities[].source_ref.area_path", "content.entities[].source_ref.iteration_path"),
+    ),
+    ShownPathCase(
+        "source_ref_native_type_and_tracker_state",
+        _INNER,
+        hidden=("content.entities[].source_ref.native_type", "content.entities[].source_ref.tracker_state"),
+    ),
+    ShownPathCase(
+        "source_ref_native_type_and_tracker_state",
+        _RELEASE,
+        hidden=("content.entities[].source_ref.native_type", "content.entities[].source_ref.tracker_state"),
+    ),
+]
 
 
-def test_shown_paths_shows_entity_not_in_scope_and_preconditions_in_both_views():
-    for view in (_INNER, _RELEASE):
-        shown = testing.shown_paths(_CID, view)
-        assert "content.entities[].not_in_scope[]" in shown
-        assert "content.entities[].preconditions[]" in shown
+@pytest.mark.parametrize("case", SHOWN_PATH_CASES, ids=[f"{c.row}[{c.view}]" for c in SHOWN_PATH_CASES])
+def test_shown_paths_matches_the_0e_table_row(case: ShownPathCase):
+    shown = testing.shown_paths(_CID, case.view)
 
-
-def test_shown_paths_shows_ac_level_not_in_scope_and_preconditions_in_both_views():
-    for view in (_INNER, _RELEASE):
-        shown = testing.shown_paths(_CID, view)
-        assert "content.entities[].acceptance_criteria[].not_in_scope[]" in shown
-        assert "content.entities[].acceptance_criteria[].preconditions[]" in shown
-
-
-def test_shown_paths_shows_deprecation_date_and_reason_in_inner_only():
-    for path in ("content.entities[].deprecated_at", "content.entities[].deprecation_reason"):
-        assert path in testing.shown_paths(_CID, _INNER)
-        assert path not in testing.shown_paths(_CID, _RELEASE)
-
-
-def test_shown_paths_shows_removal_planned_in_both_views():
-    for view in (_INNER, _RELEASE):
-        assert "content.entities[].acceptance_criteria[].removal_planned" in testing.shown_paths(_CID, view)
-
-
-def test_shown_paths_shows_ac_header_and_deprecated_badge_state_and_version_in_both_views():
-    for view in (_INNER, _RELEASE):
-        shown = testing.shown_paths(_CID, view)
-        assert "content.entities[].acceptance_criteria[].state" in shown
-        assert "content.entities[].acceptance_criteria[].version" in shown
-
-
-def test_shown_paths_shows_a_planned_ac_only_as_a_record_the_release_filter_drops():
-    # "planned vX.Y.Z" / "backlog" are inner-only because release drops planned ACs as records (a
-    # transform's job), not because a path is hidden; the label is rendered from state + version.
-    planned = [ac for entity in testing.full_sample(_CID).content.entities for ac in entity.acceptance_criteria]
-    assert any(ac.state == "planned" and ac.version is not None for ac in planned)
-    assert any(ac.state == "planned" and ac.version is None for ac in planned)
-    assert "content.entities[].acceptance_criteria[].version" in testing.shown_paths(_CID, _INNER)
-
-
-def test_shown_paths_shows_ac_aspect_in_both_views():
-    for view in (_INNER, _RELEASE):
-        assert "content.entities[].acceptance_criteria[].aspect[]" in testing.shown_paths(_CID, view)
-
-
-def test_shown_paths_shows_ac_rationale_placeholder_values_and_functionality_rationale_in_both_views():
-    for view in (_INNER, _RELEASE):
-        shown = testing.shown_paths(_CID, view)
-        assert "content.entities[].acceptance_criteria[].rationale" in shown
-        assert "content.entities[].acceptance_criteria[].placeholder_values" in shown
-        assert "content.entities[].rationale" in shown
-
-
-def test_shown_paths_shows_source_ref_area_path_and_iteration_path_in_inner_only():
-    for path in ("content.entities[].source_ref.area_path", "content.entities[].source_ref.iteration_path"):
-        assert path in testing.shown_paths(_CID, _INNER)
-        assert path not in testing.shown_paths(_CID, _RELEASE)
-
-
-def test_shown_paths_hides_source_ref_native_type_and_tracker_state_in_both_views():
-    for view in (_INNER, _RELEASE):
-        shown = testing.shown_paths(_CID, view)
-        assert "content.entities[].source_ref.native_type" not in shown
-        assert "content.entities[].source_ref.tracker_state" not in shown
+    for path in case.shown:
+        assert path in shown, f"{case.row} ({case.view}): expected {path!r} shown"
+    for path in case.hidden:
+        assert path not in shown, f"{case.row} ({case.view}): expected {path!r} hidden"
 
 
 def test_shown_paths_rejects_an_unsupported_contract():

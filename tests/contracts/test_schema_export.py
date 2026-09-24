@@ -15,8 +15,9 @@
 #
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Any, Callable, Optional, Union
 
 import jsonschema
 import pytest
@@ -119,24 +120,12 @@ def test_load_schema_matches_the_committed_file():
 
 
 @pytest.mark.parametrize("contract_id", CONTRACT_IDS)
-def test_schema_first_key_is_the_2020_12_dialect(contract_id):
+def test_schema_header_keys_match_r1_through_r4(contract_id):
     schema = _committed_schema(contract_id)
 
     assert next(iter(schema)) == "$schema"
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-
-
-@pytest.mark.parametrize("contract_id", CONTRACT_IDS)
-def test_schema_id_is_under_living_doc_utilities(contract_id):
-    schema = _committed_schema(contract_id)
-
     assert schema["$id"] == f"https://absaoss.github.io/living-doc-utilities/schemas/{contract_id}-schema.json"
-
-
-@pytest.mark.parametrize("contract_id", CONTRACT_IDS)
-def test_schema_version_is_a_top_level_const(contract_id):
-    schema = _committed_schema(contract_id)
-
     assert schema["properties"]["schema_version"]["const"] == contract_id
     assert "enum" not in schema["properties"]["schema_version"]
 
@@ -246,136 +235,208 @@ def test_malformed_path_inside_source_inputs_audit_field_occupancy_fails(malform
 # ---------------------------------------------------------------------------
 
 
-def test_deprecated_ac_without_removal_planned_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="removal_planned is required"):
-        factories.acceptance_criterion(state="deprecated", removal_planned=None)
+@dataclass(frozen=True)
+class RejectionCase:
+    """One cross-field rule: `invalid_model` is the factory call Pydantic must reject with
+    `match`; `build_invalid_data` returns the equivalent dumped payload the committed
+    `contract_id` schema must reject via plain jsonschema too."""
 
+    case_id: str
+    match: Optional[str]
+    contract_id: str
+    invalid_model: Callable[[], Any]
+    build_invalid_data: Callable[[], dict]
+
+
+def _deprecated_ac_without_removal_planned() -> dict:
     entity = factories.user_story(acceptance_criteria=[factories.acceptance_criterion(state="active", version="1.0.0")])
     data = _instance_dict_with_entities([entity])
     data["entities"][0]["acceptance_criteria"][0]["state"] = "deprecated"
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+    return data
 
 
-def test_non_planned_ac_without_version_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="version is required"):
-        factories.acceptance_criterion(state="active", version=None)
-
+def _non_planned_ac_without_version() -> dict:
     entity = factories.user_story(acceptance_criteria=[factories.acceptance_criterion(state="planned", version=None)])
     data = _instance_dict_with_entities([entity])
     data["entities"][0]["acceptance_criteria"][0]["state"] = "active"
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+    return data
 
 
-def test_feature_with_authored_state_origin_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="state_origin must be 'derived'"):
-        factories.feature(state_origin="authored")
-
+def _feature_with_authored_state_origin() -> dict:
     data = _instance_dict_with_entities([factories.feature()])
     data["entities"][0]["state_origin"] = "authored"
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+    return data
 
 
-def test_user_story_with_derived_state_origin_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="state_origin must be 'authored'"):
-        factories.user_story(state_origin="derived")
-
+def _user_story_with_derived_state_origin() -> dict:
     data = _instance_dict_with_entities([factories.user_story()])
     data["entities"][0]["state_origin"] = "derived"
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+    return data
 
 
-def test_stub_reason_on_a_non_feature_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="stub_reason is only valid on a Feature"):
-        factories.user_story(stub_reason="surface not yet instrumented")
-
+def _stub_reason_on_a_non_feature() -> dict:
     data = _instance_dict_with_entities([factories.user_story()])
     data["entities"][0]["stub_reason"] = "surface not yet instrumented"
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+    return data
 
 
-def test_pages_without_exactly_one_primary_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="exactly one primary PageRef"):
-        factories.feature(pages=[factories.page_ref(is_primary=False)])
-
+def _pages_without_exactly_one_primary() -> dict:
     data = _instance_dict_with_entities([factories.feature()])
     data["entities"][0]["pages"][0]["is_primary"] = False
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(doc_entities.CONTRACT_ID))
+    return data
 
 
-def test_ac_coverage_covered_status_with_a_not_covered_aspect_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="status must be 'partially_covered'"):
-        factories.ac_coverage(status="covered", aspects=[factories.aspect_coverage(status="not_covered")])
-
+def _ac_coverage_covered_with_a_not_covered_aspect() -> dict:
     data = _coverage_matrix_instance_dict()
     data["entities"][0]["acceptance_criteria"][0]["status"] = "covered"
     data["entities"][0]["acceptance_criteria"][0]["aspects"] = [
         {"aspect": "checkout", "status": "not_covered", "scenario_ids": []}
     ]
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
+    return data
 
 
-def test_ac_coverage_partially_covered_status_with_no_aspects_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="cannot be 'partially_covered'"):
-        factories.ac_coverage(status="partially_covered", aspects=[])
-
+def _ac_coverage_partially_covered_with_no_aspects() -> dict:
     data = _coverage_matrix_instance_dict()
     data["entities"][0]["acceptance_criteria"][0]["status"] = "partially_covered"
     data["entities"][0]["acceptance_criteria"][0]["aspects"] = []
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
+    return data
 
 
-def test_ac_coverage_with_a_malformed_ac_id_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError):
-        factories.ac_coverage(ac_id="US-001-anything")
-
+def _ac_coverage_with_a_malformed_ac_id() -> dict:
     data = _coverage_matrix_instance_dict()
     data["entities"][0]["acceptance_criteria"][0]["ac_id"] = "US-001-anything"
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
+    return data
 
 
-def test_aspect_coverage_covered_status_with_no_scenario_ids_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="status must be 'not_covered'"):
-        factories.aspect_coverage(status="covered", scenario_ids=[])
-
+def _aspect_coverage_covered_with_no_scenario_ids() -> dict:
     data = _coverage_matrix_instance_dict()
     data["entities"][0]["acceptance_criteria"][0]["status"] = "covered"
     data["entities"][0]["acceptance_criteria"][0]["aspects"] = [
         {"aspect": "checkout", "status": "covered", "scenario_ids": []}
     ]
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
+    return data
 
 
-def test_ac_coverage_without_aspects_covered_status_with_no_scenario_ids_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="status must be 'not_covered'"):
-        factories.ac_coverage(status="covered", aspects=[], scenario_ids=[])
-
+def _ac_coverage_without_aspects_covered_with_no_scenario_ids() -> dict:
     data = _coverage_matrix_instance_dict()
     data["entities"][0]["acceptance_criteria"][0]["status"] = "covered"
     data["entities"][0]["acceptance_criteria"][0]["aspects"] = []
     data["entities"][0]["acceptance_criteria"][0]["scenario_ids"] = []
+    return data
+
+
+def _generator_ready_with_empty_source_inputs() -> dict:
+    result = generator_ready.GeneratorReadyResult(
+        metadata=factories.transform_metadata(),
+        document=factories.generator_ready_document(),
+        content=generator_ready.Content(entities=[factories.user_story()]),
+    )
+    data = json.loads(result.model_dump_json())
+    data["metadata"]["source_inputs"] = []
+    return data
+
+
+REJECTION_CASES = [
+    RejectionCase(
+        "deprecated_ac_without_removal_planned",
+        "removal_planned is required",
+        doc_entities.CONTRACT_ID,
+        lambda: factories.acceptance_criterion(state="deprecated", removal_planned=None),
+        _deprecated_ac_without_removal_planned,
+    ),
+    RejectionCase(
+        "non_planned_ac_without_version",
+        "version is required",
+        doc_entities.CONTRACT_ID,
+        lambda: factories.acceptance_criterion(state="active", version=None),
+        _non_planned_ac_without_version,
+    ),
+    RejectionCase(
+        "feature_with_authored_state_origin",
+        "state_origin must be 'derived'",
+        doc_entities.CONTRACT_ID,
+        lambda: factories.feature(state_origin="authored"),
+        _feature_with_authored_state_origin,
+    ),
+    RejectionCase(
+        "user_story_with_derived_state_origin",
+        "state_origin must be 'authored'",
+        doc_entities.CONTRACT_ID,
+        lambda: factories.user_story(state_origin="derived"),
+        _user_story_with_derived_state_origin,
+    ),
+    RejectionCase(
+        "stub_reason_on_a_non_feature",
+        "stub_reason is only valid on a Feature",
+        doc_entities.CONTRACT_ID,
+        lambda: factories.user_story(stub_reason="surface not yet instrumented"),
+        _stub_reason_on_a_non_feature,
+    ),
+    RejectionCase(
+        "pages_without_exactly_one_primary",
+        "exactly one primary PageRef",
+        doc_entities.CONTRACT_ID,
+        lambda: factories.feature(pages=[factories.page_ref(is_primary=False)]),
+        _pages_without_exactly_one_primary,
+    ),
+    RejectionCase(
+        "ac_coverage_covered_status_with_a_not_covered_aspect",
+        "status must be 'partially_covered'",
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(status="covered", aspects=[factories.aspect_coverage(status="not_covered")]),
+        _ac_coverage_covered_with_a_not_covered_aspect,
+    ),
+    RejectionCase(
+        "ac_coverage_partially_covered_status_with_no_aspects",
+        "cannot be 'partially_covered'",
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(status="partially_covered", aspects=[]),
+        _ac_coverage_partially_covered_with_no_aspects,
+    ),
+    RejectionCase(
+        "ac_coverage_with_a_malformed_ac_id",
+        None,
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(ac_id="US-001-anything"),
+        _ac_coverage_with_a_malformed_ac_id,
+    ),
+    RejectionCase(
+        "aspect_coverage_covered_status_with_no_scenario_ids",
+        "status must be 'not_covered'",
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.aspect_coverage(status="covered", scenario_ids=[]),
+        _aspect_coverage_covered_with_no_scenario_ids,
+    ),
+    RejectionCase(
+        "ac_coverage_without_aspects_covered_status_with_no_scenario_ids",
+        "status must be 'not_covered'",
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(status="covered", aspects=[], scenario_ids=[]),
+        _ac_coverage_without_aspects_covered_with_no_scenario_ids,
+    ),
+    RejectionCase(
+        "generator_ready_with_empty_source_inputs",
+        "source_inputs must have at least one entry",
+        generator_ready.CONTRACT_ID,
+        lambda: generator_ready.GeneratorReadyResult(
+            metadata=factories.metadata(),
+            document=factories.generator_ready_document(),
+            content=generator_ready.Content(entities=[factories.user_story()]),
+        ),
+        _generator_ready_with_empty_source_inputs,
+    ),
+]
+
+
+@pytest.mark.parametrize("case", REJECTION_CASES, ids=[case.case_id for case in REJECTION_CASES])
+def test_rule_is_rejected_by_pydantic_and_jsonschema(case: RejectionCase):
+    with pytest.raises(ValidationError, match=case.match):
+        case.invalid_model()
+
+    data = case.build_invalid_data()
 
     with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
+        jsonschema.validate(instance=data, schema=_committed_schema(case.contract_id))
 
 
 def test_ac_coverage_without_aspects_covered_status_with_scenario_ids_key_omitted_is_rejected_by_jsonschema_too():
@@ -398,26 +459,6 @@ def test_transform_output_source_inputs_minitems_is_mirrored_into_the_schema(con
     metadata_def = schema["$defs"]["Metadata"]
 
     assert metadata_def["properties"]["source_inputs"]["minItems"] == 1
-
-
-def test_generator_ready_with_empty_source_inputs_is_rejected_by_pydantic_and_jsonschema():
-    with pytest.raises(ValidationError, match="source_inputs must have at least one entry"):
-        generator_ready.GeneratorReadyResult(
-            metadata=factories.metadata(),
-            document=factories.generator_ready_document(),
-            content=generator_ready.Content(entities=[factories.user_story()]),
-        )
-
-    result = generator_ready.GeneratorReadyResult(
-        metadata=factories.transform_metadata(),
-        document=factories.generator_ready_document(),
-        content=generator_ready.Content(entities=[factories.user_story()]),
-    )
-    data = json.loads(result.model_dump_json())
-    data["metadata"]["source_inputs"] = []
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(generator_ready.CONTRACT_ID))
 
 
 def test_collector_output_with_empty_source_inputs_still_passes_jsonschema():

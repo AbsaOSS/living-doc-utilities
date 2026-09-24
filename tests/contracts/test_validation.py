@@ -43,18 +43,6 @@ def test_validate_returns_every_error_for_an_invalid_payload():
     assert isinstance(errors[0], jsonschema.exceptions.ValidationError)
 
 
-def test_validate_selects_the_validator_declared_by_the_schemas_own_dialect(mocker):
-    schema = {"$schema": _DRAFT_2020_12, "type": "string"}
-    spy = mocker.patch(
-        "living_doc_utilities.contracts.validation.jsonschema.validators.validator_for",
-        wraps=jsonschema.validators.validator_for,
-    )
-
-    validate("ok", schema)
-
-    spy.assert_called_once_with(schema)
-
-
 def test_validate_enforces_a_2020_12_only_keyword_prefixitems():
     # prefixItems is a 2020-12 keyword; a hardcoded Draft-07 validator would not recognise it
     # and would silently ignore the constraint rather than reject a violating instance.

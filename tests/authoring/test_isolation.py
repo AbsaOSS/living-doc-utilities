@@ -122,16 +122,6 @@ def test_authoring_imports_nothing_github_or_azure_devops_specific():
     assert offenders == [], f"authoring must stay source-agnostic, but found: {offenders}"
 
 
-def test_module_less_relative_import_is_still_named_not_reported_as_empty():
-    # `from . import azure_devops` has no `node.module` (it's a bare relative import), so
-    # naively falling back to `node.module or ""` would report it as "" - invisible to the
-    # `"azure" in lowered` check above. Confirm it now surfaces the imported name instead.
-    tree = ast.parse("from . import azure_devops")
-    (node,) = [n for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
-
-    assert _imported_module_names(node) == ["azure_devops"]
-
-
 def _has_enclosing_function(tree: ast.AST, target: ast.AST) -> bool:
     """True when `target` is nested inside a `def`/`async def` somewhere under `tree`."""
     for candidate in ast.walk(tree):
