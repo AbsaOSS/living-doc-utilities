@@ -62,6 +62,21 @@ _HEADER_WITH_UNKNOWN_KEY = """\
 Feature: Another Story
 """
 
+_FUNCTIONALITY_HEADER = """\
+# =============================================================================
+# LIVING DOC — FUNC-001 · Sample Functionality
+# =============================================================================
+# status:          active
+# parent:           US-001
+# func_type:        backend
+# rationale:
+#   - Centralizes validation so every caller gets the same rules.
+# =============================================================================
+
+@FUNC_ID:FUNC-001
+Feature: Sample Functionality
+"""
+
 
 def test_recognised_keys_land_on_their_fields():
     """Every recognised `.feature`-header key is assigned to its matching entity field, with no warnings."""
@@ -153,6 +168,17 @@ def test_en_dash_input_is_normalized_before_ac_grammar_runs():
     assert entity.entity_id == "US-003"
     assert entity.acceptance_criteria[0].state == "active"
     assert entity.acceptance_criteria[0].version == "1.0.0"
+
+
+def test_functionality_rationale_key_lands_on_its_field():
+    """A Functionality header's `rationale:` bullet joins into the `rationale` field, alongside `parent`/`func_type`."""
+    entity, warnings = parse_feature_header(_FUNCTIONALITY_HEADER, "DocumentedFunctionality")
+
+    assert warnings == []
+    assert entity.entity_id == "FUNC-001"
+    assert entity.parent == "US-001"
+    assert entity.func_type == "backend"
+    assert entity.rationale == "Centralizes validation so every caller gets the same rules."
 
 
 def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():

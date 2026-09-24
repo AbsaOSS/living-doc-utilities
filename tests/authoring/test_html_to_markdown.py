@@ -153,6 +153,15 @@ def test_tag_outside_the_sanitizer_allowlist_is_counted_not_silently_dropped():
     assert "unsupported_tag=1" in warnings[0].context
 
 
+def test_tag_with_no_markdown_form_is_unwrapped_and_counted_as_unknown_tag():
+    """A sanitizer-allowed tag this converter can't render (e.g. `<strong>`) keeps its text and counts unknown_tag."""
+    text, warnings = convert_html_to_markdown("<p>before <strong>bold</strong> after</p>")
+
+    assert text == "before bold after"
+    assert len(warnings) == 1
+    assert "unknown_tag=1" in warnings[0].context
+
+
 def test_en_dash_bullet_in_div_is_normalized_to_a_plain_bullet():
     """An en-dash-prefixed bullet from a converted div is normalized to a plain hyphen bullet once normalize runs."""
     html = "<h2>Business Value</h2><div>&ndash; Registered customers can reach their account area.</div>"
