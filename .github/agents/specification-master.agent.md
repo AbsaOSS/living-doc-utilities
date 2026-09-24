@@ -98,10 +98,11 @@ Non-goals
 Repo specifics
 
 - Spec locations
-  - Prefer README.md, DEVELOPER.md, and CONTRIBUTING.md for contract and contributor-facing documentation.
+  - Prefer the documentation tree README.md routes to: the hubs docs/contracts.md and docs/authoring.md, their detail pages under docs/contracts/ and docs/authoring/, and docs/api.md; DEVELOPER.md and CONTRIBUTING.md for contributor-facing documentation.
+  - Must write or change a page by DEVELOPER.md, "Writing documentation".
 - Contract-sensitive outputs
   - GitHub Actions output file format (GITHUB_OUTPUT name=value lines).
-  - living_doc_utilities/contracts/ pydantic models and their generated living_doc_utilities/contracts/schemas/*.json, normatively defined in docs/contracts.md.
+  - living_doc_utilities/contracts/ pydantic models and their generated living_doc_utilities/contracts/schemas/*.json, normatively defined under docs/contracts/ (the hub docs/contracts.md lists every rule and its page).
 - High-risk areas
   - GitHub API usage: rate limiting and missing permission scenarios.
   - GitHub Actions I/O: env var inputs and output file writes.

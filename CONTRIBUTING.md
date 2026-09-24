@@ -1,5 +1,23 @@
 # How to Contribute?
 
+## Purpose
+
+Anyone who wants to contribute reads this page. It covers reporting a bug, proposing a feature, the AI-free
+principle, and how to name and describe a branch and a pull request.
+
+Read before: [README](README.md)
+
+## Contents
+
+- [Identifying and Reporting Bugs](#identifying-and-reporting-bugs)
+- [Proposing New Features](#proposing-new-features)
+- [AI-free Principle](#ai-free-principle)
+- [Contributing to Development](#contributing-to-development)
+- [Branch Naming](#branch-naming)
+- [PR Naming](#pr-naming)
+- [PR Description](#pr-description)
+- [Target Branches](#target-branches)
+
 ## **Identifying and Reporting Bugs**
 * **Ensure the bug has not already been reported** by searching our **[GitHub Issues](https://github.com/AbsaOSS/living-doc-utilities/issues)**.
 * If you cannot find an open issue describing the problem, use the **Bug report** template to open a new one. Tag it with the **bug** label.

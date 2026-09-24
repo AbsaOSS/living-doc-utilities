@@ -73,7 +73,7 @@ jobs:
             echo "schema_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if echo "$changed_files" | grep -E '^(living_doc_utilities/authoring/(normalisation_cases\.yaml|docs_export\.py)|docs/authoring\.md|Makefile)$' > /dev/null; then
+          if echo "$changed_files" | grep -E '^(living_doc_utilities/authoring/(normalisation_cases\.yaml|docs_export\.py)|docs/authoring/normalisation\.md|Makefile)$' > /dev/null; then
             echo "authoring_docs_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "authoring_docs_changed=false" >> "$GITHUB_OUTPUT"
@@ -147,7 +147,7 @@ jobs:
       - name: Run tests with coverage
         run: make coverage
 
-  # Owner-side regeneration gate (docs/contracts.md, "Schema authoring rules"): a contract
+  # Owner-side regeneration gate (docs/contracts/schema-rules.md, "Generated schemas"): a contract
   # model change with no regenerated schema must fail here, not downstream.
   schema-regeneration-check:
     needs: detect
@@ -182,7 +182,7 @@ jobs:
             exit 1
           fi
 
-  # Owner-side regeneration gate (docs/authoring.md, "Worked examples"): a
+  # Owner-side regeneration gate (docs/authoring/normalisation.md, "Worked examples"): a
   # normalisation_cases.yaml change with no regenerated table must fail here, not downstream.
   docs-regeneration-check:
     needs: detect
@@ -212,8 +212,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! git diff --exit-code -- docs/authoring.md; then
-            echo "::error::docs/authoring.md's worked-examples table is out of date. Run 'make docs' and commit the result."
+          if ! git diff --exit-code -- docs/authoring/normalisation.md; then
+            echo "::error::docs/authoring/normalisation.md's worked-examples table is out of date. Run 'make docs' and commit the result."
             exit 1
           fi
 

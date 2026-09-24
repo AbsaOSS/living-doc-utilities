@@ -25,7 +25,7 @@ that the collectors and generators import instead of re-implementing.
 - Must treat every public class and function as an import surface — there is no `main.py` / `run()`.
 - Must keep the library AI-free — deterministic Python only, no LLM call anywhere.
 - Must keep environment access confined to `logging_config.setup_logging()`, `github/utils.get_action_input()`, and `github/utils.set_action_output()` (which writes to the file named by `GITHUB_OUTPUT`); Must keep `contracts/` and `authoring/` free of environment reads.
-- Must treat `contracts/` as the shared, typed pydantic models of the doc-entities / doc-source / ui-tests / generator-ready / coverage-matrix / ui-test-catalog contracts (see `docs/contracts.md`), and `authoring/` as the pure `text -> data` layer that reads authored documents into them (see `docs/authoring.md`).
+- Must treat `contracts/` as the shared, typed pydantic models of the doc-entities / doc-source / ui-tests / generator-ready / coverage-matrix / ui-test-catalog contracts (see the hub `docs/contracts.md` and its pages under `docs/contracts/`), and `authoring/` as the pure `text -> data` layer that reads authored documents into them (see the hub `docs/authoring.md` and its pages under `docs/authoring/`).
 - Must not import from any collector, toolkit, or generator package — dependencies run one way, from those repos into this one.
 
 ## Repo specifics
@@ -38,12 +38,12 @@ Module map — the `living_doc_utilities/` package:
 | `logging_config.py` | `setup_logging()` — reads `INPUT_VERBOSE_LOGGING` and `RUNNER_DEBUG` from the environment, configures the root logger to stdout |
 | `contracts/common.py` | `ContractModel` (`extra="forbid"` pydantic base every contract model extends), `AcceptanceCriterion` (plus its `canonical_header()` renderer), `EntityCore`, `SourceRef`, `Timestamps` |
 | `contracts/envelope.py` | The shared metadata envelope — `Metadata`, `Producer`, `Run`, `Source`, `Cardinality`, `Stats` / `AuditStats`, `SourceInputEntry`, `ContractWarning` — one model imported unchanged by every contract |
-| `contracts/doc_entities.py`, `contracts/doc_source.py`, `contracts/ui_tests.py` | The `doc-entities` / `doc-source` / `ui-tests` collector-output contract result models (`Entity`, `PageRef`, `Scenario`, `AcLink`) and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
-| `contracts/generator_ready.py`, `contracts/coverage_matrix.py`, `contracts/ui_test_catalog.py` | The `generator-ready` / `coverage-matrix` / `ui-test-catalog` transform-output contract result models — reuse `doc_entities.Entity` / `common.AcceptanceCriterion` / `ui_tests.Scenario` directly rather than redeclaring them — and each contract's `RECORD_ROOTS` declaration (docs/contracts.md, section 1) |
+| `contracts/doc_entities.py`, `contracts/doc_source.py`, `contracts/ui_tests.py` | The `doc-entities` / `doc-source` / `ui-tests` collector-output contract result models (`Entity`, `PageRef`, `Scenario`, `AcLink`) and each contract's `RECORD_ROOTS` declaration (docs/contracts/artifact-rules.md, "Contracts") |
+| `contracts/generator_ready.py`, `contracts/coverage_matrix.py`, `contracts/ui_test_catalog.py` | The `generator-ready` / `coverage-matrix` / `ui-test-catalog` transform-output contract result models — reuse `doc_entities.Entity` / `common.AcceptanceCriterion` / `ui_tests.Scenario` directly rather than redeclaring them — and each contract's `RECORD_ROOTS` declaration (docs/contracts/artifact-rules.md, "Contracts") |
 | `contracts/schema_export.py` | Generates `contracts/schemas/*.json` from the models — `python -m living_doc_utilities.contracts.schema_export`, or `make schemas` — and `load_schema(contract_id)` |
-| `contracts/codes.py` | `ALL_CODES` — the single registry of every error and warning code, with its kind and emitting component (docs/contracts.md, section 5) |
+| `contracts/codes.py` | `ALL_CODES` — the single registry of every error and warning code, with its kind and emitting component; `docs/contracts/errors.md` lists exactly these codes, and a test keeps the two equal |
 | `contracts/validation.py`, `contracts/compat.py` | The one structural-validation helper (`jsonschema.validators.validator_for`, never a hardcoded validator class) and the R5 compatibility check every consumer runs before trusting an input file |
-| `contracts/io.py` | `read_artifact()` / `write_artifact()` — the only sanctioned way to read or write a contract artifact (docs/contracts.md, R12): compatibility check on read, in-memory validation then temp file and atomic rename on write |
+| `contracts/io.py` | `read_artifact()` / `write_artifact()` — the only sanctioned way to read or write a contract artifact (R12; docs/contracts/artifact-rules.md, "Reading and writing"): compatibility check on read, in-memory validation then temp file and atomic rename on write |
 | `contracts/stats.py`, `contracts/lineage.py`, `contracts/testing.py` | The R11 / R12 helpers every component builds its own tests on — `metadata.stats` computation, the lineage-table machinery (`LineageTable`, `assert_complete`, `check_field_loss`), and `full_sample()` / `shown_paths()` |
 | `contracts/check_no_vendored_schemas.py` | R12 check 1 — `python -m living_doc_utilities.contracts.check_no_vendored_schemas [--allow DIR]`, or `make no-vendored-schemas` |
 | `authoring/normalize.py` | `normalize(text, fmt, entity_type)` and `normalize_title(title)` — rewrites non-canonical dashes, bullet markers, case, version form and whitespace per `SourceFormat`, never touching code, Gherkin step text, or free prose; `TYPE_PROFILES` is the only place holding which of an entity type's sections are bullet sections |
@@ -51,7 +51,7 @@ Module map — the `living_doc_utilities/` package:
 | `authoring/issue_body.py`, `authoring/feature_header.py`, `authoring/page_object.py`, `authoring/scenario.py` | The parsers — a GitHub issue body, a `.feature` file's header block, a PageObject header, and a `.feature` file's scenarios with their `@AC:` tags; each returns `(parsed, warnings)` and never raises on malformed input |
 | `authoring/identity.py`, `authoring/status.py`, `authoring/relations.py` | `entity_id` derivation from a title, `derive_statuses()` (final `state` / `state_origin`, run once over a whole run), and cross-entity relation checks |
 | `authoring/url_policy.py`, `authoring/html_to_markdown.py` | Which links survive into rendered documentation (`safe_href`, `sanitize_html_fragment`) and Azure DevOps rich-text HTML into the Markdown-like text the other parsers read (`convert_html_to_markdown`); both need the `html` extra at call time |
-| `authoring/docs_export.py`, `authoring/normalisation_cases.yaml` | `make docs` regenerates `docs/authoring.md`'s worked-examples table from `normalize`'s only test data, read by `tests/authoring/test_normalize_cases.py` |
+| `authoring/docs_export.py`, `authoring/normalisation_cases.yaml` | `make docs` regenerates `docs/authoring/normalisation.md`'s worked-examples table from `normalize`'s only test data, read by `tests/authoring/test_normalize_cases.py` |
 | `github/utils.py` | `get_action_input(name, default="")` (reads `INPUT_<NAME>` from the environment), `set_action_output(name, value)` (appends `name=value` to `$GITHUB_OUTPUT`) — imports nothing outside the standard library |
 | `github/rate_limiter.py` | `GithubRateLimiter` — callable class that sleeps until the GitHub rate-limit reset when `remaining < 5`, capped at 48 reset-time adjustments; needs the `github` extra |
 | `github/decorators.py` | `debug_log_decorator` (debug logging around a call) and `safe_call_decorator(rate_limiter)` (rate-limited call that logs `ConnectionError` / `Timeout` / `GithubException` / `RequestException` / any `Exception` and **re-raises** it); needs the `github` extra |
@@ -128,7 +128,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep integration boundaries — the GitHub API via `PyGithub`, `requests`, and the filesystem — explicit and mockable.
 - Must use pydantic's own serde (`model_dump()` / `model_validate()`) on every `contracts/` model; Must not add a hand-rolled `to_dict()` / `from_dict()` there.
 - Must express a `contracts/` model's cross-field invariant as a leading-underscore `@model_validator(mode="after")` method, matching `doc_entities.Entity`'s `_check_state_origin` / `_check_stub_reason_is_feature_only` / `_check_acceptance_criteria_belong_to_this_entity`.
-- Must declare a new contract's record roots as a module-level `RECORD_ROOTS: dict[str, type[BaseModel]]`, matching `doc_entities.py` (docs/contracts.md, "Each contract declares its own record roots in its contract module").
+- Must declare a new contract's record roots as a module-level `RECORD_ROOTS: dict[str, type[BaseModel]]`, matching `doc_entities.py`, and add its row to `registry.py::CONTRACTS` (docs/contracts/artifact-rules.md, "Contracts").
 - Must read and write a contract artifact through `contracts.io.read_artifact()` / `write_artifact()`, never a plain `json.load()` / `json.dump()`.
 
 ## Testing
@@ -155,6 +155,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep `make coverage` (pytest, `--cov-fail-under=80`) passing.
 - Must not add an `integration` marker, a `test-unit` / `test-integration` target or `--ignore=tests/integration` to `test` / `coverage` — this repo has no integration tests, a deliberate difference from the shared `Makefile` vocabulary in `AbsaOSS/living-doc`.
 - Must run `make import-matrix` after touching an import or `pyproject.toml` dependencies — it builds the wheel and proves, in three clean virtual environments (no extra, `github`, `html`), which modules import and which need an extra; CI runs the same target; it needs a POSIX shell (Linux, macOS, or WSL on Windows).
+- Must follow `DEVELOPER.md`, "Writing documentation", for `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` and every page under `docs/`; Must add a new page to `tests/docs/pages.py::APPROVED_PAGES` and link it from its hub — the page tests in `tests/docs/` fail otherwise.
 - Must run `make schemas` and commit the regenerated `contracts/schemas/*.json` when a `contracts/` model changes — `make qa` does not regenerate them itself, and CI's Schema Regeneration Check fails the build on any diff.
 
 ## Common pitfalls

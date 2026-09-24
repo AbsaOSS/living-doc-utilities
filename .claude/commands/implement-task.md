@@ -40,8 +40,10 @@ Task-list source (optional override): `$2`
   unless the task explicitly calls for it — and bump `pyproject.toml` `version` when it
   does.
 - If a design-doc section is being implemented, apply `.claude/rules/docs-lifecycle.md` in
-  this same change: move that section's content into the live docs (`README.md` /
-  `DEVELOPER.md`).
+  this same change: move that section's content into the live docs — the page that
+  defines it in the `docs/` tree (`docs/contracts/`, `docs/authoring/`, `docs/api.md`),
+  `README.md` for routing only, `DEVELOPER.md` for the workflow — following
+  `DEVELOPER.md`, "Writing documentation".
 
 ## 4. Run the `make qa` loop until green
 

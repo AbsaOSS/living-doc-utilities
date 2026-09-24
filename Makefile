@@ -51,13 +51,13 @@ test: ## Run the test suite.
 coverage: ## Run the test suite with the coverage gate.
 	pytest --cov=. -v tests/ --cov-fail-under=$(COV_MIN)
 
-schemas: ## Regenerate the contract JSON Schemas from the pydantic models (docs/contracts.md).
+schemas: ## Regenerate the contract JSON Schemas from the pydantic models (docs/contracts/schema-rules.md).
 	$(PYTHON) -m living_doc_utilities.contracts.schema_export
 
 no-vendored-schemas: ## R12 check 1: fail on any committed schema file outside tests/ and this package's own schemas dir.
 	$(PYTHON) -m living_doc_utilities.contracts.check_no_vendored_schemas --allow living_doc_utilities/contracts/schemas
 
-docs: ## Regenerate docs/authoring.md's worked-examples table from normalisation_cases.yaml.
+docs: ## Regenerate docs/authoring/normalisation.md's worked-examples table from normalisation_cases.yaml.
 	$(PYTHON) -m living_doc_utilities.authoring.docs_export
 
 import-matrix: ## Build the wheel and prove in three clean venvs (no extra / github / html) which modules import and which need an extra.

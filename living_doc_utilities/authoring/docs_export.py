@@ -15,9 +15,9 @@
 #
 
 """
-Regenerates docs/authoring.md's worked-examples table from normalisation_cases.yaml, so the table can never
-drift from what the test suite proves. Only the region between the BEGIN/END GENERATED markers is rewritten;
-a CI job re-runs this and diffs the whole file.
+Regenerates docs/authoring/normalisation.md's worked-examples table from normalisation_cases.yaml, so the
+table can never drift from what the test suite proves. Only the region between the BEGIN/END GENERATED markers
+is rewritten; a CI job re-runs this and diffs the whole file.
 """
 
 from pathlib import Path
@@ -25,7 +25,7 @@ from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CASES_FILE = _REPO_ROOT / "living_doc_utilities" / "authoring" / "normalisation_cases.yaml"
-_DOC_FILE = _REPO_ROOT / "docs" / "authoring.md"
+_DOC_FILE = _REPO_ROOT / "docs" / "authoring" / "normalisation.md"
 
 _BEGIN_MARKER = "<!-- BEGIN GENERATED: normalisation-examples -->"
 _END_MARKER = "<!-- END GENERATED: normalisation-examples -->"
@@ -82,7 +82,7 @@ def _splice(doc_text: str, table: str) -> str:
 
 
 def regenerate() -> str:
-    """Returns the fully regenerated docs/authoring.md content, without writing it."""
+    """Returns the fully regenerated docs/authoring/normalisation.md content, without writing it."""
     cases = _load_cases()
     table = render_table(cases)
     doc_text = _DOC_FILE.read_text(encoding="utf-8")
