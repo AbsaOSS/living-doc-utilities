@@ -15,28 +15,9 @@
 #
 
 """
-Converts an Azure DevOps rich-text HTML fragment into the canonical Markdown-like text this
-package's other parsers understand (docs/authoring.md, "HTML-to-Markdown conversion").
-`convert_html_to_markdown`'s output is meant to be run through
-`normalize(text, SourceFormat.HTML_MARKDOWN, entity_type)` and then `issue_body` (or
-whichever parser fits the entity), exactly like any other source format - this module only
-turns markup into text, it never derives an entity id or a field.
-
-Handles headings, paragraphs, `<div>`/`<br>`, lists, tables, links and inline code. Two
-passes run over the input: one (`_DropCountingParser`) counts, on the *original* markup,
-every construct this pipeline drops - a `<script>`/`<style>` tag, an event-handler
-attribute, an `<img>` tag, a link `url_policy.safe_href` rejects, or any other tag
-`url_policy.sanitized_tag_allowlist()` won't keep (an `<iframe>`, a `<form>`, ...), counted
-as `unsupported_tag` - and a second sanitises the input with `url_policy.sanitize_html_fragment`
-(the same vetted policy a future PDF-generator text filter will reuse, and the same
-allow-list the first pass counts against, so the two passes can't drift apart) before
-walking the result into Markdown, counting any remaining tag this converter has no Markdown
-form for as `unknown_tag`. Every drop, of whichever kind, is folded into one
-`HTML_CONTENT_DROPPED` warning carrying the per-kind counts - never one warning per drop.
-
-Handling the specific quirks of a real Azure DevOps rich-text editor's HTML output is out of
-scope for this PR - that is a later Azure-DevOps-collector task's job, once real editor
-samples are available. This covers the well-formed-HTML case.
+Converts Azure DevOps rich-text HTML into the canonical Markdown-like text this package's other
+parsers understand. Two passes count what's dropped (`unsupported_tag`, `unsafe_href`, ...) and
+what can't be rendered (`unknown_tag`); malformed input is never fatal, only counted.
 """
 
 import re
@@ -54,10 +35,7 @@ _LIST_TAGS = {"ul", "ol"}
 _TABLE_SECTION_TAGS = {"thead", "tbody", "tfoot"}
 _CELL_TAGS = {"td", "th"}
 
-# Every tag this converter has a Markdown rendering for. Anything else surviving
-# `sanitize_html_fragment` (nh3 allows plenty of formatting tags this converter simply has
-# no opinion on yet, e.g. `<strong>`) is unwrapped - its text kept, its markup dropped and
-# counted as `unknown_tag`.
+# Tags this converter renders; anything else surviving sanitization is unwrapped, counted unknown_tag.
 _SUPPORTED_TAGS = (
     _HEADING_TAGS | _LIST_TAGS | _TABLE_SECTION_TAGS | _CELL_TAGS | {"p", "div", "br", "li", "table", "tr", "a", "code"}
 )
@@ -99,9 +77,7 @@ class _DropCountingParser(HTMLParser):
         elif tag == "img":
             self._count("img_tag")
         elif tag not in self._tag_allowlist:
-            # Anything else `sanitize_html_fragment` won't keep - an `<iframe>`, `<form>`,
-            # `<svg>`, ... - derived from the same allow-list it actually sanitises against,
-            # not a second, hand-maintained copy that can drift from it.
+            # Anything else sanitize_html_fragment won't keep, from the same allow-list it sanitises against.
             self._count("unsupported_tag")
         if tag == "a":
             href = dict(attrs).get("href")
@@ -116,10 +92,8 @@ class _DropCountingParser(HTMLParser):
 
 
 class _TreeBuilder(HTMLParser):
-    """Builds a `_Elem` tree from already-sanitised HTML. Any tag outside
-    `_SUPPORTED_TAGS` is unwrapped rather than dropped with its content - only
-    `sanitize_html_fragment` decides what loses its content entirely (`<script>`,
-    `<style>`); this pass only decides what this converter can render as Markdown."""
+    """Builds a `_Elem` tree from already-sanitised HTML. A tag outside `_SUPPORTED_TAGS` is
+    unwrapped, not dropped - only sanitize_html_fragment decides what loses its content entirely."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -251,8 +225,7 @@ def _build_warnings(counts: Counter[str]) -> list[ContractWarning]:
 def convert_html_to_markdown(html: str) -> tuple[str, list[ContractWarning]]:
     """Converts an Azure DevOps rich-text HTML fragment into Markdown-like text. Never
     raises on malformed input, matching every other parser in this package - a construct
-    it cannot render is simply dropped and counted, never fatal.
-    """
+    it cannot render is simply dropped and counted, never fatal."""
     drop_scan = _DropCountingParser()
     drop_scan.feed(html)
     drop_scan.close()

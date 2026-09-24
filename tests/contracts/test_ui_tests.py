@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for the ui-tests-v1.0.0 contract: the result envelope's scenarios array, and Scenario's
-per-tag AcLink pairing of an acceptance criterion with its own aspect.
-"""
+"""The ui-tests contract: the scenarios array and `Scenario`'s per-tag `AcLink` pairing of an AC with its aspect."""
 
 import pytest
 from pydantic import ValidationError
@@ -48,8 +45,7 @@ def test_record_roots_declares_scenarios():
 
 def test_scenario_pairs_each_acceptance_criterion_with_its_own_aspect():
     """A Scenario keeps each AcLink's id paired with its own aspect, in tag order, not flattened."""
-    # Two @AC: tags on one scenario, each with a distinct aspect - the shape the flat
-    # acceptance_criteria[]/aspects[] pair could not express (see AcLink's docstring).
+    # Two @AC: tags with distinct aspects: the shape the flat acceptance_criteria[]/aspects[] pair could not express.
     result = factories.scenario(
         acceptance_criteria=[
             factories.ac_link(id="FUNC-001-01", aspect="minimum-length"),
@@ -71,7 +67,7 @@ def test_scenario_ac_link_aspect_defaults_to_none():
 
 
 def test_scenario_ac_link_id_rejects_non_canonical_form():
-    """AcLink.id rejects a value that isn't in canonical entity-id form."""
+    """AcLink.id rejects a value that isn't a canonical acceptance-criterion id."""
     with pytest.raises(ValidationError):
         factories.ac_link(id="not-canonical")
 

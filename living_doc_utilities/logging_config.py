@@ -24,17 +24,11 @@ import sys
 
 
 def setup_logging() -> None:
-    """
-    Set up the logging configuration in the project
-
-    @return: None
-    """
-    # Load logging configuration from the environment variables
+    """Sets up logging: stdout handler, DEBUG when verbose or under CI debug, INFO otherwise."""
     is_verbose_logging: bool = os.getenv("INPUT_VERBOSE_LOGGING", "false").lower() == "true"
     is_debug_mode = os.getenv("RUNNER_DEBUG", "0") == "1"
     level = logging.DEBUG if is_verbose_logging or is_debug_mode else logging.INFO
 
-    # Set up the logging configuration
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(levelname)s - %(message)s",

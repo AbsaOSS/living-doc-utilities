@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for schema_export.py (docs/contracts.md, R1-R4, R9): JSON Schema generation, the
-committed schemas' parity with regeneration, and the cross-field rules mirrored into them.
-"""
+"""`schema_export.py` (R1-R4, R9): schema generation, committed-schema parity, and the mirrored cross-field rules."""
 
 import json
 import re
@@ -120,7 +117,7 @@ def test_regeneration_overwrites_a_tampered_schema_file(tmp_path):
 
 
 def test_load_schema_matches_the_committed_file():
-    """schema_export.load_schema returns exactly the committed schema file's contents for every contract."""
+    """`schema_export.py::load_schema` returns exactly the committed schema file's contents for every contract."""
     for contract_id in CONTRACT_IDS:
         assert schema_export.load_schema(contract_id) == _committed_schema(contract_id)
 
@@ -154,8 +151,7 @@ def test_no_schema_version_dollar_key_anywhere_in_the_package():
 
 
 # ---------------------------------------------------------------------------
-# R9: every object is a record (additionalProperties: false) or a typed map
-# (additionalProperties + propertyNames) - never a third kind.
+# R9: every object is a record (additionalProperties: false) or a typed map, never a third kind.
 # ---------------------------------------------------------------------------
 
 
@@ -247,21 +243,13 @@ def test_malformed_path_inside_source_inputs_audit_field_occupancy_fails(malform
 
 
 # ---------------------------------------------------------------------------
-# Cross-field model_validator rules, mirrored into the schema as allOf if/then/else
-# (_inject_cross_field_constraints): each invalid payload must be rejected by both
-# Pydantic and a plain jsonschema validator, not just by Pydantic.
-#
-# Key-*omission* parity for these same rules (dropping a field entirely, rather than setting
-# it to an explicit invalid value) is tested once, generically, in test_omission_parity.py -
-# not per rule here.
+# Cross-field rules mirrored as allOf if/then/else are rejected by both validators (omission: test_omission_parity.py).
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class RejectionCase:
-    """One cross-field rule: `invalid_model` is the factory call Pydantic must reject with
-    `match`; `build_invalid_data` returns the equivalent dumped payload the committed
-    `contract_id` schema must reject via plain jsonschema too."""
+    """One cross-field rule: a model Pydantic must reject, and the equivalent payload the schema must reject."""
 
     case_id: str
     match: Optional[str]
@@ -462,17 +450,6 @@ def test_rule_is_rejected_by_pydantic_and_jsonschema(case: RejectionCase):
         jsonschema.validate(instance=data, schema=_committed_schema(case.contract_id))
 
 
-def test_ac_coverage_without_aspects_covered_status_with_scenario_ids_key_omitted_is_rejected_by_jsonschema_too():
-    """Omitting scenario_ids entirely (not emptying it) on a covered, aspect-less AC is rejected by jsonschema too."""
-    data = _coverage_matrix_instance_dict()
-    data["entities"][0]["acceptance_criteria"][0]["status"] = "covered"
-    data["entities"][0]["acceptance_criteria"][0]["aspects"] = []
-    del data["entities"][0]["acceptance_criteria"][0]["scenario_ids"]
-
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
-
-
 @pytest.mark.parametrize(
     "contract_id, _model, record_roots",
     [c for c in CONTRACTS if c[0] in {generator_ready.CONTRACT_ID, coverage_matrix.CONTRACT_ID, ui_test_catalog.CONTRACT_ID}],
@@ -488,8 +465,6 @@ def test_transform_output_source_inputs_minitems_is_mirrored_into_the_schema(con
 
 def test_collector_output_with_empty_source_inputs_still_passes_jsonschema():
     """A collector contract's schema still accepts an empty source_inputs array, unlike a transform contract's."""
-    # The minItems constraint above is gated to the three transform contracts only - a
-    # collector output's Metadata legitimately carries an empty source_inputs (R7).
     data = _doc_entities_instance_dict()
     assert data["metadata"]["source_inputs"] == []
 
@@ -527,8 +502,7 @@ def test_metadata_is_one_shared_model_across_all_six_contracts():
 
 def test_unwrap_field_type_treats_a_multi_member_union_as_an_opaque_leaf():
     """unwrap_field_type treats a multi-member Union as one opaque leaf type rather than crashing or unwrapping it."""
-    # None of the six contracts' models carry a field shaped like this today, but a future
-    # one might - unwrap_field_type must not crash on it, only Optional[...] is peeled.
+    # No contract carries a field shaped like this today; unwrap_field_type must not crash on a future one.
     item_type, is_array = schema_export.unwrap_field_type(Union[int, str])
 
     assert (item_type, is_array) == (Union[int, str], False)

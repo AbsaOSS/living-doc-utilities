@@ -15,7 +15,7 @@
 #
 
 """
-Tests for the coverage-matrix-v1.0.0 contract (docs/contracts.md, section 4, "Coverage").
+Tests for the coverage-matrix-v1.0.0 contract (coverage_matrix.py).
 """
 
 import json
@@ -131,8 +131,7 @@ def test_ac_coverage_accepts_covered_status_when_every_aspect_is_covered():
 
 def test_ac_coverage_rejects_a_malformed_ac_id():
     """An AcCoverage row rejects an ac_id that doesn't match the canonical AC id pattern."""
-    # AC_ID_PATTERN, same as common.AcceptanceCriterion.id and ui_tests.AcLink.id - the
-    # belongs-to-entity prefix check alone does not catch a malformed suffix.
+    # AC_ID_PATTERN also applies here; the belongs-to-entity prefix check alone misses a malformed suffix.
     with pytest.raises(ValidationError):
         factories.ac_coverage(ac_id="US-001-anything")
 
@@ -190,9 +189,7 @@ def test_by_target_version_values_must_be_nonnegative():
 
 def test_entity_coverage_state_is_the_full_lifecycle_state_not_just_counted_states():
     """An EntityCoverage's own state can be any lifecycle value, independent of its ACs' counted states."""
-    # A User Story can still be `in_review` overall while one of its acceptance criteria is
-    # already `active` and must be counted (docs/contracts.md, "Coverage": counting is
-    # decided per AC, in both views, never by the parent entity's state).
+    # Counting is decided per AC, never by the parent entity's state: an in_review story can own an active AC.
     row = factories.entity_coverage(state="in_review", acceptance_criteria=[factories.ac_coverage()])
 
     assert row.state == "in_review"

@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for the doc-source-v1.0.0 contract: its three list record roots (user_stories, features,
-functionalities) and their reuse of doc-entities' Entity model and validators.
-"""
+"""The doc-source contract: its three list record roots and their reuse of doc-entities' `Entity` model."""
 
 import pytest
 from pydantic import ValidationError

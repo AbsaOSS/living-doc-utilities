@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for the doc-entities-v1.0.0 contract: Entity's state_origin/stub_reason rules per
-documentation type, acceptance-criterion/page ownership checks, and the result envelope.
-"""
+"""The doc-entities contract: `Entity` state_origin/stub_reason rules, AC/page ownership checks, the result envelope."""
 
 import pytest
 from pydantic import ValidationError

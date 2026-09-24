@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-The guarantee acceptance criterion: `parse_issue_body` followed by `derive_statuses`
-reproduces the hand-written golden entity for each of the project's three canonical example
-issue bodies, run together (so FEAT-001's derived state depends on FUNC-001's authored one,
-exactly as a real collector run would see them).
-"""
+"""Parsing and status-deriving the three canonical issue bodies together reproduces each golden entity."""
 
 from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.authoring.status import derive_statuses

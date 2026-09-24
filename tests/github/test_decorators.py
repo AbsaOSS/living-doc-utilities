@@ -23,17 +23,12 @@ from requests import RequestException, Timeout
 from living_doc_utilities.github.decorators import debug_log_decorator, safe_call_decorator
 
 
-# sample function to be decorated
 def sample_function(x, y):
     return x + y
 
 
-# debug_log_decorator
-
-
 def test_debug_log_decorator(mocker):
     """A decorated call returns the wrapped function's result while logging the call and its return value."""
-    # Mock logging
     mock_log_debug = mocker.patch("living_doc_utilities.github.decorators.logger.debug")
 
     decorated_function = debug_log_decorator(sample_function)
@@ -46,9 +41,6 @@ def test_debug_log_decorator(mocker):
 
     assert 7 == actual
     assert mock_log_debug.call_args_list == expected_call
-
-
-# safe_call_decorator
 
 
 def test_safe_call_decorator_success(rate_limiter):

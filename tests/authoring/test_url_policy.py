@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-The one URL policy for which links survive into rendered documentation
-(docs/authoring.md, "URL policy"): `safe_href` keeps an absolute `http`/`https`/`mailto`
-link and rejects everything else, and `sanitize_html_fragment` applies that same policy
-(plus a broad, conservative tag/attribute allow-list) to an entire HTML fragment.
-"""
+"""The URL policy: `safe_href` keeps absolute http/https/mailto links; `sanitize_html_fragment` applies it to HTML."""
 
 import pytest
 

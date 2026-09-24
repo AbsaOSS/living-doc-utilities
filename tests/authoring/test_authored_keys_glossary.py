@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Every key the project's glossary defines for an entity or an acceptance criterion maps
-either to a real model field (tests/contracts/test_authored_field_set.py's `ALL_HEADINGS`)
-or appears in one parser's `IGNORED_AUTHORED_KEYS` with a reason - nothing is silently
-dropped. Both `IGNORED_AUTHORED_KEY` and `UNKNOWN_SECTION` are exercised here too.
-"""
+"""Every glossary key maps to a model field or a parser's `IGNORED_AUTHORED_KEYS` with a reason."""
 
 from living_doc_utilities.authoring import issue_body, page_object
 from living_doc_utilities.authoring.issue_body import parse_issue_body
@@ -27,8 +22,7 @@ from living_doc_utilities.authoring.page_object import parse_page_object
 from living_doc_utilities.contracts.codes import Code
 from tests.contracts.test_authored_field_set import ALL_HEADINGS
 
-# The two glossary-defined keys with no model field (a Feature's status is derived, never
-# authored - docs/contracts.md), one per authoring surface that could carry it.
+# Glossary keys with no model field (a Feature's status is derived, never authored), one per authoring surface.
 _IGNORED_KEYS = [
     ("Status", issue_body.IGNORED_AUTHORED_KEYS, "issue body"),
     ("status", page_object.IGNORED_AUTHORED_KEYS, "PageObject header"),

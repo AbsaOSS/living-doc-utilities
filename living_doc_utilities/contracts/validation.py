@@ -15,11 +15,9 @@
 #
 
 """
-docs/contracts.md, R10: "All structural validation goes through one shared helper that
-selects the validator class with jsonschema.validators.validator_for(schema). No call site
-hardcodes a validator class." The day a schema starts using a 2020-12-only keyword, a
-hardcoded Draft-07 validator would not fail - it would silently ignore the keyword and pass
-files it should have rejected.
+R10: all structural validation goes through one shared helper that selects the validator
+class from the schema's own dialect - no call site hardcodes one. A hardcoded Draft-07
+validator would silently ignore a 2020-12-only keyword instead of failing on it.
 """
 
 from typing import Any
@@ -29,8 +27,7 @@ from jsonschema.exceptions import ValidationError
 
 
 def validate(payload: Any, schema: dict[str, Any]) -> list[ValidationError]:
-    """
-    Structurally validates `payload` against `schema`, selecting the validator class from
+    """Structurally validates `payload` against `schema`, selecting the validator class from
     the schema's own declared dialect (R1/R10) rather than a hardcoded draft.
 
     @param payload: the parsed JSON document to check.

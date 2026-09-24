@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for contracts.lineage (docs/contracts.md, R11): assert_complete and check_field_loss,
-exercised only against synthetic record roots and tables - the real, component-owned tables
-live in the repository that owns each transform, not here.
-"""
+"""`lineage` (R11): `assert_complete` and `check_field_loss` against synthetic record roots and tables."""
 
 import re
 from pathlib import Path
@@ -89,8 +85,7 @@ def test_assert_complete_rejects_an_unknown_contract_id():
 
 
 def test_check_field_loss_raises_field_loss_for_a_mapped_path_with_input_gt_0_output_0():
-    """A mapped field present in the input but wholly absent from the output raises FIELD_LOSS,
-    naming the input path, the output path, and the lost input count."""
+    """A mapped field present on input but absent on output raises FIELD_LOSS naming both paths and the lost count."""
     table = LineageTable({"items[].a": "out[].a"})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 3})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={"out[].a": 0})
@@ -123,7 +118,6 @@ def test_check_field_loss_reports_every_lost_path_in_one_error():
 
 def test_check_field_loss_raises_when_the_mapped_output_path_is_entirely_absent():
     """A mapped output path missing from field_occupancy entirely is treated the same as zero."""
-    # The output's field_occupancy simply has no entry for the mapped path - equivalent to 0.
     table = LineageTable({"items[].a": "out[].a"})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 3})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={})
@@ -152,10 +146,7 @@ def test_check_field_loss_does_not_raise_for_a_path_explicitly_marked_dropped():
 
 def test_check_field_loss_does_not_raise_when_a_view_filter_legitimately_removed_the_records():
     """A path with zero *input* occupancy (already filtered out by the view) never raises field loss."""
-    # A record dropped because a view legitimately filtered it out (e.g. the release view
-    # drops `planned` acceptance criteria) shows up as *input* occupancy already at 0, because
-    # `input_selected_stats` is computed over the records the view filter kept (R7) - so this
-    # is indistinguishable, by design, from "there was never anything here to lose".
+    # A view-filtered record shows as input occupancy 0 (R7 selected_stats), so it looks like "nothing to lose".
     table = LineageTable({"items[].a": "out[].a"})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 0})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={"out[].a": 0})

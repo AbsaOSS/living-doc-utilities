@@ -16,7 +16,7 @@
 
 """
 The ui-tests-v1.0.0 contract: the source-scanning collector's .feature-derived output.
-One scenarios[] list (docs/contracts.md, section 1).
+One scenarios[] list.
 """
 
 from typing import Literal, Optional
@@ -57,5 +57,5 @@ class UITestsResult(ContractModel):
     scenarios: list[Scenario] = Field(default_factory=list)
 
 
-# Declares this contract's record roots (docs/contracts.md, section 1) - see doc_entities.RECORD_ROOTS.
+# This contract's record roots; see `doc_entities.py::RECORD_ROOTS`.
 RECORD_ROOTS: dict[str, type[BaseModel]] = {"scenarios": Scenario}

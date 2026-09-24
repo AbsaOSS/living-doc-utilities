@@ -15,10 +15,9 @@
 #
 
 """
-docs/contracts.md, R12 "One read path, one write path, typed": read_artifact and
-write_artifact are the only sanctioned way to read or write a contract artifact anywhere
-in the fleet. No component reads a contract file with plain json.load(), and no component
-writes one without going through the validate-then-atomic-rename sequence below.
+R12: `read_artifact`/`write_artifact` are the only sanctioned way to read or write a
+contract artifact anywhere in the fleet - never plain json.load(), never a write outside
+the validate-then-atomic-rename sequence below.
 """
 
 import json
@@ -47,9 +46,8 @@ def _model_validate_or_raise(model_cls: type[BaseModel], contract_id: str, paylo
 
 
 def read_artifact(path: Union[str, Path], expected: Union[str, set[str]]) -> ContractResult:
-    """
-    The only sanctioned way to read a contract artifact (R12): loads the JSON at `path`,
-    runs it through compat.check_input (R5), and returns the parsed, typed contract model.
+    """The only sanctioned way to read a contract artifact (R12): loads `path`, runs it through
+    `compat.py::check_input` (R5) and returns the typed contract model.
 
     @param path: the artifact file to read.
     @param expected: a single contract name (e.g. "doc-entities") or a set of acceptable
@@ -64,16 +62,14 @@ def read_artifact(path: Union[str, Path], expected: Union[str, set[str]]) -> Con
 
 
 def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
-    """
-    The only sanctioned way to write a contract artifact (R12): fills metadata.stats and
-    metadata.producer.utilities_version, validates the filled-in result in memory, and only
-    on success writes it - to a temporary file in the destination's own directory, then an
-    atomic rename - so a crash mid-write never leaves a partial or corrupt artifact where a
-    later run would try to read it.
+    """The only sanctioned way to write a contract artifact (R12): fills metadata.stats and
+    producer.utilities_version, validates in memory, then writes via temp file + atomic rename,
+    so a crash never leaves a partial or corrupt artifact.
 
     @param result: a contract result model - its own schema_version selects the contract.
     @param path: the destination file path.
-    @raises ContractError: SCHEMA_VALIDATION_FAILED - leaves no file on disk at all.
+    @raises ContractError: INVALID_CONTRACT_ID for an unknown schema_version, or
+        SCHEMA_VALIDATION_FAILED - either way no file is left on disk.
     """
     contract_id = result.schema_version
     if contract_id not in registry.CONTRACTS:

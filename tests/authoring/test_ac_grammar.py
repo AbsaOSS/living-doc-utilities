@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-The acceptance-criterion header and extension grammar: the four states, the
-version-less `planned` backlog form, the deprecated/removal-planned form, every
-acceptance-criterion-level extension, the legacy `descoped` conversion, and every
-`MALFORMED_AC` / `UNPARSED_AC_LINE` trigger (docs/contracts.md, "Errors and warnings").
-"""
+"""The acceptance-criterion header and extension grammar, and every `MALFORMED_AC` / `UNPARSED_AC_LINE` trigger."""
 
 from pathlib import Path
 
@@ -210,9 +205,6 @@ def test_non_canonical_version_prefix_is_malformed(inner):
 
 def test_complete_feature_file_stops_at_the_closing_banner():
     """In a full feature-file header, the last AC's block stops at the closing banner, not the Feature/scenario body."""
-    # Regression case for a full living-doc-header-types.md-shaped .feature file: the
-    # last AC's block must end at the closing "# ====...====" banner, not absorb the
-    # Feature: declaration, tags and scenario body that follow it in the same file.
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — FUNC-1 · Password Strength\n"

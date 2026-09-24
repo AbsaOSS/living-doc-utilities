@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for stats.compute_stats (docs/contracts.md, R11): metadata.stats.cardinality and
-.field_occupancy, computed fresh from a contract result's own record roots.
-"""
+"""`stats.py::compute_stats` (R11): `metadata.stats` cardinality and field_occupancy from a result's record roots."""
 
 from living_doc_utilities.contracts import stats
 from living_doc_utilities.contracts.coverage_matrix import RECORD_ROOTS as COVERAGE_MATRIX_ROOTS
@@ -57,10 +54,10 @@ def test_empty_value_variants_are_not_counted_in_field_occupancy():
     """A present-but-empty value (empty string, list, or dict) is not counted in field_occupancy."""
     story = factories.user_story(
         entity_id="US-001",
-        narrative="",  # empty string
-        not_in_scope=[],  # empty list
+        narrative="",
+        not_in_scope=[],
         acceptance_criteria=[
-            factories.acceptance_criterion(parent_id="US-001", placeholder_values={})  # empty dict
+            factories.acceptance_criterion(parent_id="US-001", placeholder_values={})
         ],
     )
     result = DocEntitiesResult(metadata=factories.metadata(), entities=[story])
@@ -93,8 +90,7 @@ def test_non_empty_value_variants_are_counted_in_field_occupancy():
 
 def test_boolean_false_is_not_miscounted_as_empty():
     """An explicit boolean False value is counted as present in field_occupancy, not treated as empty."""
-    # PageRef.is_primary is a bool defaulting to False - _is_empty must not treat a false-y,
-    # present value the same as an actually-absent one.
+    # PageRef.is_primary defaults to False; _is_empty must not treat a present false-y value as absent.
     primary = factories.page_ref(is_primary=True)
     secondary = factories.page_ref(is_primary=False, route="/other", page_object="Other.ts")
     feature = factories.feature(entity_id="FEAT-001", pages=[primary, secondary])
@@ -217,8 +213,7 @@ def test_ui_test_catalog_field_occupancy_uses_the_feature_files_prefix():
 
 def test_every_cardinality_key_is_always_present_even_when_not_applicable():
     """Every Cardinality key appears in the dumped output, even one left at its zero/empty default."""
-    # ui-tests' record root is Scenario, which has neither entity_id nor type, so the
-    # entity-shaped counters stay at their zero/empty default rather than being omitted.
+    # Scenario has neither entity_id nor type, so the entity counters keep their zero default instead of being omitted.
     result = UITestsResult(metadata=factories.metadata(), scenarios=[factories.scenario()])
 
     computed = stats.compute_stats(result, UI_TESTS_ROOTS, Cardinality())

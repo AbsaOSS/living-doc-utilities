@@ -15,11 +15,9 @@
 #
 
 """
-Gherkin scenario parsing: a scenario's title and its `@AC:<id>[/aspect:<value>]` tags
-(living-doc's docs/guides/living-doc-glossary.md, "Scenario traceability"). The
-human-readable `# AC:` comment above a scenario is documentation only - it is never parsed
-as a tag; only the machine-readable `@AC:` Cucumber tag links a scenario to an acceptance
-criterion.
+Gherkin scenario parsing: a scenario's title and its `@AC:<id>[/aspect:<value>]` tags. The
+human-readable `# AC:` comment above a scenario is documentation only; only the
+machine-readable `@AC:` Cucumber tag links a scenario to an acceptance criterion.
 """
 
 import re
@@ -84,9 +82,7 @@ def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenari
 
         scenario_m = _SCENARIO_RE.match(stripped)
         if scenario_m is None:
-            # Any other construct (`Rule:`, a step, an `Examples:` table, ...) invalidates
-            # a pending tag block - it only ever links the *next* `Scenario:`/`Scenario
-            # Outline:` line, never one further down past something else.
+            # Any other construct (Rule:, a step, Examples:, ...) invalidates a pending tag block.
             pending_tags = []
             continue
 

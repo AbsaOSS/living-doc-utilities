@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-"""`.feature`-header parsing: recognised keys land on their fields, an unrecognised key
-produces `IGNORED_AUTHORED_KEY`, and `normalize` runs before `ac_grammar`."""
+"""`.feature`-header parsing: recognised keys land on their fields, unrecognised keys warn."""
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
 from living_doc_utilities.contracts.codes import Code
@@ -112,14 +111,22 @@ def test_missing_title_line_produces_missing_entity_id():
     assert [w.code for w in warnings] == ["MISSING_ENTITY_ID"]
 
 
+def test_title_without_an_entity_id_produces_missing_entity_id_naming_the_title():
+    """A `LIVING DOC` title with no entity id yields no entity and a `MISSING_ENTITY_ID` warning naming the title."""
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — Just a title with no id\n"
+        "# =============================================================================\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is None
+    assert [w.code for w in warnings] == ["MISSING_ENTITY_ID"]
+    assert "Just a title with no id" in warnings[0].context
+
+
 def test_banner_shaped_comment_in_scenario_body_is_not_absorbed_into_header():
     """A banner-shaped comment inside the scenario body is never absorbed into the header block or double-parsed."""
-    # A "# ===...===" comment pair in the Gherkin body (a human habit, e.g. separating
-    # scenario groups with a divider that itself brackets a documentation-only "# AC:"
-    # line) must never be mistaken for the header's own block: the header ends at the
-    # "Feature:" declaration, full stop. Before the fix, the *last* banner-shaped line
-    # anywhere in the file closed the header block, so this divider's own "AC:US-004-01"
-    # line was re-parsed as a second (duplicate) acceptance criterion.
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-004 · Divider Story\n"

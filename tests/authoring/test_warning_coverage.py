@@ -14,14 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Every information-losing skip a parser in this package can take is reported as a coded
-`ContractWarning`, never as a bare `logging` call that the caller has no structured way to
-see. `test_no_authoring_module_uses_the_logging_module` proves the second half statically
-(nothing to log through, so there is nothing to lose); the parametrized case below proves
-the first half dynamically, with a log-capture fixture confirming no log record fires
-alongside the warning either.
-"""
+"""Every information-losing skip in a parser is a coded `ContractWarning`, never a bare `logging` call."""
 
 import logging
 from pathlib import Path

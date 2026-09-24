@@ -29,14 +29,9 @@ from github import Github
 logger = logging.getLogger(__name__)
 
 
-# It is fine to have a single method in this class, since we use it as a callable class
+# Single method is fine: used as a callable class.
 class GithubRateLimiter:
-    """
-    A class that acts as a rate limiter for GitHub API calls.
-
-    Note:
-        This class is used as a callable class, hence the `__call__` method.
-    """
+    """A callable class that rate-limits GitHub API calls."""
 
     def __init__(self, github_client: Github):
         self.__github_client: Github = github_client
@@ -47,12 +42,7 @@ class GithubRateLimiter:
         return self.__github_client
 
     def __call__(self, method: Callable) -> Callable:
-        """
-        Wraps the provided method to ensure it respects the GitHub API rate limit.
-
-        @param method: The method to wrap.
-        @return: The wrapped method.
-        """
+        """Wraps `method` so it respects the GitHub API rate limit."""
 
         def wrapped_method(*args, **kwargs) -> Optional[Any]:
             rate = self.github_client.get_rate_limit().rate
@@ -62,20 +52,19 @@ class GithubRateLimiter:
             if remaining_calls < 5:
                 logger.info("Rate limit almost reached. Sleeping until reset time.")
                 sleep_time = reset_time - (now := time.time())
-                max_iterations = 48  # Limit to 48 iterations (48 hours) to prevent infinite loops
+                max_iterations = 48  # caps this at 48 hours, preventing an infinite loop
                 iteration = 0
                 while sleep_time <= 0:
-                    # If sleep_time is negative, it means the reset_time is in the past.
-                    # To ensure a positive sleep duration, increment reset_time by 1 hour until sleep_time is positive.
-                    reset_time += 3600  # Add 1 hour in seconds
+                    # A negative sleep_time means reset_time is in the past; nudge it forward by 1h until positive.
+                    reset_time += 3600
                     sleep_time = reset_time - now
                     iteration += 1
                     if iteration >= max_iterations:
                         logger.warning("Reset time adjustment exceeded maximum iterations. Using default delay.")
-                        sleep_time = 60  # Use a default 60-second delay
+                        sleep_time = 60
                         break
 
-                total_sleep_time = sleep_time + 5  # Total sleep time including the additional 5 seconds
+                total_sleep_time = sleep_time + 5
                 hours, remainder = divmod(total_sleep_time, 3600)
                 minutes, seconds = divmod(remainder, 60)
 
@@ -86,7 +75,7 @@ class GithubRateLimiter:
                     int(seconds),
                     datetime.fromtimestamp(reset_time).strftime("%Y-%m-%d %H:%M:%S"),
                 )
-                time.sleep(sleep_time + 5)  # Sleep for the calculated time plus 5 seconds
+                time.sleep(sleep_time + 5)
 
             return method(*args, **kwargs)
 

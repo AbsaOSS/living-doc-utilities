@@ -15,9 +15,8 @@
 #
 
 """
-The shared metadata envelope (docs/contracts.md, "The metadata envelope"): one model
-reused by every contract, parametrised only in metadata.stats.field_occupancy's key
-enum, which schema_export.py fills in per contract.
+The shared metadata envelope: one model reused by every contract, parametrised only in
+metadata.stats.field_occupancy's key enum, which schema_export.py fills in per contract.
 """
 
 from datetime import datetime
@@ -33,14 +32,10 @@ PROJECT_ID_PATTERN = r"^[a-z0-9][a-z0-9-]*$"
 # A warning code, and the key pattern of metadata.stats.cardinality.warnings_by_code.
 WARNING_CODE_PATTERN = r"^[A-Z][A-Z0-9_]*$"
 
-# The key pattern of the *audit* field_occupancy maps carried in metadata.source_inputs[]
-# (R9): a record-relative path belonging to the input's own contract, so it is
-# pattern-checked rather than enumerated. A contract's *own* field_occupancy is enumerated
-# instead - see schema_export.py.
+# Key pattern of the audit field_occupancy maps in source_inputs[] (R9): checked by pattern, not enumerated.
 AUDIT_FIELD_PATH_PATTERN = r"^[a-z][a-z0-9_]*(\[\])?(\.[a-z][a-z0-9_]*(\[\])?)*$"
 
-# schema_version format shared by every contract artifact (R4/R5): "<name>-v<major.minor.patch>",
-# name = lowercase-alphanumeric segments joined by single hyphens; group 1 is the name alone.
+# schema_version format shared by every contract artifact (R4/R5): "<name>-v<major.minor.patch>"; group 1 is the name.
 CONTRACT_ID_PATTERN = r"^([a-z0-9]+(?:-[a-z0-9]+)*)-v\d+\.\d+\.\d+$"
 
 
@@ -151,11 +146,8 @@ class ContractWarning(ContractModel):
 
 
 def check_transform_source_inputs(metadata: Metadata) -> None:
-    """R7: a transform output's metadata.source_inputs[] always has at least one entry - a
-    transform always has at least its documentation input. Only a collector output (which
-    has no artifact input) legitimately carries an empty list, so this is called by each
-    transform-output result model (generator-ready, coverage-matrix, ui-test-catalog), never
-    by Metadata itself.
-    """
+    """R7: a transform output's metadata.source_inputs[] always has at least one entry (a
+    transform always has at least its documentation input); only a collector output
+    legitimately carries an empty list."""
     if not metadata.source_inputs:
         raise ValueError("metadata.source_inputs must have at least one entry for a transform output (R7)")

@@ -362,7 +362,7 @@
     },
     "EntityCoverage": {
       "additionalProperties": false,
-      "description": "A User Story or Functionality's acceptance criteria, each with its coverage row.\n\n`state` is the entity's own lifecycle state, which is independent of which of its\nacceptance criteria are counted (docs/contracts.md, \"Coverage\": counting is decided per\nAC, \"in both views\" - never by the parent entity's state). A `planned`/`in_review`\nentity can still own `active`/`deprecated` acceptance criteria that must be counted, so\nthis is the full `LifecycleState`, not `CountedState`.",
+      "description": "A User Story or Functionality's acceptance criteria, each with its coverage row.\n`state` is the entity's own lifecycle state (full `LifecycleState`, not `CountedState`) -\nindependent of which ACs are counted; a planned/in_review entity can still own counted ACs.",
       "properties": {
         "entity_id": {
           "title": "Entity Id",
@@ -449,7 +449,7 @@
     },
     "PlannedSummary": {
       "additionalProperties": false,
-      "description": "Planned (not-yet-implemented) acceptance-criteria totals, rendered only in the inner\nview (docs/contracts.md, \"Coverage\").",
+      "description": "Planned (not-yet-implemented) acceptance-criteria totals, rendered only in the inner view.",
       "properties": {
         "total": {
           "minimum": 0,

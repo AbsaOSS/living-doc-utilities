@@ -15,12 +15,9 @@
 #
 
 """
-The one acceptance-criterion header and extension grammar (living-doc's docs/guides/
-living-doc-glossary.md, "Acceptance Criterion (AC)"). Parses only the canonical form
-`normalize` produces - no dash, case or version-form tolerance lives here, that is
-normalize's job entirely. This is the only module that knows the acceptance-criterion
-state vocabulary and the strict version shape; every other module in this package
-treats those as opaque tokens to reshape, never to validate.
+The one acceptance-criterion header and extension grammar. Parses only the canonical form
+`normalize` produces - no dash/case/version tolerance here, that's normalize's job. The only
+module that knows the AC state vocabulary and strict version shape; elsewhere they're opaque tokens.
 """
 
 import re
@@ -39,40 +36,23 @@ from living_doc_utilities.contracts.common import (
 )
 from living_doc_utilities.contracts.envelope import ContractWarning
 
-# The only place in the codebase that still recognises this literal string (docs/
-# contracts.md's AC grammar section) - everywhere else it is simply not a valid state.
+# The only place that still recognises this literal string; everywhere else it's simply not a valid state.
 _LEGACY_DESCOPED_STATE = "descoped"
 
 _VERSION_RE = re.compile(VERSION_PATTERN)
 _AC_ID_RE = re.compile(AC_ID_PATTERN)
 _PLACEHOLDER_NAME_RE = re.compile(PLACEHOLDER_NAME_PATTERN)
 
-# Strips a comment-block leader (feature-header "#", issue-body "###", PageObject "*")
-# that survives in normalize's reconstructed text; a purely mechanical unwrap, not a
-# dash/case tolerance - the grammar below still accepts only the canonical inner form.
+# Strips a comment-block leader (feature-header "#", issue-body "###", PageObject "*"); mechanical unwrap only.
 _COMMENT_LEADER_RE = re.compile(r"^[#*]+\s*")
 
 _AC_HEADER_RE = re.compile(r"^AC:(?P<id>\S*)\s*\((?P<inner>.*)\)\s*$")
 _AC_PREFIX_RE = re.compile(r"^AC:")
 
-# The "# ====...====" rule that opens and closes a feature-header entity block (living-
-# doc's docs/guides/living-doc-header-types.md, every worked header example). Once
-# comment-leaders are stripped this is a line of nothing but "=" - a hard boundary for
-# an AC's block, the same way a fresh "AC:" header already is. Without it, the last AC in
-# a complete `.feature` file would otherwise absorb the closing banner, the `Feature:`
-# declaration and the entire scenario body into its own block.
+# Hard AC-block boundary like a fresh "AC:" header; else the last AC absorbs the banner and the scenario body.
 _SECTION_BANNER_RE = re.compile(r"^=+$")
 
-# An issue-body Markdown section heading ("## Preconditions", "## Not In Scope", ...) -
-# another hard boundary for an AC's block, the same way a fresh "AC:" header or a
-# feature-header "====" banner already is. Checked against the *raw* line, never the
-# comment-leader-stripped one: `_COMMENT_LEADER_RE` would strip a heading's own "##"
-# indistinguishably from a feature-header block's single-"#" comment prefix, so the
-# minimum of two "#" here is what keeps this from firing on every feature-header/
-# scenario-file AC-block line (those never use a doubled leader). The " {0,3}" mirrors
-# `_FENCE_OPEN_RE`/`_FENCE_CLOSE_RE` in normalize.py (CommonMark: at most three leading
-# spaces before a construct still counts as "unindented") - four or more is an indented
-# code block, never a heading, so it must not terminate the AC block early.
+# Hard AC-block boundary on the raw line (a stripped "#" prefix would blur with "##"); at most 3 leading spaces.
 _MD_SECTION_HEADING_RE = re.compile(r"^ {0,3}#{2,6}\s+\S")
 
 _REMOVAL_PLANNED_RE = re.compile(r"^removal planned (?P<version>\S+)$")
@@ -85,11 +65,8 @@ _LEGACY_DISCARD_RE = re.compile(r"^(?:descoped_at|future_release):\s*.+$")
 
 
 def _strip_leading_v(token: str) -> Optional[str]:
-    """Strips the canonical lowercase 'v' prefix `normalize`'s `_reshape_version_form`
-    always emits. `None` means the token is not in that canonical form (e.g. an
-    uppercase 'V' or a bare digit string) - the caller reports that as MALFORMED_AC
-    rather than tolerating a version form this module does not own.
-    """
+    """Strips the canonical lowercase 'v' prefix `normalize.py::_reshape_version_form` emits once a minor part
+    exists. `None` means the token isn't in that canonical form - caller reports MALFORMED_AC."""
     return token[1:] if token[:1] == "v" else None
 
 
@@ -99,9 +76,7 @@ def _slug_placeholder_name(name: str) -> str:
 
 def _parse_header_inner(inner: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Maps an AC header's already-canonical paren content to (state, version,
-    removal_planned). A None state means the shape could not be mapped at all; the
-    caller reports that as MALFORMED_AC rather than guessing.
-    """
+    removal_planned). A None state means the shape couldn't be mapped; caller reports MALFORMED_AC."""
     if inner == "":
         return None, None, None
     segments = inner.split(" - ")
@@ -143,9 +118,7 @@ def _parse_extensions(
     warnings: list[ContractWarning] = []
     pending_sublist_key: Optional[str] = None
     seen_description = False
-    # Field a following non-bullet line's hard-wrapped text is appended to (the last entry
-    # if it is a list): only the first physical line of a wrapped description, rationale or
-    # sub-list item carries the "-" bullet marker.
+    # Field a wrapped non-bullet continuation line is appended to; only the first physical line carries "-".
     continuation: Optional[str] = None
 
     def _unparsed(raw_line: str) -> None:
@@ -200,9 +173,7 @@ def _parse_extensions(
                 continuation = "rationale"
                 continue
             if _LEGACY_DISCARD_RE.match(text):
-                # descoped_at / future_release: no home in the canon model (there is no
-                # descoped state any more), silently dropped as part of the one legacy
-                # conversion path.
+                # descoped_at / future_release have no home in the model; silently dropped (legacy conversion only).
                 continuation = None
                 continue
 
@@ -315,11 +286,9 @@ def is_valid_ac_id(candidate: str) -> bool:
 def parse_acceptance_criteria(
     text: str, entity_id: str = ""
 ) -> tuple[list[AcceptanceCriterion], list[ContractWarning]]:
-    """Parses every `AC:<id> (...)` block found in already-normalised `text` into
-    `AcceptanceCriterion` instances plus a `list[ContractWarning]`. `entity_id` is
-    carried into warning context only; this function never checks that an id belongs
-    to it (that cross-field check lives on `Entity`).
-    """
+    """Parses every `AC:<id> (...)` block in already-normalised `text` into
+    `AcceptanceCriterion` instances plus warnings. `entity_id` is carried into warning
+    context only - it never checks that an id belongs to it (that lives on `Entity`)."""
     raw_lines = text.splitlines()
     cleaned_lines = [_COMMENT_LEADER_RE.sub("", line) for line in raw_lines]
     fence_flags = compute_fence_flags(raw_lines)
@@ -351,9 +320,7 @@ def parse_acceptance_criteria(
             index += 1
             continue
 
-        # A blank line is skipped, not a terminator: issue-body AC headings are
-        # conventionally followed by one blank line before their own bullets. Only the
-        # next "AC:"-prefixed line (or end of input) ends this one's block.
+        # A blank line is skipped, not a terminator (issue-body AC headings get one blank line before bullets).
         block: list[str] = []
         cursor = index + 1
         while cursor < line_count:

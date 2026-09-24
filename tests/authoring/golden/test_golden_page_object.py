@@ -14,18 +14,7 @@
 # limitations under the License.
 #
 
-"""
-`LoginPage.ts` (the project's canonical PageObject example) must produce a FEAT-001 entity
-with no authored state and its `stub_reason` set; combined with FUNC-001's `.feature`
-header, the derived Feature state is `active` with `state_origin: derived`.
-
-Note on the `status:` / `IGNORED_AUTHORED_KEY` case: the golden `LoginPage.ts` fixture
-copied verbatim from living-doc's canon (commit bfcc402ff998085cbf7bb91a7fd55ea8ac12c911)
-carries no `status:` header key - the canon corpus was already written without one (see
-docs/examples/README.md, "Derived Feature state, no surface status"). Rather than editing
-the golden fixture to manufacture that key, `test_status_key_is_ignored_with_the_documented_message`
-below exercises the same code path with its own minimal, synthetic header.
-"""
+"""`LoginPage.ts` yields a stub FEAT-001 with no authored state, and a derived `active` state with FUNC-001."""
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
 from living_doc_utilities.authoring.page_object import parse_page_object
@@ -80,6 +69,7 @@ def test_feature_state_derives_active_alongside_func_001():
 
 def test_status_key_is_ignored_with_the_documented_message():
     """A PageObject header's `status:` key is ignored with a message pointing authors at `stub-reason:` instead."""
+    # The golden LoginPage.ts carries no `status:` key, so this test uses its own minimal synthetic header.
     text = (
         "/* =============================================================================\n"
         " * LIVING DOC — FEAT-002 · Sample Page\n"

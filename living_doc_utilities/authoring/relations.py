@@ -15,13 +15,9 @@
 #
 
 """
-Cross-entity relation checking, run once per collector run over the whole collected set
-(docs/contracts.md's collector warnings table): `UNRESOLVED_RELATION` for a relation that
-points outside that set, `RELATION_MISMATCH` for one that contradicts another - e.g. a
-Functionality's declared `parent` whose Feature doesn't list it back in its own
-`functionalities` - and `RELATION_TYPE_MISMATCH` for one that resolves inside the set but
-to an entity of the wrong type - e.g. a Functionality's id copy-pasted into a Feature's
-`user_stories`.
+Cross-entity relation checking, run once per collector run over the whole collected set:
+`UNRESOLVED_RELATION` for a relation pointing outside it, `RELATION_MISMATCH` for one that
+contradicts another, `RELATION_TYPE_MISMATCH` for one resolving to the wrong entity type.
 """
 
 from typing import Iterator
@@ -66,12 +62,9 @@ def _relations_of(entity: ParsedEntity) -> Iterator[tuple[str, str, str]]:
 
 
 def check_relations(entities: list[ParsedEntity]) -> list[ContractWarning]:
-    """Checks every declared relation (`Feature.user_stories`, `Feature.functionalities`,
-    `Functionality.parent`, any entity's `superseded_by`) against the given entity set: that
-    it resolves within it (`UNRESOLVED_RELATION`), and that the resolved target is of the
-    field's expected type (`RELATION_TYPE_MISMATCH`). A resolved, correctly-typed
-    `functionalities`/`parent` link is further checked for a consistent back-reference
-    (`RELATION_MISMATCH`) - the only two fields with a reverse list to check against."""
+    """Checks every declared relation against the entity set: it resolves within it
+    (`UNRESOLVED_RELATION`), the target has the expected type (`RELATION_TYPE_MISMATCH`), and a
+    resolved `functionalities`/`parent` link back-references consistently (`RELATION_MISMATCH`)."""
     warnings: list[ContractWarning] = []
     by_id = {entity.entity_id: entity for entity in entities}
 

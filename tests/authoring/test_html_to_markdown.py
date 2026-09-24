@@ -14,13 +14,7 @@
 # limitations under the License.
 #
 
-"""
-`convert_html_to_markdown`: one test per supported construct (headings, paragraphs,
-`<div>`/`<br>`, lists, tables, links, inline code), the hostile-input case that must fold
-every drop - of whatever kind - into exactly one `HTML_CONTENT_DROPPED` warning, and two
-cross-checks that its output really does reach the rest of the pipeline (`normalize` then
-`issue_body`) in the same canonical form a hand-authored Markdown issue body would.
-"""
+"""`convert_html_to_markdown`: each construct, hostile input folded into one warning, output reaching `issue_body`."""
 
 import pytest
 

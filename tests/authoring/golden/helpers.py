@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Shared helpers for the golden-fixture tests: fixture/expected-JSON loading, and turning a
-`ParsedEntity` into the same shape as a hand-written golden JSON file - a full `Entity`
-dict with `source_ref` excluded (source_ref is collector-filled, never parser-filled).
-Not a test module itself - no test_* functions live here.
-"""
+"""Golden-fixture helpers: load expected JSON and turn a `ParsedEntity` into the golden `Entity` dict shape."""
 
 import json
 from pathlib import Path
@@ -48,12 +43,8 @@ def load_expected(name: str) -> dict:
 
 
 def to_entity_dict(parsed: ParsedEntity) -> dict:
-    """Builds a full, schema-valid `Entity` from `parsed` (a dummy `source_ref`, empty
-    `tags`, default `timestamps`) and dumps it with `source_ref` excluded - the same shape
-    as a hand-written golden JSON file. `parsed`'s own fields are exactly `Entity`'s minus
-    `source_ref`/`tags`/`timestamps` (both derive from `EntityContent` plus identity), so
-    no field list is spelled here.
-    """
+    """Builds a full `Entity` from `parsed` (dummy `source_ref`, empty `tags`) and dumps it without `source_ref`,
+    the same shape as a hand-written golden JSON file."""
     entity = Entity(source_ref=_DUMMY_SOURCE_REF, **parsed.model_dump())
     dumped = entity.model_dump(mode="json")
     del dumped["source_ref"]

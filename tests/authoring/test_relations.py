@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-"""`check_relations`: `UNRESOLVED_RELATION`, `RELATION_MISMATCH` and `RELATION_TYPE_MISMATCH`
-(docs/contracts.md)."""
+"""`check_relations`: `UNRESOLVED_RELATION`, `RELATION_MISMATCH` and `RELATION_TYPE_MISMATCH`."""
 
 from living_doc_utilities.authoring.issue_body import ParsedEntity, parse_issue_body
 from living_doc_utilities.authoring.relations import check_relations
@@ -85,9 +84,7 @@ def test_no_warnings_for_a_consistent_relation_set():
 
 def test_relation_mismatch_when_feature_claims_a_functionality_parented_elsewhere():
     """A Feature's stale claim on a Functionality actually parented elsewhere is caught as a relation mismatch."""
-    # FUNC-002's real parent is FEAT-003, which correctly lists it back - so the
-    # Functionality-side check alone finds nothing wrong. FEAT-001's own claim on
-    # FUNC-002 is still stale/incorrect and must be caught from the Feature side.
+    # FUNC-002's real parent lists it back, so only the Feature-side check can catch FEAT-001's stale claim.
     feature = _feature(entity_id="FEAT-001", functionalities=["FUNC-002"])
     real_parent = _feature(entity_id="FEAT-003", functionalities=["FUNC-002"])
     func = _func(entity_id="FUNC-002", parent="FEAT-003")
@@ -99,8 +96,7 @@ def test_relation_mismatch_when_feature_claims_a_functionality_parented_elsewher
 
 def test_no_mismatch_when_feature_declares_no_functionalities_list_at_all():
     """A Feature linked to a Functionality only via its parent, with no functionalities list of its own, is fine."""
-    # Linked purely via `parent`, with the Feature carrying no `functionalities` list of
-    # its own (empty list means "nothing declared", not "declared as empty").
+    # Linked purely via `parent`; an absent `functionalities` list means "nothing declared", not "declared empty".
     feature = _feature()
     func = _func(parent="FEAT-001")
 
@@ -111,8 +107,7 @@ def test_no_mismatch_when_feature_declares_no_functionalities_list_at_all():
 
 def test_relation_type_mismatch_when_a_functionality_id_is_copy_pasted_into_user_stories():
     """A Functionality id mistakenly listed in user_stories is flagged as a type mismatch, not silently accepted."""
-    # The issue's concrete failure case: FUNC-001 exists in the collected set, so the
-    # naive by_id lookup alone finds nothing wrong even though it's the wrong entity type.
+    # FUNC-001 exists in the set, so a plain by_id lookup alone finds nothing wrong despite the wrong entity type.
     feature = _feature(user_stories=["FUNC-001"])
     func = _func()
 
@@ -177,8 +172,7 @@ def test_relation_type_mismatch_when_superseded_by_resolves_to_a_different_type(
 
 def test_type_mismatch_does_not_also_raise_relation_mismatch_for_functionalities():
     """A wrong-type functionalities target short-circuits the back-link check, raising only the type mismatch."""
-    # A wrong-type target short-circuits the back-link consistency check - checking
-    # `func.parent` against a non-Functionality target isn't a meaningful comparison.
+    # A wrong-type target short-circuits the back-link check, which is meaningless against a non-Functionality.
     feature = _feature(functionalities=["US-001"])
     story = _us(parent="FEAT-999")
 
@@ -189,9 +183,6 @@ def test_type_mismatch_does_not_also_raise_relation_mismatch_for_functionalities
 
 def test_type_mismatch_does_not_also_raise_relation_mismatch_for_parent():
     """A wrong-type parent target short-circuits the back-link check, raising only the type mismatch."""
-    # If the type check didn't short-circuit, the back-link elif below it would still run:
-    # entity_id "FUNC-001" is not in story.functionalities, which would additionally raise
-    # a (nonsensical) RELATION_MISMATCH on top of the type mismatch.
     func = _func(parent="US-001")
     story = _us(functionalities=["FUNC-999"])
 
@@ -213,12 +204,7 @@ def test_no_type_mismatch_for_a_correctly_typed_relation_set():
 
 def test_check_relations_preserves_field_order_within_one_entity():
     """Relation warnings are reported per entity in a fixed field order: stories, functionalities, then superseder."""
-    # Regression pin for the S-13 refactor (relations.py: check_relations iterates a
-    # (field, target_id, expected_type) table instead of one hand-written block per
-    # field): a Feature's user_stories must still be reported before its
-    # functionalities before its superseded_by, and a Functionality's parent still
-    # comes from that entity's own turn through `entities` - the same order the
-    # original one-block-per-field code produced.
+    # Reporting order is user_stories, functionalities, superseded_by; a Functionality's parent comes on its own turn.
     feature = _feature(user_stories=["US-999"], functionalities=["FUNC-001"], superseded_by="FEAT-999")
     func = _func(parent="FEAT-002")
 
@@ -238,8 +224,6 @@ def test_check_relations_preserves_field_order_within_one_entity():
 
 def test_no_relation_warnings_for_the_golden_entity_fixtures():
     """The project's canonical, correctly cross-linked golden fixtures clear relation checking with no warnings."""
-    # Regression: the project's three canonical example issues (FEAT-001/FUNC-001/US-001),
-    # correctly typed and cross-linked, must clear check_relations with no warnings at all.
     entities = [
         ("us-001-customer-login.md", "US-001 · Customer Login", "DocumentedUserStory"),
         ("feat-001-login-page.md", "FEAT-001 · Login Page", "DocumentedFeature"),

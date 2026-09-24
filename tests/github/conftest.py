@@ -38,7 +38,6 @@ def mock_rate_limiter(mocker):
     mock_rate = mocker.Mock(spec=Rate)
     mock_rate.timestamp = mocker.Mock(return_value=time.time() + 3600)
     mock_rate.remaining = 10
-    # Provide .rate attribute directly
     mock_rate_limit = mocker.Mock(spec=GithubRateLimiter)
     mock_rate_limit.rate = mock_rate
     return mock_rate_limit

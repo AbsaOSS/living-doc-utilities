@@ -13,12 +13,13 @@ surface** — so you mock the right target on the first try instead of guessing.
 - Must use `pytest` + `pytest-mock` (`mocker`). Tests live under `tests/`, mirroring the
   package layout (`tests/contracts/`, `tests/authoring/`, `tests/github/`, `tests/inputs/`,
   plus `tests/test_logging_config.py`).
-- Must mock `INPUT_*` environment variables (via `mocker.patch("os.getenv", ...)` or
-  patching `get_action_input`), never rely on the ambient environment.
+- Must set `INPUT_*` / `GITHUB_OUTPUT` through `monkeypatch.setenv` (files under `tmp_path`), or patch
+  `get_action_input`; never patch `os.getenv` or `builtins.open`, never rely on the ambient environment.
+- Every test, test class and test module gets a one-line docstring stating the behaviour it locks.
 - Must cover both the success and the failure path — for a decorator that wraps a failing
   call, assert it logs and re-raises (`pytest.raises`), never that it returns `None`.
 - Must keep contract-sensitive strings and the serialized JSON field names stable.
-- Prefer adding to the shared fixtures in `tests/conftest.py` over duplicating setup.
+- Prefer adding to the shared fixtures over duplicating setup: `tests/conftest.py` (logging), `tests/github/conftest.py` (GitHub).
 - Must keep the suite green under `make test` / `make coverage` (≥ 80%).
 - For `living_doc_utilities/contracts/` (pydantic models): Must use `tests/contracts/factories.py`'s builder functions
   (`user_story()`, `feature()`, `functionality()`, `scenario()`, `metadata()`, ...) instead
@@ -31,13 +32,13 @@ surface** — so you mock the right target on the first try instead of guessing.
 
 | What you need to fake | Pattern used in this repo | Where to copy it from |
 |---|---|---|
-| GitHub client (`github.Github`) | `mocker.Mock(spec=Github)`, stub `.get_rate_limit()` on the return value | `tests/conftest.py::rate_limiter` |
-| `Rate` / rate-limit object | `mocker.Mock(spec=Rate)`, set `.remaining` / `.reset.timestamp.return_value` | `tests/conftest.py::mock_rate_limiter` |
-| Rate limiter under test | `rate_limiter` fixture (`GithubRateLimiter` wrapping a `spec=Github` mock) | `tests/conftest.py`; `tests/github/test_rate_limiter.py` |
+| GitHub client (`github.Github`) | `mocker.Mock(spec=Github)`, stub `.get_rate_limit()` on the return value | `tests/github/conftest.py::rate_limiter` |
+| `Rate` / rate-limit object | `mocker.Mock(spec=Rate)`, set `.remaining` / `.reset.timestamp.return_value` | `tests/github/conftest.py::mock_rate_limiter` |
+| Rate limiter under test | `rate_limiter` fixture (`GithubRateLimiter` wrapping a `spec=Github` mock) | `tests/github/conftest.py`; `tests/github/test_rate_limiter.py` |
 | `time` inside the rate limiter (sleep / clock) | `mocker.patch("living_doc_utilities.github.rate_limiter.time")`, then `.time.return_value` / `.sleep` | `tests/github/test_rate_limiter.py` |
-| `INPUT_*` action inputs | `mocker.patch("os.getenv", return_value=...)`, or `mocker.patch("living_doc_utilities.inputs.action_inputs.get_action_input", return_value=...)` | `tests/github/test_utils.py`; `tests/inputs/test_action_inputs.py` |
+| `INPUT_*` action inputs | `monkeypatch.setenv("INPUT_NAME", ...)`, or `mocker.patch("living_doc_utilities.inputs.action_inputs.get_action_input", return_value=...)` | `tests/github/test_utils.py`; `tests/inputs/test_action_inputs.py` |
 | A concrete `BaseActionInputs` | define a small `TestActionInputs(BaseActionInputs)` in the test module, implement `_validate` / `_print_effective_configuration` | `tests/inputs/test_action_inputs.py` |
-| `GITHUB_OUTPUT` file write | `mocker.patch("builtins.open", new_callable=mocker.mock_open)`, assert `handle.write.assert_any_call("name=value\n")` | `tests/github/test_utils.py` |
+| `GITHUB_OUTPUT` file write | `monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "out.txt"))`, then assert on the file's bytes | `tests/github/test_utils.py` |
 | Logging assertions | `mocker.patch("living_doc_utilities.<module>.logger.error")` / `.debug`, assert `call_args[0]` is the format string + args | `tests/github/test_decorators.py`; `tests/github/test_utils.py` |
 | `logging.basicConfig` | `mock_logging_setup` fixture (`mocker.patch("logging.basicConfig")`) + `caplog` | `tests/conftest.py`; `tests/test_logging_config.py` |
 | GitHub / HTTP exceptions | raise real `github.GithubException(status, data, headers)` / `requests.RequestException` from the wrapped function, then `pytest.raises` | `tests/github/test_decorators.py` |

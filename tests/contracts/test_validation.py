@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for validation.validate (docs/contracts.md, R10): the shared structural-validation
-helper that selects its validator class from the schema's own dialect, never a hardcoded one.
-"""
+"""`validation.py::validate` (R10) selects its validator class from the schema's own dialect, never a hardcoded one."""
 
 import jsonschema
 
@@ -47,8 +44,7 @@ def test_validate_returns_every_error_for_an_invalid_payload():
 
 def test_validate_enforces_a_2020_12_only_keyword_prefixitems():
     """validate picks its validator class from the schema's own $schema dialect, not a hardcoded draft."""
-    # prefixItems is a 2020-12 keyword; a hardcoded Draft-07 validator would not recognise it
-    # and would silently ignore the constraint rather than reject a violating instance.
+    # A hardcoded Draft-07 validator would silently ignore prefixItems (2020-12), not reject a violating instance.
     schema = {
         "$schema": _DRAFT_2020_12,
         "type": "array",

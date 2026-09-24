@@ -15,14 +15,9 @@
 #
 
 """
-docs/contracts.md, R11: "Lineage tables are declared by the transform owner, checked by a
-shared helper." Each transform in the repository that owns it declares its own table - one
-entry per input leaf path, mapping it to where it lands in the output, or recording that it
-was deliberately dropped - because the table changes whenever the transform's own code does.
-This module ships only the two checks every such table is run through: `assert_complete` (a
-new input field cannot ship without anyone deciding where it goes) and `check_field_loss` (a
-mapped field that had data on the way in but none on the way out is a bug, not a legitimate
-filter). No transform-specific table lives here.
+R11: lineage tables are declared by the transform owner, checked by a shared helper here -
+`assert_complete` (every input field is accounted for) and `check_field_loss` (a mapped field
+that had data on input but none on output is a bug). No transform-specific table lives here.
 """
 
 from dataclasses import dataclass
@@ -51,15 +46,13 @@ LineageEntry = Union[str, Dropped]
 class LineageTable:
     """A transform's own field-lineage declaration: every input leaf path it knows about,
     each mapped to the output path it becomes or to an explicit Dropped(reason). Built and
-    owned by the transform's repository, not by this package (docs/contracts.md, R11)."""
+    owned by the transform's repository, not by this package (R11)."""
 
     entries: Mapping[str, LineageEntry]
 
 
 def assert_complete(table: LineageTable, input_contract: Union[str, dict[str, type[BaseModel]]]) -> None:
-    """
-    R11: "a new contract field cannot ship without anyone deciding where it goes." Fails when
-    `input_contract` has a leaf path that `table` says nothing about at all - neither mapped
+    """R11: fails when `input_contract` has a leaf path `table` says nothing about - neither mapped
     to an output path nor explicitly marked Dropped.
 
     @param table: the transform's own lineage table.
@@ -76,13 +69,9 @@ def assert_complete(table: LineageTable, input_contract: Union[str, dict[str, ty
 
 
 def check_field_loss(table: LineageTable, input_selected_stats: AuditStats, output_stats: Stats) -> None:
-    """
-    R11's transform-time hard error: for every path `table` maps to an output path (skipping the ones marked Dropped,
-    which are a legitimate, declared omission rather than a loss), a mapped path with non-zero input occupancy and zero
-    output occupancy means the transform silently lost a field that was actually authored - raised as `FIELD_LOSS`
-    naming the path and both occupancies, for every such path in one error. `input_selected_stats` must already be the
-    occupancy computed over the records the transform's view filter *kept* for this input (R7's `selected_stats`), so a
-    record dropped by a legitimate view filter is never mistaken for a field loss.
+    """R11's transform-time hard error: a path `table` maps to an output path (not Dropped)
+    with non-zero input occupancy and zero output occupancy is a silently lost field, not a
+    legitimate filter.
 
     @param table: the transform's own lineage table.
     @param input_selected_stats: the input's `selected_stats` for this run (R7) - occupancy

@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Builders for minimal, schema-valid contract instances, shared by the contracts test suite.
-Not a test module itself - no test_* functions live here.
-"""
+"""Builders for minimal, schema-valid contract instances, shared by the contracts tests."""
 
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional

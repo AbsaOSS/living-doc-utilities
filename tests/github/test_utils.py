@@ -20,8 +20,6 @@ import pytest
 
 from living_doc_utilities.github.utils import get_action_input, set_action_output
 
-# get_action_input
-
 
 def test_get_input_with_hyphen(monkeypatch):
     """An input name with a hyphen is read from the INPUT_ variable with the hyphen turned into an underscore."""
@@ -41,17 +39,23 @@ def test_get_input_without_hyphen(monkeypatch):
     assert actual == "another_test_value"
 
 
-# set_action_output
+def test_get_input_falls_back_to_the_default_when_the_variable_is_unset(monkeypatch):
+    """An unset INPUT_ variable yields an empty string, or the caller's `default` when one is given."""
+    monkeypatch.delenv("INPUT_MISSING_INPUT", raising=False)
+
+    assert get_action_input("missing-input") == ""
+    assert get_action_input("missing-input", "fallback") == "fallback"
 
 
-def test_set_action_output_writes_to_the_github_output_path(tmp_path, monkeypatch):
-    """An action output is appended to the GITHUB_OUTPUT file in the name=value format GitHub Actions expects."""
+def test_set_action_output_appends_one_name_value_line_per_output(tmp_path, monkeypatch):
+    """Each output is appended to the GITHUB_OUTPUT file as its own name=value line, earlier lines kept."""
     output_file = tmp_path / "the_output.txt"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
 
-    set_action_output("test-output", "test_value")
+    set_action_output("first-output", "one")
+    set_action_output("second-output", "two")
 
-    assert output_file.read_text(encoding="utf-8") == "test-output=test_value\n"
+    assert output_file.read_bytes() == b"first-output=one\nsecond-output=two\n"
 
 
 def test_set_action_output_raises_when_github_output_is_not_set(monkeypatch):
@@ -64,8 +68,7 @@ def test_set_action_output_raises_when_github_output_is_not_set(monkeypatch):
 
 def test_set_action_output_ioerror(tmp_path, monkeypatch):
     """An unwritable GITHUB_OUTPUT path raises OSError instead of silently swallowing the write failure."""
-    # R13: no silent swallowing in shared code - an unwritable output file must fail the
-    # Action step loudly, not log-and-continue as if the output had been written.
+    # R13: an unwritable output file must fail the step loudly, not log-and-continue.
     monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "missing-dir" / "fail.txt"))
 
     with pytest.raises(OSError):

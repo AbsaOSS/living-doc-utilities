@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for compat.py (docs/contracts.md, R5): the shared three-step compatibility check, and
-the SCHEMA_VALIDATION_FAILED message builder it shares with io.write_artifact.
-"""
+"""`compat.py` (R5): the three-step compatibility check and the `SCHEMA_VALIDATION_FAILED` message builder."""
 
 import json
 
@@ -41,7 +38,7 @@ def _valid_payload(**metadata_overrides) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_installed_utilities_version_delegates_to_importlib_metadata(mocker):
+def test_installed_utilities_version_reads_this_packages_own_name(mocker):
     """`installed_utilities_version` delegates to `importlib.metadata.version` with the package's own name."""
     spy = mocker.patch("living_doc_utilities.contracts.compat._installed_version", return_value="9.9.9")
 
@@ -155,8 +152,6 @@ def test_check_input_returns_the_contract_id_on_success():
 
 def test_check_input_never_raises_or_warns_on_an_unfamiliar_producer_version():
     """check_input succeeds regardless of an unrecognized metadata.producer.version, which it never reads."""
-    # metadata.producer.version is audit-only (R6) - check_input never reads it, only
-    # metadata.producer.utilities_version (and only inside the step-3 error path at that).
     payload = _valid_payload(producer=factories.producer(version="not-a-version-anyone-has-seen-before"))
 
     result = compat.check_input(payload, "doc-entities")

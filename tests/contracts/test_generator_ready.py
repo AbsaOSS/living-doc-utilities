@@ -15,7 +15,7 @@
 #
 
 """
-Tests for the generator-ready-v1.0.0 contract (docs/contracts.md, section 1).
+Tests for the generator-ready-v1.0.0 contract (generator_ready.py).
 """
 
 import json
@@ -85,8 +85,7 @@ def test_there_is_no_meta_field_on_the_result():
 
 def test_there_is_no_retired_provenance_shape_anywhere_in_the_tree():
     """No model in the generator-ready tree carries a retired run_context or audit field."""
-    # R8: no `run_context` or `audit` block - the toolkit's Meta.run_context / Meta.audit are
-    # retired outright, replaced by the shared envelope's metadata.run / metadata.source_inputs.
+    # R8: the retired run_context / audit blocks are replaced by metadata.run / metadata.source_inputs.
     for model in (GeneratorReadyResult, Document, SelectionSummary, Content):
         assert "run_context" not in model.model_fields
         assert "audit" not in model.model_fields
@@ -125,9 +124,7 @@ def test_record_root_is_content_entities():
 
 
 # ---------------------------------------------------------------------------
-# Every authored entity / acceptance-criterion field defined on doc-entities is reachable
-# on generator-ready - reused directly, not redeclared (docs/contracts.md, section 1;
-# this repo's issue #128 "Authored field set").
+# Every authored entity / AC field defined on doc-entities is reachable on generator-ready, reused not redeclared.
 # ---------------------------------------------------------------------------
 
 
@@ -149,10 +146,7 @@ def test_acceptance_criteria_reuses_the_shared_acceptance_criterion_model_direct
 
 
 # ---------------------------------------------------------------------------
-# SelectionSummary.total_entities is a guaranteed identity of the producer (the toolkit
-# derives excluded_entities as total_entities - included_entities); the same identity does
-# not hold for the three acceptance-criteria fields, since the producer never tallies
-# criteria belonging to a dropped entity.
+# total_entities is a producer identity; the AC counts are not, as criteria of dropped entities are never tallied.
 # ---------------------------------------------------------------------------
 
 
@@ -164,7 +158,7 @@ def test_selection_summary_enforces_total_entities_equals_included_plus_excluded
 
 def test_selection_summary_does_not_enforce_the_same_relationship_for_acceptance_criteria():
     """SelectionSummary does not enforce the total = included + excluded identity for acceptance-criteria counts."""
-    # Not a disjoint partition (docs/contracts.md, section 4) - must not raise.
+    # Not a disjoint partition (`generator_ready.py::SelectionSummary`) - must not raise.
     factories.selection_summary(
         total_acceptance_criteria=20, included_acceptance_criteria=15, excluded_acceptance_criteria=1
     )

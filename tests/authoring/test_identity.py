@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-"""entity_id extraction from a title (docs/contracts.md, "Entity identity")."""
+"""entity_id extraction from a title (identity.py::derive_entity_id)."""
 
 import pytest
 

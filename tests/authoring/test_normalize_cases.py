@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Runs every row of `normalisation_cases.yaml` - normalize's only test data - and checks
-that every rule and every SourceFormat is covered at least once.
-"""
+"""Runs every row of `normalisation_cases.yaml` and checks every rule and `SourceFormat` is covered."""
 
 from pathlib import Path
 

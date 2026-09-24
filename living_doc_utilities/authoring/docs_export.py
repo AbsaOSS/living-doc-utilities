@@ -15,15 +15,9 @@
 #
 
 """
-Regenerates docs/authoring.md's worked-examples table from normalisation_cases.yaml (that
-file is normalize's own test data - see its header comment - so the table shown to a human
-reader can never drift from what the test suite actually proves). Run as
-`python -m living_doc_utilities.authoring.docs_export`, or `make docs`.
-
-Only the region between the `BEGIN GENERATED` / `END GENERATED` markers is rewritten;
-everything else in docs/authoring.md is hand-maintained prose. A CI job re-runs this and
-diffs the result against what is committed, so a case added to the YAML without regenerating
-the doc fails the build rather than silently drifting.
+Regenerates docs/authoring.md's worked-examples table from normalisation_cases.yaml, so the table can never
+drift from what the test suite proves. Only the region between the BEGIN/END GENERATED markers is rewritten;
+a CI job re-runs this and diffs the whole file.
 """
 
 from pathlib import Path
@@ -51,14 +45,9 @@ def _load_cases() -> list[dict[str, Any]]:
 
 
 def _cell(text: str) -> str:
-    """Renders a (possibly multi-line) YAML field as one Markdown table cell: each physical
-    line wrapped in its own code span (so a leading `#`/`-`/`*` reads as literal text, not
-    as Markdown structure) and joined with `<br>`, with `|` escaped so it can't be mistaken
-    for a column separator. A literal `\\r` (a CRLF-rule case's raw content) is rendered as
-    the visible two-character escape `\\r`, never as a raw carriage-return byte - this
-    repo's `.gitattributes` normalises every text file to LF on checkout, so a raw `\\r`
-    byte here would never survive a commit and would make this table's regeneration
-    non-reproducible."""
+    """Renders a YAML field as one Markdown table cell: each line wrapped in its own code
+    span and joined with `<br>`, `|` escaped. A literal `\\r` renders as the two-char escape
+    `\\r`, since `.gitattributes` normalises checkouts to LF so a raw CR byte would never survive a commit."""
     lines = text.rstrip("\n").split("\n")
     escaped = []
     for line in lines:

@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-"""PageObject header parsing: full header, cross-reference header, unrecognised key, and
-`normalize`-before-grammar."""
+"""PageObject header parsing: full and cross-reference headers, an unrecognised key, `normalize` before the grammar."""
 
 from living_doc_utilities.authoring.page_object import parse_page_object
 from living_doc_utilities.contracts.codes import Code
@@ -103,9 +102,6 @@ def test_cross_reference_header_produces_no_entity_but_a_page_ref():
 
 def test_jsdoc_block_after_the_header_does_not_leak_into_it():
     """A JSDoc block after the header, even one with lines shaped like header keys, never overwrites header values."""
-    # A method-level JSDoc block below the header can carry its own "*"-prefixed lines;
-    # one that happens to look like "route: ..." must never overwrite the header's own
-    # value, since it belongs to a different comment block entirely.
     text = (
         _FULL_HEADER
         + "\n"
@@ -145,10 +141,7 @@ def test_missing_title_line_produces_missing_entity_id():
 
 def test_en_dash_input_is_normalized_before_extraction():
     """An en-dash id/title separator is normalized to the canonical form before the title and id are extracted."""
-    # The id-to-title separator (an en dash here, instead of the canonical " · ") is
-    # `normalize`'s job (rule 5); the "LIVING DOC — " marker ahead of the id is left
-    # untouched by `normalize` itself (normalize.py), so it stays the literal em dash canon
-    # always uses there.
+    # The en dash separator is normalize's job; the "LIVING DOC — " marker stays the literal em dash.
     text = (
         "/* =============================================================================\n"
         " * LIVING DOC — FEAT-044 – Dash Page\n"

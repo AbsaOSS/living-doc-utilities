@@ -14,31 +14,19 @@
 # limitations under the License.
 #
 
-"""
-Package-shape guarantees that are cheap to break silently:
-
-- `ac_grammar.py` is the only module in `authoring/` that knows what a *valid*
-  acceptance-criterion state or version looks like - `normalize.py` only reshapes
-  tokens by position, never validates them (docs/contracts.md).
-- `contracts` never imports from `authoring` (the dependency runs one way only).
-- `authoring` is source-agnostic: nothing in it imports a GitHub- or Azure-DevOps-specific
-  module (docs/authoring.md) - a parser only ever sees document text, never a tracker SDK.
-- `nh3` (the optional `html` extra `url_policy.py`/`html_to_markdown.py` need) is imported
-  only inside the functions that actually call it, never at module load time - so importing
-  any `authoring` module never requires that extra to be installed.
-"""
+"""Package-shape guarantees: `ac_grammar` owns AC validation, `authoring` stays source-agnostic, `nh3` is lazy."""
 
 import ast
 from pathlib import Path
+
+from living_doc_utilities.contracts.common import VERSION_PATTERN
 
 AUTHORING_DIR = Path(__file__).resolve().parents[2] / "living_doc_utilities" / "authoring"
 CONTRACTS_DIR = Path(__file__).resolve().parents[2] / "living_doc_utilities" / "contracts"
 
 _RE_CALL_NAMES = {"compile", "match", "fullmatch", "search", "sub", "subn", "split", "findall", "finditer"}
 
-# A strong, narrow signal that a pattern enumerates the AC state vocabulary or
-# validates the strict stored-version shape - not merely a generic dash/whitespace
-# reshaping regex, which normalize.py is expected to contain plenty of.
+# A narrow signal for a pattern that enumerates the AC state vocabulary or the strict stored-version shape.
 _STATE_VOCAB_TELLS = ("in_review", "deprecated")
 _STRICT_VERSION_TELL = r"\d+\.\d+\.\d+$"
 
@@ -76,12 +64,10 @@ def test_no_module_other_than_ac_grammar_validates_ac_state_or_version():
 
 
 def test_ac_grammar_itself_owns_that_validation():
-    """`ac_grammar` validates versions via `contracts.common`'s own pattern, not a second hand-rolled copy."""
-    # ac_grammar validates via contracts.common's own VERSION_PATTERN/LifecycleState,
-    # not a second, hand-rolled copy - confirm those are in fact what it uses.
+    """`ac_grammar` validates versions via `common.py::VERSION_PATTERN`, not a second hand-rolled copy."""
     from living_doc_utilities.authoring import ac_grammar
 
-    assert ac_grammar._VERSION_RE.pattern == r"^\d+\.\d+\.\d+$"  # noqa: SLF001 - white-box check
+    assert ac_grammar._VERSION_RE.pattern == VERSION_PATTERN  # noqa: SLF001 - white-box check
 
 
 def test_contracts_imports_nothing_from_authoring():

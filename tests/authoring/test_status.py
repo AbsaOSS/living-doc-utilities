@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""`derive_statuses` (docs/contracts.md, "State and `state_origin`"): every derivation row
-for a User Story/Functionality, every derivation row for a Feature, every
-`STATUS_AC_MISMATCH` row, and the `in_review`-never-mismatches guarantee.
-"""
+"""`derive_statuses`: every US/Functionality and Feature derivation row and every `STATUS_AC_MISMATCH` row."""
 
 import pytest
 

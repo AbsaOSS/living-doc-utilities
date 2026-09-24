@@ -17,7 +17,6 @@
 """Tests for setup_logging, the project's logging configuration entry point."""
 
 import logging
-import os
 import sys
 from logging import StreamHandler
 
@@ -28,38 +27,32 @@ def validate_logging_config(mock_logging_setup, caplog, expected_level, expected
     """Assert that logging was configured with the expected level, format, stdout handler, and log message."""
     mock_logging_setup.assert_called_once()
 
-    # Get the actual call arguments from the mock
-    call_args = mock_logging_setup.call_args[1]  # Extract the kwargs from the call
-
-    # Validate the logging level and format
+    call_args = mock_logging_setup.call_args[1]
     assert call_args["level"] == expected_level
     assert call_args["format"] == "%(asctime)s - %(levelname)s - %(message)s"
     assert call_args["datefmt"] == "%Y-%m-%d %H:%M:%S"
 
-    # Check that the handler is a StreamHandler and outputs to sys.stdout
     handlers = call_args["handlers"]
-    assert 1 == len(handlers)  # Only one handler is expected
-    assert isinstance(handlers[0], StreamHandler)  # Handler should be StreamHandler
-    assert handlers[0].stream is sys.stdout  # Stream should be sys.stdout
+    assert len(handlers) == 1
+    assert isinstance(handlers[0], StreamHandler)
+    assert handlers[0].stream is sys.stdout
 
-    # Check that the log message is present
     assert expected_message in caplog.text
 
 
-# setup_logging
-
-
-def test_setup_logging_default_logging_level(mock_logging_setup, caplog):
+def test_setup_logging_default_logging_level(mock_logging_setup, caplog, monkeypatch):
     """`setup_logging` configures the INFO level and logs a setup confirmation message when called with no args."""
+    monkeypatch.delenv("INPUT_VERBOSE_LOGGING", raising=False)
+    monkeypatch.delenv("RUNNER_DEBUG", raising=False)
     with caplog.at_level(logging.INFO):
         setup_logging()
 
     validate_logging_config(mock_logging_setup, caplog, logging.INFO, "Logging configuration set up.")
 
 
-def test_setup_logging_verbose_logging_enabled(mock_logging_setup, caplog):
+def test_setup_logging_verbose_logging_enabled(mock_logging_setup, caplog, monkeypatch):
     """Setting INPUT_VERBOSE_LOGGING enables debug-level logging and logs that verbose logging is enabled."""
-    os.environ["INPUT_VERBOSE_LOGGING"] = "true"
+    monkeypatch.setenv("INPUT_VERBOSE_LOGGING", "true")
 
     with caplog.at_level(logging.DEBUG):
         setup_logging()
@@ -67,9 +60,9 @@ def test_setup_logging_verbose_logging_enabled(mock_logging_setup, caplog):
     validate_logging_config(mock_logging_setup, caplog, logging.DEBUG, "Verbose logging enabled.")
 
 
-def test_setup_logging_debug_mode_enabled_by_ci(mock_logging_setup, caplog):
+def test_setup_logging_debug_mode_enabled_by_ci(mock_logging_setup, caplog, monkeypatch):
     """Setting RUNNER_DEBUG enables debug-level logging and logs that debug mode was enabled by the CI runner."""
-    os.environ["RUNNER_DEBUG"] = "1"
+    monkeypatch.setenv("RUNNER_DEBUG", "1")
 
     with caplog.at_level(logging.DEBUG):
         setup_logging()

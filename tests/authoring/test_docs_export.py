@@ -14,14 +14,7 @@
 # limitations under the License.
 #
 
-"""
-`docs_export.regenerate()` is what `make docs` writes and what the CI "Authoring Docs
-Regeneration Check" job diffs against the committed file (.github/workflows/test.yml). These
-tests prove both halves: the committed table really is what the generator produces from
-`normalisation_cases.yaml` today (so the CI job is green), and the generator actually
-notices when the cases file and the committed table disagree (so the CI job would catch a
-stale table, not just a missing one).
-"""
+"""`docs_export.py::regenerate` reproduces the committed table and notices when cases file and table disagree."""
 
 import pytest
 
@@ -44,11 +37,11 @@ def test_committed_doc_matches_a_fresh_regeneration():
 
 
 def test_regenerate_is_idempotent():
-    """Calling `regenerate()` does not itself change what the next `regenerate()` call produces."""
+    """Splicing the table into an already-regenerated doc leaves that doc unchanged."""
     once = regenerate()
 
-    doc_with_once_applied = _DOC_FILE.read_text(encoding="utf-8")
-    assert doc_with_once_applied == once
+    twice = docs_export._splice(once, render_table(_load_cases()))
+    assert twice == once
 
 
 def test_render_table_has_one_row_per_case_plus_header():
@@ -65,10 +58,7 @@ def test_render_table_has_one_row_per_case_plus_header():
 
 def test_a_stale_table_is_detected_as_different_from_a_fresh_regeneration():
     """A table regenerated from a shorter case list differs from one regenerated from the full case list."""
-    # Simulates what the CI job's `git diff --exit-code -- docs/authoring.md` step catches:
-    # a committed table that no longer matches what the cases file produces today - here,
-    # by regenerating from a cases list with one case removed, standing in for a case added
-    # to the YAML without `make docs` having been re-run.
+    # Regenerating from a cases list with one case removed stands in for a case added without `make docs`.
     cases = _load_cases()
     stale_table = render_table(cases[:-1])
     fresh_table = render_table(cases)
@@ -98,8 +88,6 @@ def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
 @pytest.fixture
 def crlf_checkout(tmp_path, mocker):
     """Wire `docs_export` to a CRLF, nested-path copy of the doc and cases file, as autocrlf checkouts leave them."""
-    # The doc and the cases file as a Windows autocrlf checkout can leave them (CRLF), in nested folders so a
-    # path separator shows up in what `main()` prints, wired into `main()` in place of the real files.
     (tmp_path / "docs").mkdir()
     (tmp_path / "pkg").mkdir()
     doc, cases = tmp_path / "docs" / "authoring.md", tmp_path / "pkg" / "cases.yaml"

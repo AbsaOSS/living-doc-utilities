@@ -300,7 +300,7 @@
     },
     "Document": {
       "additionalProperties": false,
-      "description": "What the generator titles and filters by (docs/contracts.md, \"The metadata envelope\").",
+      "description": "What the generator titles and filters by.",
       "properties": {
         "view": {
           "enum": [
@@ -333,7 +333,7 @@
     },
     "Entity": {
       "additionalProperties": false,
-      "description": "A documented User Story, Feature or Functionality.\n\nEvery authored field of every entity type lives here, at its authored level; a field\nthat does not apply to a given entity's type is simply absent. Which headings are\nrequired for which type is a parsing-time concern (a later package) - this model only\nfixes the contract's shape. The cross-cutting invariants that are structural, not\nparsing-time, are enforced below: a Feature's state is always derived, stub_reason\nonly ever describes a Feature, and every acceptance criterion's id belongs to its\nentity.",
+      "description": "A documented User Story, Feature or Functionality: every authored field lives here, at\nits authored level, absent when inapplicable. Structural invariants: a Feature's state is always derived,\nstub_reason is Feature-only, every AC id belongs to its entity (Pydantic-only, not in the JSON Schema).",
       "properties": {
         "entity_id": {
           "title": "Entity Id",
@@ -713,7 +713,7 @@
     },
     "PageRef": {
       "additionalProperties": false,
-      "description": "One PageObject file backing a Feature's surface - the full header or a\ncross-reference one (living-doc's docs/guides/living-doc-header-types.md,\n\"Feature in a PageObject File\"). Exactly one of a Feature's pages is the full\nheader; the rest are cross-reference headers pointing back via `parent-feat`.",
+      "description": "One PageObject file backing a Feature's surface - the full header or a cross-reference\none. Exactly one of a Feature's pages is the full header; the rest point back via\n`parent-feat`.",
       "properties": {
         "is_primary": {
           "default": false,
@@ -874,7 +874,7 @@
     },
     "SelectionSummary": {
       "additionalProperties": false,
-      "description": "Counts of what the transform's view filter kept and dropped (docs/contracts.md,\nsection 4). A record: exactly these six named properties, nothing else.\n\n`total_entities == included_entities + excluded_entities` always holds: the producer\nderives `excluded_entities` as `total_entities - included_entities` over one fixed\nentity set, so it is a guaranteed identity, not a coincidence - the same check does not\napply to the three acceptance-criteria fields, because the producer only reports\nview-filtered criteria for entities it kept and never tallies criteria belonging to a\ndropped entity, so those three fields are not established as a disjoint partition. This\nidentity is Pydantic-only: JSON Schema has no keyword for a sum across sibling\nproperties, so a consumer validating raw JSON against the generated schema alone (not\nthrough this model) cannot catch a violation.",
+      "description": "Counts of what the transform's view filter kept and dropped: a record with exactly\nthese six named properties, nothing else.\n\n`total_entities == included_entities + excluded_entities` always holds - the producer\nderives `excluded_entities` from one fixed entity set, so it's a guaranteed identity. The\nthree acceptance-criteria fields aren't a disjoint partition the same way: the producer\nonly tallies AC counts for entities it kept, never for a dropped one. This identity is\nPydantic-only - JSON Schema has no sum-across-siblings keyword, so a consumer validating\nraw JSON alone can't catch a violation.",
       "properties": {
         "total_entities": {
           "minimum": 0,

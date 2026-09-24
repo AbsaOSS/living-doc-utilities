@@ -15,11 +15,9 @@
 #
 
 """
-`.feature`-file header parsing for a User Story or a Functionality (living-doc's
-docs/guides/living-doc-header-types.md, sections 1 and 3): the `# key: value` / `# key:` +
-bulleted-list comment block between the two `# ===...===` banner lines, plus its
-`AC:<id> (v<version> - <state>)` blocks, parsed by `ac_grammar` alone. The Gherkin body
-below the header (scenarios, `@AC:` tags) is `scenario.py`'s job, not this module's.
+`.feature`-file header parsing for a User Story or a Functionality: the `# key: value` /
+`# key:` + bulleted-list comment block between two `# ===...===` banners, plus its
+`AC:<id> (v<version> - <state>)` blocks, parsed by `ac_grammar` alone.
 """
 
 import re
@@ -73,13 +71,9 @@ def _strip_comment_prefix(line: str) -> str:
 
 
 def _extract_header_block(lines: list[str]) -> list[str]:
-    """The banner (`# ===...===`) brackets the whole header block, but also appears a
-    second time right after the title line (framing it on its own) - so the block runs
-    from the *first* banner to the *last*, not the first two. Banner search is bounded to
-    before the `Feature:` declaration - the Gherkin body below it (scenarios, `# AC:`
-    documentation comments) can otherwise contain its own banner-shaped comment lines,
-    which would push the block past the header's own closing banner and re-parse
-    scenario-body content as header fields / AC blocks."""
+    """The banner brackets the whole header block but also reappears right after the title
+    line, so the block runs from the *first* banner to the *last*. Search is bounded to
+    before `Feature:`, else the scenario body's own banner-shaped comments would extend it."""
     feature_idx = next((i for i, ln in enumerate(lines) if _FEATURE_LINE_RE.match(ln.strip())), len(lines))
     banner_indices = [i for i, ln in enumerate(lines[:feature_idx]) if _BANNER_RE.match(ln)]
     if len(banner_indices) < 2:
@@ -94,9 +88,7 @@ def _parse_keys(header_lines: list[str], key_specs: dict[str, _SectionSpec]) -> 
     raw_values: dict[str, list[str]] = {}
     current_key: Optional[str] = None
     unrecognised: list[str] = []
-    # Once the first "AC:" header is seen, every following line belongs to that AC's own
-    # block (ac_grammar.py's grammar, e.g. a nested `preconditions:` sub-list) until the
-    # closing "====" banner - never to an entity-level key of the same name.
+    # Once the first "AC:" header is seen, every following line belongs to that AC's own block until "====" closes it.
     in_ac_block = False
 
     for raw_line in header_lines:
@@ -147,8 +139,7 @@ def _parse_keys(header_lines: list[str], key_specs: dict[str, _SectionSpec]) -> 
 def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
     """Parses a User Story / Functionality `.feature` file's header block into a
     `ParsedEntity`. Returns `(None, [MISSING_ENTITY_ID])` when the `LIVING DOC — ...` title
-    line is missing or carries no parseable id.
-    """
+    line is missing or carries no parseable id."""
     normalized = normalize(text, SourceFormat.FEATURE_HEADER, entity_type)
     header_lines = _extract_header_block(normalized.lines)
 

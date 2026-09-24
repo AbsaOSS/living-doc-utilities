@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Structural tests for `normalize` that are not about one rule's text transform: the
-`TYPE_PROFILES`-only branching guarantee, `Change` naming every fired rule, and
-`normalize_title`'s own edge cases (it has no `SourceFormat`, so it is not covered by
-normalisation_cases.yaml rows).
-"""
+"""Structural `normalize` tests: `TYPE_PROFILES`-only branching, `Change` naming every fired rule, `normalize_title`."""
 
 import inspect
 
@@ -46,8 +41,8 @@ def test_module_never_branches_on_entity_type():
     assert "entity_type !=" not in source
 
 
-def test_type_profiles_is_the_only_place_with_bullet_section_data():
-    """`TYPE_PROFILES` alone determines which bullet sections apply per entity type."""
+def test_type_profiles_lists_the_bullet_sections_per_entity_type():
+    """`TYPE_PROFILES`: a Feature has no bullet sections, a User Story `business_value`, a Functionality `rationale`."""
     assert TYPE_PROFILES["DocumentedFeature"] == frozenset()
     assert "business_value" in TYPE_PROFILES["DocumentedUserStory"]
     assert "rationale" in TYPE_PROFILES["DocumentedFunctionality"]
@@ -65,10 +60,7 @@ def test_normalized_source_text_joins_lines():
 
 def test_changes_name_every_rule_that_fired_on_one_line():
     """When multiple rules fire on one line, every one is named in `changes`, sharing that line's before/after."""
-    # Reuses normalisation_cases.yaml's own multi-rule case rather than a new literal,
-    # per the "cases file is normalize's only test data" rule; this test asserts a
-    # property that case's own harness does not check - every fired rule is named,
-    # each sharing the same before/after text.
+    # Reuses the multi-rule case from normalisation_cases.yaml; asserts what its harness skips: every rule is named.
     case = _case("rule2_rule3_rule4_scenario_file_combined")
     result = normalize(case["input"], SourceFormat(case["format"]), case["entity_type"])
 
@@ -122,9 +114,6 @@ def test_normalize_title_preserves_text_before_the_id():
 
 def test_fence_flags_backtick_info_string_with_a_backtick_does_not_open_a_fence():
     """A backtick fence whose info string itself contains a backtick is not a fence, so content below it stays live."""
-    # CommonMark: a backtick fence's info string may not itself contain a backtick
-    # (a tilde fence has no such restriction) - so this is not a fence at all, and the
-    # "AC:" line below it is live content, not a quoted example.
     lines = ["```lang`with`backtick", "AC:US-001-01 (v1.0.0 - active)", "```"]
 
     assert compute_fence_flags(lines) == [False, False, True]
@@ -132,8 +121,6 @@ def test_fence_flags_backtick_info_string_with_a_backtick_does_not_open_a_fence(
 
 def test_fence_flags_tab_indented_marker_does_not_open_a_fence():
     """A tab-indented fence marker does not open a fence, since a tab expands past the three-space indent limit."""
-    # CommonMark: a fence marker may be indented by at most three spaces; a tab
-    # advances to the next 4-space tab stop, so it disqualifies the marker.
     lines = ["\t```", "AC:US-001-01 (v1.0.0 - active)", "```"]
 
     assert compute_fence_flags(lines) == [False, False, True]
@@ -141,8 +128,6 @@ def test_fence_flags_tab_indented_marker_does_not_open_a_fence():
 
 def test_fence_flags_over_indented_closer_does_not_close_the_fence():
     """A closing fence marker indented four or more spaces fails to close the fence, so the line after stays inside."""
-    # CommonMark: a closing fence may be indented by at most three spaces; four or
-    # more leaves the block open, so the line after it is still inside the fence.
     lines = ["```", "AC:US-001-01 (v1.0.0 - active) example inside the fence", "    ```", "still inside"]
 
     assert compute_fence_flags(lines) == [True, True, True, True]

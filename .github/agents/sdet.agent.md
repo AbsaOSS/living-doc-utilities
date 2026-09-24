@@ -86,7 +86,7 @@ Repo specifics
 
 - Test locations
   - Tests: tests/ (mirrors the package tree — tests/contracts/, tests/authoring/, tests/github/, tests/inputs/).
-  - Shared fixtures: tests/conftest.py.
+  - Shared fixtures: tests/conftest.py (logging), tests/github/conftest.py (GitHub rate limiter).
 - Coverage target
   - Must keep coverage ≥ 80% when running the repo coverage command.
 - Mocking rules

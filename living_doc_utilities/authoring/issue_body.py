@@ -15,15 +15,9 @@
 #
 
 """
-GitHub issue-body parsing (living-doc's docs/examples/README.md, "GitHub issue-body layout
-(canonical)"): `##` sections mapped 1:1 onto the shared entity fields, plus `###
-AC:<id> (v<version> - <state>)` sub-headings parsed by `ac_grammar` alone.
-
-Also defines `ParsedEntity`, the pre-`Entity` shape every parser in this package returns:
-every `Entity` field except `source_ref`, `tags` and `timestamps` (collector-filled, never
-parser-filled - see docs/contracts.md's "Entity identity") and with `state`/`state_origin`
-optional, since those are only settled once `status.derive_statuses` has run over the whole
-collected set.
+GitHub issue-body parsing: `##` sections map 1:1 onto the shared entity fields, plus `###
+AC:<id> (v<version> - <state>)` sub-headings parsed by `ac_grammar` alone. Also defines
+`ParsedEntity`, the pre-`Entity` shape every parser in this package returns.
 """
 
 from dataclasses import dataclass
@@ -48,11 +42,7 @@ from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType, 
 from living_doc_utilities.contracts.doc_entities import EntityContent
 from living_doc_utilities.contracts.envelope import ContractWarning
 
-# Glossary-defined headings that map to no model field, with the reason each is dropped
-# rather than stored (docs/contracts.md, "State and `state_origin`"). A key found here
-# still produces an `IGNORED_AUTHORED_KEY` warning - it is a documented drop, not a silent
-# one. Every other glossary-defined issue-body heading maps to a real field instead (see
-# tests/contracts/test_authored_field_set.py).
+# Glossary headings that map to no field - a documented drop; still warns IGNORED_AUTHORED_KEY, not silent.
 IGNORED_AUTHORED_KEYS = {
     "Status": "Feature state is derived; use `stub-reason:` for an uninstrumented surface",
 }
@@ -60,11 +50,8 @@ IGNORED_AUTHORED_KEYS = {
 
 class ParsedEntity(EntityContent):
     """Every `Entity` field except `source_ref`, `tags` and `timestamps`: `EntityContent`'s
-    authored fields plus this entity's identity. `state` is `None` until authored (issue
-    body / feature header) or derived (`status.derive_statuses`) fills it in; `state_origin`
-    likewise. Built up field-by-field by whichever authoring-format parser produced it -
-    a given parser only ever sets the subset of fields its format carries.
-    """
+    authored fields plus identity. `state`/`state_origin` stay `None` until authored or
+    derived; each parser sets only the subset of fields its format carries."""
 
     entity_id: str
     type: DocType
@@ -102,8 +89,7 @@ _DEPRECATION_SECTIONS = {
     "superseded_by": _SectionSpec("superseded_by", _SectionKind.SCALAR),
 }
 
-# heading slug (normalize.py's `_slugify_section`: lowercase, spaces/underscores -> "_") ->
-# spec, per entity type. Mirrors tests/contracts/test_authored_field_set.py exactly.
+# heading slug (`normalize.py::_slugify_section`) -> spec, per entity type.
 _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
     "DocumentedUserStory": {
         "description": _SectionSpec("narrative", _SectionKind.PROSE),
@@ -163,11 +149,9 @@ def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
 
 
 def extract_bullets(lines: list[str]) -> list[str]:
-    """Extracts a `- ...` list's items from already-normalised `lines`, joining a
-    following non-bullet line onto the previous item as its hard-wrap continuation.
-    Shared by every authoring-format parser that carries a bullet section (issue-body
-    `##` sections here, feature-header `key:` sections in `feature_header.py`) - the one
-    place this join rule is implemented."""
+    """Extracts a `- ...` list's items from already-normalised `lines`, joining a following
+    non-bullet line onto the previous item as its continuation. Shared by every parser with
+    a bullet section - the one place this join rule lives."""
     items: list[str] = []
     for raw in lines:
         stripped = raw.strip()
@@ -193,9 +177,7 @@ def _extract_prose_bullet(lines: list[str]) -> Optional[str]:
 
 def split_id_list(value: Optional[str], sep: str = ",") -> list[str]:
     """Splits an already-joined `sep`-separated id/name list into its items, or `[]` for
-    a blank or literal "none" value. Shared with page_object.py, whose header keys carry
-    the same list shape already joined to one string (there with `sep=" · "` for
-    wizard-steps)."""
+    blank or "none". Shared with page_object.py (there with `sep=" · "` for wizard-steps)."""
     if not value or value.strip().lower() == "none":
         return []
     return [token.strip() for token in value.split(sep) if token.strip()]
@@ -221,14 +203,9 @@ def _build_parsed_entity(
     acceptance_criteria: list[AcceptanceCriterion],
     fields: dict[str, Any],
 ) -> tuple[ParsedEntity, list[ContractWarning]]:
-    """Constructs a `ParsedEntity` from already-extracted field values, shared by
-    `parse_issue_body` and `feature_header.parse_feature_header` - the two parsers that
-    build one from free-form authored text. `state` is the only field that can fail the
-    contract's own validation here (it narrows to `LifecycleState`, everything else is an
-    unconstrained `str`/`list[str]`); an authored value the reader mistyped must become a
-    warning, not an exception - every other unrecognised authored value in this contract
-    does (docs/contracts.md, section 5), and pydantic validates eagerly on construction.
-    """
+    """Constructs a `ParsedEntity` from already-extracted field values; shared by
+    `parse_issue_body` and `feature_header.py::parse_feature_header`. An authored `state` value
+    the reader mistyped becomes a warning, not an exception - pydantic validates eagerly."""
     try:
         return (
             ParsedEntity(
@@ -257,11 +234,8 @@ def _build_parsed_entity(
 def parse_issue_body(
     text: str, title: str, entity_type: DocType
 ) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
-    """Parses a GitHub issue body into a `ParsedEntity`. `title` is the issue title (e.g.
-    `US-001 · Customer Login`); its entity-id prefix becomes `entity_id`, and (normalised)
-    it becomes `title`. Returns `(None, [MISSING_ENTITY_ID])` when the title has no
-    parseable id - nothing else about the body is inspected in that case.
-    """
+    """Parses a GitHub issue body into a `ParsedEntity`. `title`'s entity-id prefix becomes
+    `entity_id`; returns `(None, [MISSING_ENTITY_ID])` when the title has no parseable id."""
     normalized_title, _title_changes = normalize_title(title)
     entity_id, id_warnings = derive_entity_id(normalized_title)
     if entity_id is None:

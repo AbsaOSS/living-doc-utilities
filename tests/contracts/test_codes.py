@@ -14,17 +14,13 @@
 # limitations under the License.
 #
 
-"""
-Tests for the docs/contracts.md, section 5 code registry (codes.py): every code is
-present exactly once, with the right kind/emitter, and ContractError carries them faithfully.
-"""
+"""The code registry: every code present once with the right kind/emitter, and `ContractError` carrying them."""
 
 import pytest
 
 from living_doc_utilities.contracts.codes import ALL_CODES, Code, CodeKind, ContractError, Emitter
 
-# docs/contracts.md, section 5: a representative sample spanning every emitter/kind
-# combination, so a regression in the registry's kind/emitter mapping (not just a missing entry) is caught.
+# A sample spanning every emitter/kind combination, so a wrong kind/emitter mapping is caught, not just a missing entry.
 _KNOWN_CODES = [
     ("INVALID_CONTRACT_ID", CodeKind.ERROR, Emitter.UTILITIES),
     ("CONTRACT_MISMATCH", CodeKind.ERROR, Emitter.UTILITIES),
@@ -37,14 +33,13 @@ _KNOWN_CODES = [
     ("URL_FETCH_REFUSED", CodeKind.WARNING, Emitter.GENERATOR),
 ]
 
-# The three codes compat.py is the only place that ever raises (docs/contracts.md, R5).
+# The three codes compat.py is the only place that ever raises (R5).
 _COMPAT_RAISED_CODES = ["INVALID_CONTRACT_ID", "CONTRACT_MISMATCH", "SCHEMA_VALIDATION_FAILED"]
 
 
 def test_all_codes_has_exactly_36_entries():
-    """ALL_CODES contains exactly 36 entries, one per code documented in docs/contracts.md section 5."""
-    # Canary: docs/contracts.md, section 5 currently enumerates exactly 36 codes. A change
-    # to this count means a code was added/removed there without a matching Code member.
+    """ALL_CODES contains exactly 36 entries, one per code documented in codes.py."""
+    # Canary: a change to this count means a code was added/removed without a matching Code member.
     assert len(ALL_CODES) == 36
 
 
@@ -73,9 +68,7 @@ def test_compat_raised_codes_are_registered_as_errors_emitted_by_utilities(name)
 
 def test_every_code_member_is_a_distinct_object():
     """Every Code member is a distinct object, none collapsed into another by a shared value."""
-    # Guards against the Enum-aliasing bug class: two members sharing a value collapse into
-    # one. Code.__new__ assigns each member a unique, sequential _value_ rather than using
-    # its (kind, emitter) tuple as the value precisely to avoid this.
+    # Guards Enum aliasing: `codes.py::Code.__new__` assigns unique sequential values, so members can't collapse.
     assert len(set(Code)) == len(list(Code)) == 36
 
 

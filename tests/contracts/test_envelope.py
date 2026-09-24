@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for the shared envelope models: Source's project_id pattern and organization/repository
-consistency checks, Cardinality's defaults and value constraints, and ContractWarning.
-"""
+"""The shared envelope models: `Source` consistency checks, `Cardinality` constraints, `ContractWarning`."""
 
 import pytest
 from pydantic import ValidationError

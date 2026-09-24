@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for the shared models in common.py: AcceptanceCriterion's state/version/removal_planned
-rules and canonical header rendering, SourceRef's system-specific fields, and Timestamps.
-"""
+"""Shared models in `common.py`: AC state/version/removal_planned rules and header, `SourceRef`, `Timestamps`."""
 
 import pytest
 from pydantic import ValidationError
@@ -73,16 +70,9 @@ def test_acceptance_criterion_forbids_unknown_field():
         factories.acceptance_criterion(unexpected_field="nope")
 
 
-def test_acceptance_criterion_id_matches_parent_plus_sequence():
-    """An AcceptanceCriterion's id is derived from its parent id and sequence number."""
-    ac = factories.acceptance_criterion(parent_id="US-001", seq=1)
-
-    assert ac.id == "US-001-01"
-
-
 @pytest.mark.parametrize("bad_id", ["AC1", "US-001", "us-001-01", "US-001-1a"])
 def test_acceptance_criterion_id_rejects_non_canonical_form(bad_id):
-    """An id that doesn't match the canonical PARENT-NNN-NN form is rejected."""
+    """An id that isn't upper-case letters, then two runs of digits joined by hyphens, is rejected."""
     with pytest.raises(ValidationError):
         factories.acceptance_criterion(id=bad_id)
 

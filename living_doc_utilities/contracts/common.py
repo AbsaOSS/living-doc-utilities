@@ -24,33 +24,25 @@ from typing import Annotated, Iterable, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-# Version fields never carry a leading "v" - see docs/contracts.md, "Version format".
+# Version fields never carry a leading "v".
 VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
 
-# An AC id is its parent entity's id plus a sequence number, conventionally zero-padded to two
-# digits, e.g. "US-001-01" - mirrors living-doc's tools/examples_check.py AC_HEADER_RE / AC_TAG_RE
-# (commit bfcc402ff998085cbf7bb91a7fd55ea8ac12c911), which does not itself fix the digit width.
+# AC id = parent id + sequence, conventionally zero-padded (e.g. "US-001-01"); the digit width is not enforced.
 AC_ID_PATTERN = r"^[A-Z]+-\d+-\d+$"
 
 # A placeholder name from the AC-block grammar's placeholder_values, e.g. "<user_role>".
 PLACEHOLDER_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*$"
 
-# The three documentation types an entity can be. Also used as the fixed key set of
-# metadata.stats.cardinality.entities_by_type (R9).
+# The three documentation types an entity can be; also cardinality.entities_by_type's fixed key set (R9).
 DocType = Literal["DocumentedUserStory", "DocumentedFeature", "DocumentedFunctionality"]
 
-# An entity's and an acceptance criterion's lifecycle state (docs/contracts.md, "State and
-# state_origin").
+# An entity's and an acceptance criterion's lifecycle state.
 LifecycleState = Literal["planned", "in_review", "active", "deprecated"]
 
-# Whether an entity's settled state came from its author or was derived from other entities'
-# states (docs/contracts.md, "State and state_origin") - shared so ParsedEntity's pre-settled
-# state_origin narrows to the same literals as Entity's, not a second hand-spelled copy.
+# Whether state came from the author or was derived; shared so ParsedEntity's state_origin uses the same literals.
 StateOrigin = Literal["authored", "derived"]
 
-# A transform-output document's declared presentation (docs/contracts.md, section 4): shared by
-# every contract that carries a `document` block (generator-ready, coverage-matrix,
-# ui-test-catalog).
+# A transform-output document's declared presentation, shared by generator-ready/coverage-matrix/ui-test-catalog.
 View = Literal["inner", "release"]
 
 
@@ -119,11 +111,9 @@ class AcceptanceCriterion(ContractModel):
         return self
 
     def canonical_header(self) -> str:
-        """Renders this AC's canonical header text (docs/contracts.md, "AC header"):
-        `AC:<id> (v<x.y.z> - <state>)`, or `AC:<id> (planned)` for a version-less
-        backlog item - adding the leading `v` back, so a downstream generator never
-        needs to import `authoring` just to render an acceptance-criterion header.
-        """
+        """Renders this AC's canonical header text: `AC:<id> (v<x.y.z> - <state>)`, or
+        `AC:<id> (planned)` for a version-less backlog item - the leading `v` added back so a
+        downstream generator never needs to import `authoring` just to render a header."""
         if self.version is None:
             return f"AC:{self.id} ({self.state})"
         inner = f"v{self.version} - {self.state}"
@@ -133,11 +123,8 @@ class AcceptanceCriterion(ContractModel):
 
 
 def check_ac_ids_owned(entity_id: str, ac_ids: Iterable[str]) -> None:
-    """
-    Every acceptance-criterion id under an entity is that entity's own id plus "-" plus a
-    sequence number (AC_ID_PATTERN) - shared by doc_entities.Entity (one entity's own
-    acceptance_criteria) and coverage_matrix.CoverageMatrixResult (each of entities[]'s own
-    AcCoverage rows).
+    """Checks that every acceptance-criterion id under an entity is that entity's own id plus "-" plus a
+    sequence number. Shared by `doc_entities.py::Entity` and `coverage_matrix.py::CoverageMatrixResult`.
 
     @param entity_id: the owning entity's id.
     @param ac_ids: that entity's own acceptance-criterion ids.

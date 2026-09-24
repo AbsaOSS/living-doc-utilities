@@ -14,13 +14,7 @@
 # limitations under the License.
 #
 
-"""
-`parse_issue_body`: every canonical `##` heading (living-doc's docs/examples/README.md,
-"GitHub issue-body layout (canonical)") lands on a real `ParsedEntity` field, an unrecognised
-heading produces `UNKNOWN_SECTION`, a `## Status` heading on a Feature produces
-`IGNORED_AUTHORED_KEY`, and entity-level `rationale` is a distinct field from an
-acceptance-criterion's own `rationale`.
-"""
+"""`parse_issue_body`: every canonical heading lands on its field; unknown headings and a Feature `## Status` warn."""
 
 from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.contracts.codes import Code
@@ -266,10 +260,7 @@ def test_en_dash_input_is_normalized_before_ac_grammar_runs():
 
 def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
     """A `## Status` value outside the four lifecycle states is reported as a warning instead of raising."""
-    # A mistyped `## Status` value must not raise: ParsedEntity.state narrows to
-    # LifecycleState, so pydantic validates it eagerly on construction - it must be caught
-    # and reported the same way every other unrecognised authored value is (MALFORMED_AC,
-    # UNKNOWN_SECTION): a warning, entity still returned, docs/contracts.md section 5.
+    # ParsedEntity.state validates eagerly on construction, so a mistyped value must become a warning, not a raise.
     body = "## Description\n\ndesc\n\n## Status\n\nDone\n\n## Business Value\n\n- v\n"
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 

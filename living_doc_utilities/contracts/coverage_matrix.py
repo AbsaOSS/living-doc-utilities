@@ -16,10 +16,8 @@
 
 """
 The coverage-matrix-v1.0.0 contract: per-aspect acceptance-criterion coverage over the
-corpus (docs/contracts.md, section 4, "Coverage"). Coverage is computed only for `active`
-and `deprecated` acceptance criteria; `in_review` and `planned` criteria are never counted,
-and their test activity is reported as a warning instead (IN_REVIEW_AC_HAS_TESTS /
-PLANNED_AC_HAS_TESTS, docs/contracts.md section 5).
+corpus. Computed only for `active`/`deprecated` acceptance criteria; `in_review`/`planned`
+are never counted, their test activity reported as a warning instead.
 """
 
 from typing import Annotated, Literal
@@ -38,8 +36,7 @@ from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, c
 
 CONTRACT_ID: Literal["coverage-matrix-v1.0.0"] = "coverage-matrix-v1.0.0"
 
-# The only two entity states a coverage row is ever computed for (docs/contracts.md,
-# "Coverage" - `in_review` and `planned` acceptance criteria are never counted).
+# The only two states a coverage row is computed for; in_review/planned ACs are never counted.
 CountedState = Literal["active", "deprecated"]
 
 CoverageStatus = Literal["covered", "partially_covered", "not_covered"]
@@ -48,8 +45,7 @@ AspectStatus = Literal["covered", "not_covered"]
 
 def _check_status_evidence(status: str, scenario_ids: list[str]) -> None:
     """Status is evidence-backed by scenario_ids: covered only when there's at least one
-    linked scenario (docs/contracts.md, section 4 "Coverage") - shared by AspectCoverage's
-    own check and AcCoverage's no-aspects case."""
+    linked scenario - shared by AspectCoverage's own check and AcCoverage's no-aspects case."""
     expected = "covered" if scenario_ids else "not_covered"
     if status != expected:
         raise ValueError(f"status must be '{expected}' given scenario_ids={scenario_ids!r}, got '{status}'")
@@ -79,10 +75,7 @@ class AcCoverage(ContractModel):
 
     @model_validator(mode="after")
     def _check_status_matches_aspects(self) -> "AcCoverage":
-        # docs/contracts.md, section 4 "Coverage": with aspects, covered only when every
-        # aspect is covered, else partially_covered; without aspects, a plain covered/
-        # not_covered - partially_covered never applies, and (same evidence rule as
-        # AspectCoverage) covered only when scenario_ids has at least one entry.
+        # With aspects: covered only when every aspect is, else partially_covered. Without: plain covered/not_covered.
         if not self.aspects:
             if self.status == "partially_covered":
                 raise ValueError("status cannot be 'partially_covered' when aspects is empty")
@@ -98,13 +91,8 @@ class AcCoverage(ContractModel):
 
 class EntityCoverage(ContractModel):
     """A User Story or Functionality's acceptance criteria, each with its coverage row.
-
-    `state` is the entity's own lifecycle state, which is independent of which of its
-    acceptance criteria are counted (docs/contracts.md, "Coverage": counting is decided per
-    AC, "in both views" - never by the parent entity's state). A `planned`/`in_review`
-    entity can still own `active`/`deprecated` acceptance criteria that must be counted, so
-    this is the full `LifecycleState`, not `CountedState`.
-    """
+    `state` is the entity's own lifecycle state (full `LifecycleState`, not `CountedState`) -
+    independent of which ACs are counted; a planned/in_review entity can still own counted ACs."""
 
     entity_id: str
     type: Literal["DocumentedUserStory", "DocumentedFunctionality"]
@@ -114,8 +102,7 @@ class EntityCoverage(ContractModel):
 
 
 class PlannedSummary(ContractModel):
-    """Planned (not-yet-implemented) acceptance-criteria totals, rendered only in the inner
-    view (docs/contracts.md, "Coverage")."""
+    """Planned (not-yet-implemented) acceptance-criteria totals, rendered only in the inner view."""
 
     total: int = Field(ge=0)
     backlog: int = Field(ge=0)
@@ -125,8 +112,7 @@ class PlannedSummary(ContractModel):
 
     @model_validator(mode="after")
     def _check_total_equals_backlog_plus_targeted(self) -> "PlannedSummary":
-        # docs/contracts.md, section 4 "Coverage": every planned AC is either backlog (no
-        # target version) or targeted at exactly one version, so the two must sum to the total.
+        # Every planned AC is either backlog (no target version) or targeted at exactly one version.
         targeted = sum(self.by_target_version.values())
         if self.total != self.backlog + targeted:
             raise ValueError(
@@ -161,6 +147,5 @@ class CoverageMatrixResult(ContractModel):
         return self
 
 
-# Declares this contract's record roots (docs/contracts.md, section 1) - see
-# doc_entities.RECORD_ROOTS.
+# This contract's record roots; see `doc_entities.py::RECORD_ROOTS`.
 RECORD_ROOTS: dict[str, type[BaseModel]] = {"entities": EntityCoverage}

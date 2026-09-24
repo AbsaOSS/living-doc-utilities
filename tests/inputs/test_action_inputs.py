@@ -25,10 +25,10 @@ class TestActionInputs(BaseActionInputs):
     """Minimal concrete BaseActionInputs subclass used to exercise the base class's shared behaviour."""
 
     def _validate(self) -> int:
-        return 0  # Mock implementation for testing
+        return 0
 
     def _print_effective_configuration(self) -> None:
-        pass  # Mock implementation for testing
+        pass
 
 
 @pytest.fixture

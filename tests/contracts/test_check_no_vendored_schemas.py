@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for contracts.check_no_vendored_schemas (docs/contracts.md, R12 check 1): a filename
-check over a repository's git-tracked files, run as
-`python -m living_doc_utilities.contracts.check_no_vendored_schemas [--allow <dir>]`.
-"""
+"""`check_no_vendored_schemas` (R12 check 1) flags vendored schema filenames among a repository's tracked files."""
 
 import subprocess
 from pathlib import Path
@@ -65,8 +61,6 @@ def test_fails_on_a_planted_doc_entities_schema(tmp_path):
 
 def test_fails_on_a_planted_retired_doc_issues_schema(tmp_path):
     """The filename check still flags a retired contract name, not only the six contracts live today."""
-    # "doc-issues" is a retired contract name - the generic filename pattern must still catch
-    # it, not just today's six live contract ids.
     repo = _git_repo(tmp_path)
     _track(repo, "pkg/doc-issues-v1.0.0-schema.json")
 
@@ -107,8 +101,6 @@ def test_passes_on_a_clean_tree(tmp_path):
 
 def test_untracked_schema_file_is_not_flagged(tmp_path):
     """An untracked schema-shaped file is not reported, since only git-tracked files are checked."""
-    # Only *committed* (git-tracked) files are checked - an untracked scratch file is not
-    # "committed" and must not be flagged.
     repo = _git_repo(tmp_path)
     (repo / "scratch-schema.json").write_text("{}", encoding="utf-8")
 

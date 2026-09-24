@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-"""Scenario parsing: `@AC:<id>[/aspect:<value>]` tags link a scenario to its acceptance
-criteria; the human-readable `# AC:` comment above it is never parsed as a tag."""
+"""Scenario parsing: `@AC:<id>[/aspect:<value>]` tags link scenarios to acceptance criteria."""
 
 from living_doc_utilities.authoring.scenario import parse_scenarios
 from living_doc_utilities.contracts.codes import Code
@@ -78,9 +77,6 @@ def test_malformed_ac_tag_produces_a_warning_and_no_link():
 
 def test_tag_before_a_non_scenario_construct_does_not_leak_onto_a_later_scenario():
     """A tag preceding a non-scenario construct like `Examples:` never carries over onto a later, untagged scenario."""
-    # A tag can precede a construct other than `Scenario:`/`Scenario Outline:` - here an
-    # `Examples:` table belonging to the outline above it. That tag must not survive past
-    # the table and attach itself to the next, untagged, `Scenario:`.
     body = (
         "Feature: Sample\n\n"
         "  @AC:US-001-01\n"

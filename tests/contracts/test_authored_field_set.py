@@ -13,20 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""
-Every authored heading/key the contract models must carry a field for.
-
-Field set copied from AbsaOSS/living-doc's tools/examples_check.py at commit
-bfcc402ff998085cbf7bb91a7fd55ea8ac12c911 ("Docs/24 canon dash states status" and its
-follow-up, PRs #25/#26): ISSUE_HEADINGS, DEPRECATION_HEADINGS, OPTIONAL_FEATURE_KEYS and
-OPTIONAL_PO_KEYS. See the "Authored field set" section of this repo's issue #128 for the
-full per-type breakdown this table reproduces.
-
-Field *names* (as opposed to the headings themselves) follow the same commit's
-PAIR_FIELD_MAP and REQUIRED_PO_KEYS_FULL/REQUIRED_PO_KEYS_XREF - e.g. "Description" pairs
-with `narrative` for a User Story/Functionality and `purpose` for a Feature, "Parent
-Feature" pairs with `parent`, "User Stories"/"Functionalities" are unprefixed lists of ids.
-"""
+"""Every authored heading/key the contract models must carry a field for."""
 
 import pytest
 
@@ -34,9 +21,7 @@ from living_doc_utilities.authoring.issue_body import ParsedEntity
 from living_doc_utilities.contracts.common import AcceptanceCriterion
 from living_doc_utilities.contracts.doc_entities import Entity
 
-# (heading/key, owning model, field name)
-# Description pairs with a different key per type (living-doc's PAIR_FIELD_MAP): `narrative`
-# for a User Story or Functionality, `purpose` for a Feature (its PageObject header's key).
+# (heading/key, owning model, field name), following living-doc's tools/examples_check.py.
 USER_STORY_HEADINGS = [
     ("Description", Entity, "narrative"),
     ("Status", Entity, "state"),
@@ -76,11 +61,7 @@ FUNCTIONALITY_HEADINGS = [
     ("Superseded By", Entity, "superseded_by"),
 ]
 
-# These key the User Story / Functionality .feature header (living-doc's
-# corpus.declare_form(entity_id, "feature-file header", ...)) - they describe the entity the
-# file documents, not an individual scenario in it. All but "source" already have a field
-# from ISSUE_HEADINGS above; only "source" (a pointer back to this entity's issue-tracker
-# counterpart) is new.
+# The .feature-header keys describe the entity the file documents; only "source" has no field from ISSUE_HEADINGS.
 FEATURE_FILE_HEADER_OPTIONAL_KEYS = [
     ("source", Entity, "source"),
     ("rationale", Entity, "rationale"),
@@ -125,13 +106,11 @@ def test_authored_heading_has_a_field_on_the_shared_model(heading, model, field_
 
 def test_every_heading_in_this_table_is_exercised():
     """The heading table's combined length matches the expected count, so no list silently went empty."""
-    # Guards the table itself: if a future edit empties one of the lists above, the
-    # parametrized test would just silently stop covering it.
+    # Guards the table: an emptied list would make the parametrized test silently stop covering it.
     assert len(ALL_HEADINGS) == 9 + 9 + 11 + 7 + 2 + 5
 
 
 def test_parsed_entity_field_set_equals_entity_minus_provenance_by_construction():
     """`ParsedEntity`'s field set equals `Entity`'s minus the provenance-only fields, by shared-base construction."""
-    # Both derive their authored fields from the one shared EntityContent base, so this
-    # holds structurally - not from two hand-kept lists (S-11/Q-04).
+    # Both derive their authored fields from the shared EntityContent base, so this holds structurally.
     assert set(ParsedEntity.model_fields) == set(Entity.model_fields) - {"source_ref", "tags", "timestamps"}

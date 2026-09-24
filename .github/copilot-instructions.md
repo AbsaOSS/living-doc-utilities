@@ -114,9 +114,10 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 
 ## Docstrings and comments
 
-- Must match the existing module docstring style — a short summary of what the module contains.
-- Prefer a one-line docstring summary for functions, with `@param` / `@return` / `@raises` lines where they add information, matching the surrounding code.
-- Prefer self-explanatory code, and Prefer comments only for intent, edge cases, and the "why".
+- Must match the existing module docstring style — one to three lines saying what the module is for, with no rule quotations.
+- Prefer a docstring summary of at most three lines for a function or class, followed by `@param` / `@return` / `@raises` lines where they add information (skip `@return: None` and tags that only restate the name). Those tag lines do not count toward the three.
+- Prefer self-explanatory code, and Prefer comments only for intent, edge cases, and the "why", in one line.
+- Must cite a rule as `R<n>`, a target in another file as `basename.py::Symbol` (for example `doc_entities.py::RECORD_ROOTS` or `common.py::AcceptanceCriterion._check_version_required_unless_planned`) and a target in the same file as the bare symbol; Must not cite a docs section number, or an issue, PR or task id.
 - Avoid tutorial-style prose or long examples in docstrings.
 
 ## Patterns
@@ -135,9 +136,10 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must use `pytest` with `pytest-mock` (`mocker`), and Must not use `unittest`.
 - Must keep tests under `tests/`, mirroring the package layout — `tests/contracts/`, `tests/authoring/` (with `golden/`), `tests/github/` (including `test_decorators.py`), and `tests/inputs/`, plus `tests/test_logging_config.py` and the shared `tests/fixtures/`.
 - Must test behaviour — return values, raised exceptions, log messages.
-- Must mock `INPUT_*` environment variables and the GitHub API in unit tests; Must not call external services or the real GitHub API.
-- Prefer the shared fixtures in `tests/conftest.py` — `rate_limiter`, `mock_rate_limiter`, `mock_logging_setup`.
-- Must bind PyGithub mocks with `spec=` (`mocker.Mock(spec=Github)`, `mocker.Mock(spec=Rate)`) as `conftest.py` does.
+- Must set `INPUT_*` environment variables with `monkeypatch.setenv` (files under `tmp_path`, never patching `os.getenv` or `builtins.open`) and mock the GitHub API in unit tests; Must not call external services or the real GitHub API.
+- Must give every test, test class and test module a one-line docstring stating the behaviour it locks (the docstring checks are on for `tests/`).
+- Prefer the shared fixtures — `mock_logging_setup` in `tests/conftest.py`; `rate_limiter`, `mock_rate_limiter` in `tests/github/conftest.py`.
+- Must bind PyGithub mocks with `spec=` (`mocker.Mock(spec=Github)`, `mocker.Mock(spec=Rate)`) as `tests/github/conftest.py` does.
 - Prefer `tests/contracts/factories.py`'s builder functions over hand-written pydantic instances in a `contracts/` test; Must assert a schema-shape claim (map typing, `field_occupancy` keys, header keys) against the generated `contracts/schemas/*.json` via `jsonschema.validate`, not against the pydantic model alone.
 - Must cover both the success and the re-raise path of a decorator that wraps a failing call.
 

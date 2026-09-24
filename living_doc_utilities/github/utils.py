@@ -22,26 +22,13 @@ import os
 
 
 def get_action_input(name: str, default: str = "") -> str:
-    """
-    Get the input value from the environment variables.
-
-    @param name: The name of the input parameter.
-    @param default: The default value to return if the environment variable is not set.
-    @return: The value of the specified input parameter, or an empty string
-    """
+    """Gets `name`'s value from the `INPUT_<NAME>` env var, or `default` if unset."""
     return os.getenv(f'INPUT_{name.replace("-", "_").upper()}', default=default)
 
 
 def set_action_output(name: str, value: str) -> None:
-    """
-    Write an action output to a file in the format expected by GitHub Actions.
+    """Writes one `name=value` action output line to $GITHUB_OUTPUT, appended.
 
-    This function writes the output in a specific format that includes the name of the
-    output and its value. The output is appended to the specified file.
-
-    @param name: The name of the output parameter.
-    @param value: The value of the output parameter.
-    @return: None
     @raises KeyError: GITHUB_OUTPUT is not set.
     @raises OSError: the output file cannot be written (R13: no silent swallowing).
     """

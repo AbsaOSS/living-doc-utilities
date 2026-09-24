@@ -15,10 +15,9 @@
 #
 
 """
-entity_id derivation from a title - a GitHub issue title, a `.feature` banner's title
-text, or a PageObject banner's title text. The id itself (`US-001`, `FEAT-001`, ...) is
-always written with a plain hyphen (docs/contracts.md's entity-id formats), so - unlike
-the separator after it - it needs no normalisation before extraction.
+entity_id derivation from a title (a GitHub issue title, `.feature` banner or PageObject
+banner). The id itself is always written with a plain hyphen, so - unlike the separator
+after it - it needs no normalisation before extraction.
 """
 
 import re
@@ -27,17 +26,10 @@ from typing import Optional
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.envelope import ContractWarning
 
-# A historical prefix such as "GH-" ahead of the real id is stripped simply by taking the
-# *first* id-shaped run in the title: "GH-US-001" itself is not id-shaped (letters directly
-# followed by "-" then digits fails to match starting at "GH", because what follows "GH-" is
-# "US", not a digit), so the search naturally lands on "US-001".
-# Imported by normalize.normalize_title, which needs the same id shape to find a title's
-# id boundary - defined here, this module's own concern, rather than redefined there.
+# A historical "GH-" prefix is skipped by taking the first id-shaped run; also used by `normalize.py::normalize_title`.
 _ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
 
-# The `.feature`-banner / PageObject-banner title marker (living-doc's docs/guides/
-# living-doc-header-types.md) - the one place both formats' title lines are recognised,
-# so neither parser re-derives this pattern for itself.
+# The .feature-banner / PageObject-banner title marker; the one place both formats' title lines are recognised.
 _LIVING_DOC_TITLE_RE = re.compile(r"LIVING DOC\s*—\s*(?P<title>.+?)\s*$")
 
 
@@ -53,11 +45,9 @@ def extract_living_doc_title(lines: list[str]) -> Optional[str]:
 
 
 def derive_entity_id(title: str) -> tuple[Optional[str], list[ContractWarning]]:
-    """Extracts the leading entity id from `title`. Returns `(None, [MISSING_ENTITY_ID])`
-    when the title carries no parseable id - the caller (a collector) is responsible for
-    adding location context to that warning and for counting the skip toward
-    `cardinality.entities_skipped`.
-    """
+    """Extracts the leading entity id from `title`. Returns `(None, [MISSING_ENTITY_ID])` when
+    the title carries no parseable id; the caller adds location context and counts the skip
+    toward `cardinality.entities_skipped`."""
     match = _ENTITY_ID_RE.search(title)
     if match is None:
         return None, [

@@ -48,7 +48,6 @@ def _result(**overrides: Any) -> UiTestCatalogResult:
 
 def test_metadata_source_inputs_must_be_non_empty():
     """An empty `source_inputs` list is rejected; a transform always has at least its documentation input."""
-    # R7: a transform always has at least its documentation input.
     with pytest.raises(ValidationError, match="source_inputs must have at least one entry"):
         _result(metadata=factories.metadata())
 

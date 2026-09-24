@@ -14,15 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Package-shape guarantees for the parsers built in this PR:
-
-- `feature_header.py`, `issue_body.py` and `scenario.py` each import `ac_grammar` rather
-  than defining their own acceptance-criterion pattern (the individual per-parser en-dash
-  normalize-first tests live alongside each parser's own test module).
-- The table layout this PR replaces (`Criteria ID | State | Version | Description`) has no
-  trace left anywhere in the package.
-"""
+"""Package-shape guarantees: the parsers import `ac_grammar`, and the retired criteria-table layout leaves no trace."""
 
 import ast
 from pathlib import Path
