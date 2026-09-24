@@ -29,6 +29,26 @@ _requires_repo_git = pytest.mark.skipif(
 )
 
 
+# Git prefers these over `cwd` / `-C`, so one inherited from a git hook running `make qa` would hit the outer repo.
+_GIT_LOCATION_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_NAMESPACE",
+    "GIT_CEILING_DIRECTORIES",
+)
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_git_env(monkeypatch):
+    """Removes inherited git location variables so every git call here acts only on its own repository."""
+    for name in _GIT_LOCATION_VARS:
+        monkeypatch.delenv(name, raising=False)
+
+
 def _git_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)

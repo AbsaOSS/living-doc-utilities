@@ -28,10 +28,13 @@ ALLOWED_SCHEMES = {"http", "https", "mailto"}
 
 
 def safe_href(href: str) -> Optional[str]:
-    """Returns `href` unchanged when it's an absolute link using one of `ALLOWED_SCHEMES`;
-    `None` for a relative or protocol-relative (`//host/...`) link, or any other scheme."""
-    scheme = urlsplit(href).scheme
-    if scheme.lower() not in ALLOWED_SCHEMES:
+    """Returns `href` unchanged when it's an absolute link using one of `ALLOWED_SCHEMES` (http/https need a host);
+    `None` for a relative, protocol-relative (`//host/...`) or hostless (`https:example`) link, or any other scheme."""
+    parts = urlsplit(href)
+    scheme = parts.scheme.lower()
+    if scheme not in ALLOWED_SCHEMES:
+        return None
+    if scheme != "mailto" and not parts.netloc:
         return None
     return href
 

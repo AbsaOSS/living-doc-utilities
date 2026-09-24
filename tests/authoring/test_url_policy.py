@@ -38,6 +38,8 @@ def test_allowed_schemes_is_exactly_http_https_mailto():
         ("/login", None),
         ("path/to/page", None),
         ("//evil.example/x", None),
+        ("https:example", None),
+        ("https:///path", None),
     ],
 )
 def test_safe_href(href, expected):
@@ -66,6 +68,14 @@ def test_sanitize_html_fragment_drops_unsafe_href_but_keeps_text():
     result = sanitize_html_fragment('<a href="javascript:alert(1)">text</a>')
 
     assert "javascript:" not in result
+    assert "text" in result
+
+
+def test_sanitize_html_fragment_drops_hostless_href_but_keeps_text():
+    """`sanitize_html_fragment` strips an `https:` `href` that has no host while keeping the link's visible text."""
+    result = sanitize_html_fragment('<a href="https:example">text</a>')
+
+    assert "href" not in result
     assert "text" in result
 
 
