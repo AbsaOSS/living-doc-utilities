@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-The one URL policy for which links survive into rendered documentation
-(docs/authoring.md, "URL policy"): `safe_href` keeps an absolute `http`/`https`/`mailto`
-link and rejects everything else, and `sanitize_html_fragment` applies that same policy
-(plus a broad, conservative tag/attribute allow-list) to an entire HTML fragment.
-"""
+"""The URL policy: `safe_href` keeps absolute http/https/mailto links; `sanitize_html_fragment` applies it to HTML."""
 
 import pytest
 
@@ -27,6 +22,7 @@ from living_doc_utilities.authoring.url_policy import ALLOWED_SCHEMES, safe_href
 
 
 def test_allowed_schemes_is_exactly_http_https_mailto():
+    """`ALLOWED_SCHEMES` contains exactly `http`, `https`, and `mailto` — no others."""
     assert ALLOWED_SCHEMES == {"http", "https", "mailto"}
 
 
@@ -42,19 +38,24 @@ def test_allowed_schemes_is_exactly_http_https_mailto():
         ("/login", None),
         ("path/to/page", None),
         ("//evil.example/x", None),
+        ("https:example", None),
+        ("https:///path", None),
     ],
 )
 def test_safe_href(href, expected):
+    """`safe_href` keeps an absolute `http`/`https`/`mailto` link and rejects every other scheme or relative form."""
     assert safe_href(href) == expected
 
 
 def test_sanitize_html_fragment_drops_img_tag_entirely():
+    """`sanitize_html_fragment` removes an `<img>` tag entirely, not just its attributes."""
     result = sanitize_html_fragment('<img src="x.png">')
 
     assert "<img" not in result
 
 
 def test_sanitize_html_fragment_keeps_a_safe_links_href():
+    """`sanitize_html_fragment` preserves a safe `<a>` link's `href`, tag, and text content unchanged."""
     result = sanitize_html_fragment('<a href="https://example.com">text</a>')
 
     assert 'href="https://example.com"' in result
@@ -63,19 +64,30 @@ def test_sanitize_html_fragment_keeps_a_safe_links_href():
 
 
 def test_sanitize_html_fragment_drops_unsafe_href_but_keeps_text():
+    """`sanitize_html_fragment` strips an unsafe `href` while keeping the link's visible text."""
     result = sanitize_html_fragment('<a href="javascript:alert(1)">text</a>')
 
     assert "javascript:" not in result
     assert "text" in result
 
 
+def test_sanitize_html_fragment_drops_hostless_href_but_keeps_text():
+    """`sanitize_html_fragment` strips an `https:` `href` that has no host while keeping the link's visible text."""
+    result = sanitize_html_fragment('<a href="https:example">text</a>')
+
+    assert "href" not in result
+    assert "text" in result
+
+
 def test_sanitize_html_fragment_drops_script_tag_and_its_content():
+    """`sanitize_html_fragment` removes a `<script>` tag along with its entire content."""
     result = sanitize_html_fragment("<script>alert(1)</script>safe")
 
     assert result == "safe"
 
 
 def test_sanitize_html_fragment_drops_event_handler_attribute():
+    """`sanitize_html_fragment` strips an `onclick` event-handler attribute while keeping the element's text."""
     result = sanitize_html_fragment('<b onclick="x()">bold</b>')
 
     assert "onclick" not in result

@@ -14,34 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Omission-parity for every cross-field model_validator rule schema_export mirrors into the
-schema as `allOf` if/then/else (`schema_export._inject_cross_field_constraints`).
-
-That function exists because `model_json_schema()` drops `model_validator`s outright and the
-schemas are published as standalone release assets for non-Python consumers (R1/R2), so a
-plain `jsonschema` validator has to reject what Pydantic rejects on its own. Plain JSON
-Schema's `properties` keyword is a no-op on an *absent* key, so a block written without an
-accompanying `required` silently mis-validates an omitted-but-defaulted field instead of
-raising it. This exact mistake recurred four separate times in PR #131 as new rules were
-added (`Entity.pages[].is_primary`, `AcCoverage.aspects`, `Metadata.source_inputs`,
-`AspectCoverage.scenario_ids`), each caught by a separate review round instead of by one
-general check.
-
-This module is that one general check: for every optional/defaulted field a rule in
-`_inject_cross_field_constraints` touches, it takes `full_sample(contract)`, drops that one
-key, and asserts a plain `jsonschema.validate` agrees with what the Pydantic model does for
-the same omission (constructed with the key omitted), and that both match the outcome the rule
-contract requires (`OmissionCase.rejected`): they must never diverge, and never agree on the wrong answer. This is the only place this repository tests key-omission
-parity; PR #131's one-off tests (`test_pages_primary_omitted_entirely_is_rejected_by_jsonschema_too`
-and its siblings) were the worked examples this generalizes and have been removed in its
-favour.
-
-Not every cross-field rule is mirrored into the schema at all - id-ownership prefix checks and
-`CoverageMatrixResult.PlannedSummary`'s total-equals-backlog-plus-targeted identity are
-documented exceptions (schema_export._inject_cross_field_constraints's own docstring) because
-plain JSON Schema cannot express them. This test only has to hold for whatever *is* mirrored.
-"""
+"""Omitting a key a cross-field rule touches is judged the same by Pydantic and the exported JSON Schema."""
 
 import json
 from dataclasses import dataclass
@@ -65,11 +38,7 @@ PathKey = Union[str, int]
 
 @dataclass(frozen=True)
 class OmissionCase:
-    """One optional/defaulted field a schema_export cross-field rule touches: `contract_id`
-    identifies which contract's full_sample to build and which schema to validate against;
-    `path` locates the field inside that sample's dumped JSON, as a sequence of dict keys and
-    list indices; `rejected` is what the rule contract says omitting that key must do, so the test
-    catches both validators being wrong the same way, not just diverging."""
+    """One optional field a mirrored cross-field rule touches, located by `path` in `contract_id`'s dumped sample."""
 
     case_id: str
     contract_id: str
@@ -77,26 +46,23 @@ class OmissionCase:
     rejected: bool
 
 
+# Rules left unencoded (listed in `schema_export.py::_inject_cross_field_constraints`) are out of scope here.
 CASES = [
-    # Entity._check_pages_have_exactly_one_primary (PageRef.is_primary): dropping the only
-    # primary page's is_primary must be rejected by both - PR #131's original defect.
+    # `doc_entities.py::Entity._check_pages_have_exactly_one_primary`: a dropped primary flag is rejected by both.
     OmissionCase(
         "pages_is_primary_on_the_primary_page",
         doc_entities.CONTRACT_ID,
         ("entities", 2, "pages", 0, "is_primary"),
         rejected=True,
     ),
-    # Entity._check_stub_reason_is_feature_only (Entity.stub_reason): omitting it is harmless
-    # on a Feature (it already has a value; None or absent are both fine) and on a non-Feature
-    # (it is already None).
+    # `doc_entities.py::Entity._check_stub_reason_is_feature_only`: omitting stub_reason is harmless on any entity.
     OmissionCase(
         "stub_reason_on_a_feature", doc_entities.CONTRACT_ID, ("entities", 2, "stub_reason"), rejected=False
     ),
     OmissionCase(
         "stub_reason_on_a_non_feature", doc_entities.CONTRACT_ID, ("entities", 0, "stub_reason"), rejected=False
     ),
-    # AcceptanceCriterion._check_version_required_unless_planned (AcceptanceCriterion.version):
-    # required unless planned; optional (targeted or not) when planned.
+    # `common.py::AcceptanceCriterion._check_version_required_unless_planned`: version is required unless planned.
     OmissionCase(
         "ac_version_on_a_non_planned_ac",
         doc_entities.CONTRACT_ID,
@@ -109,8 +75,7 @@ CASES = [
         ("entities", 0, "acceptance_criteria", 1, "version"),
         rejected=False,
     ),
-    # AcceptanceCriterion._check_removal_planned_only_when_deprecated (removal_planned):
-    # required when deprecated; must stay unset otherwise.
+    # `common.py::AcceptanceCriterion._check_removal_planned_only_when_deprecated`: only when deprecated.
     OmissionCase(
         "ac_removal_planned_on_a_deprecated_ac",
         doc_entities.CONTRACT_ID,
@@ -123,9 +88,7 @@ CASES = [
         ("entities", 0, "acceptance_criteria", 0, "removal_planned"),
         rejected=False,
     ),
-    # AcCoverage._check_status_matches_aspects (AcCoverage.aspects, AcCoverage.scenario_ids):
-    # without aspects a `covered` status needs scenario_ids, so dropping the aspects (which leaves
-    # scenario_ids empty) is rejected; with aspects present the AC-level scenario_ids is irrelevant.
+    # `coverage_matrix.py::AcCoverage._check_status_matches_aspects`: without aspects, covered needs scenario_ids.
     OmissionCase(
         "ac_coverage_aspects_with_a_covered_status",
         coverage_matrix.CONTRACT_ID,
@@ -144,16 +107,14 @@ CASES = [
         ("entities", 1, "acceptance_criteria", 0, "scenario_ids"),
         rejected=True,
     ),
-    # AspectCoverage._check_status_matches_scenario_ids (AspectCoverage.scenario_ids): a covered
-    # aspect needs at least one scenario.
+    # `coverage_matrix.py::AspectCoverage._check_status_matches_scenario_ids`: a covered aspect needs a scenario.
     OmissionCase(
         "aspect_coverage_scenario_ids_with_a_covered_status",
         coverage_matrix.CONTRACT_ID,
         ("entities", 0, "acceptance_criteria", 0, "aspects", 0, "scenario_ids"),
         rejected=True,
     ),
-    # Metadata.source_inputs: required with minItems 1 on transform outputs only (R7) - one
-    # case per transform contract, since the rule is injected conditionally per contract id.
+    # Metadata.source_inputs: minItems 1 on transform outputs only (R7), so one case per transform contract.
     OmissionCase(
         "source_inputs_on_generator_ready",
         generator_ready.CONTRACT_ID,
@@ -197,6 +158,7 @@ def _jsonschema_rejects(data: dict, schema: dict) -> bool:
 
 @pytest.mark.parametrize("case", CASES, ids=[case.case_id for case in CASES])
 def test_omitting_the_key_entirely_is_treated_the_same_by_pydantic_and_jsonschema(case: OmissionCase):
+    """Pydantic and the exported schema agree on whether omitting this key is valid, and match the rule."""
     sample = testing.full_sample(case.contract_id)
     model_cls = type(sample)
     data = json.loads(sample.model_dump_json())

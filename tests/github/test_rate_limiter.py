@@ -14,19 +14,19 @@
 # limitations under the License.
 #
 
+"""Tests for GithubRateLimiter, the callable that throttles calls against the GitHub API rate limit."""
+
 import time
 
 
 def test_exceeds_max_iterations(rate_limiter, mock_rate_limiter, mocker):
-    # Mock time.time() to return a value much larger than reset timestamp
+    """When the reset time can't be pushed past now within the iteration cap, a default delay is used."""
     mock_time = mocker.patch("living_doc_utilities.github.rate_limiter.time")
     mock_time.time.return_value = 200000000
     mock_time.sleep = mocker.Mock()
 
-    # Mock logger to capture warnings
     mock_logger = mocker.patch("living_doc_utilities.github.rate_limiter.logger")
 
-    # Set up rate limit scenario that triggers max iterations
     mock_rate_limiter.rate.remaining = 0
     mock_rate_limiter.rate.reset.timestamp.return_value = 1000
 
@@ -43,16 +43,12 @@ def test_exceeds_max_iterations(rate_limiter, mock_rate_limiter, mocker):
     mock_time.sleep.assert_called_with(65)  # 60 + 5 seconds buffer
 
 
-# GithubRateLimiter __call__ method
-
-
 def test_rate_limiter_extended_sleep_remaining_1(mocker, rate_limiter, mock_rate_limiter):
-    # Patch time.sleep to avoid actual delay and track call count
+    """When only one call remains before the rate limit resets, the wrapped call sleeps before it runs."""
     mock_sleep = mocker.patch("time.sleep", return_value=None)
     mock_rate_limiter.rate.remaining = 1
     mock_rate_limiter.rate.reset.timestamp.return_value = time.time() + 3600
 
-    # Mock method to be wrapped
     method_mock = mocker.Mock()
     wrapped_method = rate_limiter(method_mock)
 
@@ -63,10 +59,9 @@ def test_rate_limiter_extended_sleep_remaining_1(mocker, rate_limiter, mock_rate
 
 
 def test_rate_limiter_extended_sleep_remaining_10(mocker, rate_limiter):
-    # Patch time.sleep to avoid actual delay and track call count
+    """When enough calls remain before the rate limit resets, the wrapped call runs without sleeping."""
     mock_sleep = mocker.patch("time.sleep", return_value=None)
 
-    # Mock method to be wrapped
     method_mock = mocker.Mock()
     wrapped_method = rate_limiter(method_mock)
 
@@ -77,12 +72,11 @@ def test_rate_limiter_extended_sleep_remaining_10(mocker, rate_limiter):
 
 
 def test_rate_limiter_extended_sleep_remaining_1_negative_reset_time(mocker, rate_limiter, mock_rate_limiter):
-    # Patch time.sleep to avoid actual delay and track call count
+    """When calls are low and the recorded reset time is already past, the call still sleeps after it is advanced."""
     mock_sleep = mocker.patch("time.sleep", return_value=None)
     mock_rate_limiter.rate.remaining = 1
     mock_rate_limiter.rate.reset.timestamp = mocker.Mock(return_value=time.time() - 1000)
 
-    # Mock method to be wrapped
     method_mock = mocker.Mock()
     wrapped_method = rate_limiter(method_mock)
 

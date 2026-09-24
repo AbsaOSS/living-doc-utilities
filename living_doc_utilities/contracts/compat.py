@@ -15,10 +15,8 @@
 #
 
 """
-docs/contracts.md, R5: the three-step compatibility check every consumer runs before
-trusting an input file - deciding purely from the file itself (its schema_version and its
-structure), never from who produced it. metadata.producer.version is audit information
-only and is never read here.
+R5: the three-step compatibility check every consumer runs before trusting an input file -
+decided purely from the file itself, never from who produced it.
 """
 
 import re
@@ -52,12 +50,9 @@ def _safe_get(payload: Any, *keys: str) -> Optional[Any]:
 
 
 def schema_validation_error(errors: list[ValidationError], payload: Any) -> ContractError:
-    """
-    Builds the R5 step-3 SCHEMA_VALIDATION_FAILED error: names the failing path, the file's
-    own metadata.producer.utilities_version and this installed package's own version and,
-    only when the two differ, appends the pin-alignment hint. Shared by check_input's own
-    read-time check and io.write_artifact's pre-write validation, so both paths report a
-    version skew identically.
+    """Builds the R5 step-3 SCHEMA_VALIDATION_FAILED error: names the failing path and both
+    this package's and the file's own utilities_version, with a pin-alignment hint when they
+    differ. Shared by check_input and `io.py::write_artifact` so both report skew identically.
 
     @param errors: the jsonschema validation errors found (must be non-empty).
     @param payload: the payload that failed validation, read for its producer version.

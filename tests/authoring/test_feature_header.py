@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-"""`.feature`-header parsing: recognised keys land on their fields, an unrecognised key
-produces `IGNORED_AUTHORED_KEY`, and `normalize` runs before `ac_grammar`."""
+"""`.feature`-header parsing: recognised keys land on their fields, unrecognised keys warn."""
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
 from living_doc_utilities.contracts.codes import Code
@@ -62,8 +61,24 @@ _HEADER_WITH_UNKNOWN_KEY = """\
 Feature: Another Story
 """
 
+_FUNCTIONALITY_HEADER = """\
+# =============================================================================
+# LIVING DOC — FUNC-001 · Sample Functionality
+# =============================================================================
+# status:          active
+# parent:           US-001
+# func_type:        backend
+# rationale:
+#   - Centralizes validation so every caller gets the same rules.
+# =============================================================================
+
+@FUNC_ID:FUNC-001
+Feature: Sample Functionality
+"""
+
 
 def test_recognised_keys_land_on_their_fields():
+    """Every recognised `.feature`-header key is assigned to its matching entity field, with no warnings."""
     entity, warnings = parse_feature_header(_US_HEADER, "DocumentedUserStory")
 
     assert warnings == []
@@ -79,6 +94,7 @@ def test_recognised_keys_land_on_their_fields():
 
 
 def test_unrecognised_key_produces_ignored_authored_key():
+    """An unrecognised `.feature`-header key produces an `IGNORED_AUTHORED_KEY` warning naming that key."""
     entity, warnings = parse_feature_header(_HEADER_WITH_UNKNOWN_KEY, "DocumentedUserStory")
 
     assert entity is not None
@@ -87,6 +103,7 @@ def test_unrecognised_key_produces_ignored_authored_key():
 
 
 def test_missing_title_line_produces_missing_entity_id():
+    """A `.feature` header with no parseable title line yields no entity and a `MISSING_ENTITY_ID` warning."""
     text = "# =============================================================================\n# not a title\n"
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
 
@@ -94,13 +111,22 @@ def test_missing_title_line_produces_missing_entity_id():
     assert [w.code for w in warnings] == ["MISSING_ENTITY_ID"]
 
 
+def test_title_without_an_entity_id_produces_missing_entity_id_naming_the_title():
+    """A `LIVING DOC` title with no entity id yields no entity and a `MISSING_ENTITY_ID` warning naming the title."""
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — Just a title with no id\n"
+        "# =============================================================================\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is None
+    assert [w.code for w in warnings] == ["MISSING_ENTITY_ID"]
+    assert "Just a title with no id" in warnings[0].context
+
+
 def test_banner_shaped_comment_in_scenario_body_is_not_absorbed_into_header():
-    # A "# ===...===" comment pair in the Gherkin body (a human habit, e.g. separating
-    # scenario groups with a divider that itself brackets a documentation-only "# AC:"
-    # line) must never be mistaken for the header's own block: the header ends at the
-    # "Feature:" declaration, full stop. Before the fix, the *last* banner-shaped line
-    # anywhere in the file closed the header block, so this divider's own "AC:US-004-01"
-    # line was re-parsed as a second (duplicate) acceptance criterion.
+    """A banner-shaped comment inside the scenario body is never absorbed into the header block or double-parsed."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-004 · Divider Story\n"
@@ -129,6 +155,7 @@ def test_banner_shaped_comment_in_scenario_body_is_not_absorbed_into_header():
 
 
 def test_en_dash_input_is_normalized_before_ac_grammar_runs():
+    """An en dash in an acceptance-criterion header is normalized before parsing, so state and version still parse."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-003 · Dash Story\n"
@@ -150,7 +177,19 @@ def test_en_dash_input_is_normalized_before_ac_grammar_runs():
     assert entity.acceptance_criteria[0].version == "1.0.0"
 
 
+def test_functionality_rationale_key_lands_on_its_field():
+    """A Functionality header's `rationale:` bullet joins into the `rationale` field, alongside `parent`/`func_type`."""
+    entity, warnings = parse_feature_header(_FUNCTIONALITY_HEADER, "DocumentedFunctionality")
+
+    assert warnings == []
+    assert entity.entity_id == "FUNC-001"
+    assert entity.parent == "US-001"
+    assert entity.func_type == "backend"
+    assert entity.rationale == "Centralizes validation so every caller gets the same rules."
+
+
 def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
+    """An authored `status:` value outside the four lifecycle states warns and leaves state unset, not a crash."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-005 · Bad Status Story\n"

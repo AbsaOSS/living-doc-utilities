@@ -16,8 +16,7 @@
 
 """
 The doc-entities-v1.0.0 contract: the issue-tracker collectors' output. One flat
-entities[] list, each item a User Story, Feature or Functionality (docs/contracts.md,
-section 1).
+entities[] list, each item a User Story, Feature or Functionality.
 """
 
 from typing import Literal, Optional
@@ -31,39 +30,29 @@ CONTRACT_ID: Literal["doc-entities-v1.0.0"] = "doc-entities-v1.0.0"
 
 
 class PageRef(ContractModel):
-    """One PageObject file backing a Feature's surface - the full header or a
-    cross-reference one (living-doc's docs/guides/living-doc-header-types.md,
-    "Feature in a PageObject File"). Exactly one of a Feature's pages is the full
-    header; the rest are cross-reference headers pointing back via `parent-feat`.
-    """
+    """One PageObject file backing a Feature's surface - the full header or a cross-reference
+    one. Exactly one of a Feature's pages is the full header; the rest point back via
+    `parent-feat`."""
 
     is_primary: bool = False
     route: str
     page_object: str
     owners: list[str] = Field(default_factory=list)
     purpose: str
-    # A cross-reference page may scope functionalities to a subset of the Feature's;
-    # empty means "not scoped - inherits the Feature's full functionalities list".
+    # A cross-reference page may scope functionalities to a subset; empty means it inherits the Feature's full list.
     functionalities: list[str] = Field(default_factory=list)
 
 
 class EntityContent(ContractModel):
-    """Every authored field of every entity type, at its authored level; a field that does
-    not apply to a given entity's type is simply absent. Which headings are required for
-    which type is a parsing-time concern (a later package) - this model only fixes the
-    contract's shape. Shared by `Entity` (authored content plus identity/provenance/
-    lifecycle) and `authoring.issue_body.ParsedEntity` (authored content plus identity
-    alone, `state`/`state_origin` unsettled) - the one place each field is declared, so a
-    field added here appears on both without a second edit.
-    """
+    """Every authored field of every entity type, at its authored level; absent when it
+    doesn't apply to that type. Shared by `Entity` and `issue_body.py::ParsedEntity` -
+    the one place each field is declared, so a field added here appears on both."""
 
-    # User Story / Functionality description; a Feature's is `purpose` instead (the two
-    # authored forms - .feature header vs PageObject header - use different key names).
+    # User Story/Functionality description; a Feature's is `purpose` instead (different authored key names).
     narrative: Optional[str] = None
     # Feature description (PageObject header's `purpose:`).
     purpose: Optional[str] = None
-    # User Story / Functionality .feature-header optional key: a pointer back to this
-    # entity's issue-tracker counterpart, when one also exists.
+    # .feature-header optional key: a pointer back to this entity's issue-tracker counterpart, if one exists.
     source: Optional[str] = None
 
     # User Story
@@ -91,22 +80,11 @@ class EntityContent(ContractModel):
     rationale: Optional[str] = None
 
 
-# Base order is (EntityContent, EntityCore), not the other way round: pydantic v2 collects a
-# model's fields by walking the MRO base-to-derived, so this order keeps the exported schemas'
-# property order identical to before EntityContent existed (entity_id/source_ref/type/title/
-# state/state_origin/tags/timestamps, then the authored fields) - verified by running
-# schema_export and diffing against the committed schemas.
+# Base order (EntityContent, EntityCore) keeps the exported schemas' property order unchanged (pydantic walks the MRO).
 class Entity(EntityContent, EntityCore):
-    """A documented User Story, Feature or Functionality.
-
-    Every authored field of every entity type lives here, at its authored level; a field
-    that does not apply to a given entity's type is simply absent. Which headings are
-    required for which type is a parsing-time concern (a later package) - this model only
-    fixes the contract's shape. The cross-cutting invariants that are structural, not
-    parsing-time, are enforced below: a Feature's state is always derived, stub_reason
-    only ever describes a Feature, and every acceptance criterion's id belongs to its
-    entity.
-    """
+    """A documented User Story, Feature or Functionality: every authored field lives here, at
+    its authored level, absent when inapplicable. Structural invariants: a Feature's state is always derived,
+    stub_reason is Feature-only, every AC id belongs to its entity (Pydantic-only, not in the JSON Schema)."""
 
     @model_validator(mode="after")
     def _check_state_origin(self) -> "Entity":
@@ -148,7 +126,5 @@ class DocEntitiesResult(ContractModel):
     entities: list[Entity] = Field(default_factory=list)
 
 
-# Declares this contract's record roots (docs/contracts.md, section 1): the array levels
-# that hold its records, read by schema_export.py to build metadata.stats.field_occupancy's
-# key enum, and by the future stats/lineage helpers and shared test helpers (R1).
+# This contract's record roots; read by schema_export for field_occupancy's key enum (R9).
 RECORD_ROOTS: dict[str, type[BaseModel]] = {"entities": Entity}

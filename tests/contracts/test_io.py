@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for io.py (docs/contracts.md, R12): the one sanctioned read path and one sanctioned,
-validate-then-atomic-rename write path for every contract artifact.
-"""
+"""`io.py` (R12): the one read path and the one validate-then-atomic-rename write path for contract artifacts."""
 
 import json
 import os
@@ -38,12 +35,9 @@ from tests.contracts import factories
 
 
 class _TamperedDocEntities(DocEntitiesResult):
-    """A DocEntitiesResult carrying one genuinely-declared, undeclared-by-the-contract field.
+    """A DocEntitiesResult with an extra field, so the schema's `additionalProperties: false` rejects it on write.
 
-    model_dump_json() includes `unexpected_field`, so the bundled schema's
-    `additionalProperties: false` rejects it at write_artifact's in-memory validation step -
-    every real contract model uses `extra="forbid"`, so this is the only way to construct an
-    instance the schema does not already accept.
+    Real contract models use `extra="forbid"`, so this is the only way to build an instance the schema rejects.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -55,11 +49,7 @@ def _valid_doc_entities_result(**metadata_overrides) -> DocEntitiesResult:
 
 
 def _doc_entities_result_with_misowned_ac(**metadata_overrides) -> DocEntitiesResult:
-    # Entity._check_acceptance_criteria_belong_to_this_entity is a cross-field rule plain JSON
-    # Schema cannot express (schema_export._inject_cross_field_constraints), so swapping in a
-    # mismatched-but-otherwise-valid AC via model_copy(update=...) - which, unlike the model's
-    # own __init__, does not re-run validators - is the only way to build a payload that passes
-    # compat.check_input's structural check yet still fails DocEntitiesResult.model_validate.
+    # model_copy(update=...) skips validators, so it builds a payload that passes the schema yet fails the model's rule.
     result = _valid_doc_entities_result(**metadata_overrides)
     misowned_entity = result.entities[0].model_copy(
         update={"acceptance_criteria": [factories.acceptance_criterion(parent_id="US-999")]}
@@ -68,8 +58,7 @@ def _doc_entities_result_with_misowned_ac(**metadata_overrides) -> DocEntitiesRe
 
 
 def _matching_producer():
-    # The natural/default case: the file's own producer.utilities_version equals what's
-    # actually installed in this process, so no pin-alignment hint is expected.
+    # The file's producer.utilities_version equals the installed one, so no pin-alignment hint is expected.
     return factories.producer(utilities_version=compat.installed_utilities_version())
 
 
@@ -83,6 +72,7 @@ def _leftover_tmp_files(directory) -> list:
 
 
 def test_read_artifact_returns_the_correctly_typed_model(tmp_path):
+    """read_artifact returns an instance of the artifact's own typed result model, never a raw dict or subtype."""
     path = tmp_path / "doc-entities.json"
     path.write_text(_valid_doc_entities_result().model_dump_json(), encoding="utf-8")
 
@@ -94,6 +84,7 @@ def test_read_artifact_returns_the_correctly_typed_model(tmp_path):
 
 
 def test_read_artifact_missing_schema_version_raises_invalid_contract_id(tmp_path):
+    """A file with no schema_version field is rejected by read_artifact as an invalid contract id."""
     path = tmp_path / "bad.json"
     path.write_text(json.dumps({"not": "a contract"}), encoding="utf-8")
 
@@ -104,6 +95,7 @@ def test_read_artifact_missing_schema_version_raises_invalid_contract_id(tmp_pat
 
 
 def test_read_artifact_malformed_schema_version_raises_invalid_contract_id(tmp_path):
+    """A file whose schema_version doesn't match the expected id shape is rejected by read_artifact as invalid."""
     path = tmp_path / "bad.json"
     payload = json.loads(_valid_doc_entities_result().model_dump_json())
     payload["schema_version"] = "not-a-valid-id"
@@ -116,6 +108,7 @@ def test_read_artifact_malformed_schema_version_raises_invalid_contract_id(tmp_p
 
 
 def test_read_artifact_contract_mismatch_raises_contract_mismatch(tmp_path):
+    """read_artifact rejects a file whose contract name doesn't match the single name it was asked to read."""
     path = tmp_path / "doc-entities.json"
     path.write_text(_valid_doc_entities_result().model_dump_json(), encoding="utf-8")
 
@@ -126,6 +119,7 @@ def test_read_artifact_contract_mismatch_raises_contract_mismatch(tmp_path):
 
 
 def test_read_artifact_contract_mismatch_with_a_two_name_expected_set_names_both(tmp_path):
+    """read_artifact rejects a mismatched file against a two-name expected set, naming both expected names."""
     path = tmp_path / "ui-tests.json"
     result = UITestsResult(metadata=factories.metadata(), scenarios=[factories.scenario()])
     path.write_text(result.model_dump_json(), encoding="utf-8")
@@ -139,6 +133,7 @@ def test_read_artifact_contract_mismatch_with_a_two_name_expected_set_names_both
 
 
 def test_read_artifact_structurally_invalid_payload_raises_schema_validation_failed(tmp_path):
+    """read_artifact rejects a file that is structurally invalid against its bundled schema."""
     path = tmp_path / "doc-entities.json"
     payload = json.loads(_valid_doc_entities_result().model_dump_json())
     del payload["metadata"]["source"]
@@ -151,8 +146,7 @@ def test_read_artifact_structurally_invalid_payload_raises_schema_validation_fai
 
 
 def test_read_artifact_schema_valid_but_model_invalid_payload_raises_schema_validation_failed(tmp_path):
-    # read_artifact must not let a raw pydantic.ValidationError escape uncaught when a payload
-    # passes schema validation but still fails the typed model's own cross-field rules.
+    """A schema-valid payload that fails the model's own cross-field rules is rejected as SCHEMA_VALIDATION_FAILED."""
     path = tmp_path / "doc-entities.json"
     path.write_text(_doc_entities_result_with_misowned_ac().model_dump_json(), encoding="utf-8")
 
@@ -168,6 +162,7 @@ def test_read_artifact_schema_valid_but_model_invalid_payload_raises_schema_vali
 
 
 def test_write_artifact_creates_the_parent_directory_and_writes_the_file(tmp_path):
+    """write_artifact creates any missing parent directories and writes a schema_version-stamped file."""
     destination = tmp_path / "nested" / "dir" / "doc-entities.json"
     result = _valid_doc_entities_result(producer=_matching_producer())
 
@@ -180,6 +175,7 @@ def test_write_artifact_creates_the_parent_directory_and_writes_the_file(tmp_pat
 
 
 def test_write_artifact_writes_lf_line_endings_only(tmp_path):
+    """write_artifact always writes LF-only line endings, even on platforms that default to CRLF."""
     # Text mode would write CRLF on Windows.
     destination = tmp_path / "doc-entities.json"
 
@@ -191,6 +187,7 @@ def test_write_artifact_writes_lf_line_endings_only(tmp_path):
 
 
 def test_write_artifact_fills_metadata_stats_from_the_result_itself(tmp_path):
+    """write_artifact recomputes metadata.stats.cardinality from the result's own entities before writing."""
     destination = tmp_path / "doc-entities.json"
     result = _valid_doc_entities_result(producer=_matching_producer())
 
@@ -202,6 +199,7 @@ def test_write_artifact_fills_metadata_stats_from_the_result_itself(tmp_path):
 
 
 def test_write_artifact_preserves_the_passthrough_cardinality_fields_from_the_original_stats(tmp_path):
+    """write_artifact preserves the caller-supplied passthrough cardinality fields unchanged."""
     destination = tmp_path / "doc-entities.json"
     result = _valid_doc_entities_result(
         producer=_matching_producer(),
@@ -219,6 +217,7 @@ def test_write_artifact_preserves_the_passthrough_cardinality_fields_from_the_or
 
 
 def test_write_artifact_does_not_mutate_the_caller_owned_result(tmp_path):
+    """write_artifact never mutates the caller's own result object, even though it writes a modified copy."""
     destination = tmp_path / "doc-entities.json"
     result = _valid_doc_entities_result(producer=factories.producer(utilities_version="0.0.1"))
 
@@ -233,11 +232,8 @@ def test_write_artifact_does_not_mutate_the_caller_owned_result(tmp_path):
 
 
 def test_write_artifact_schema_validation_failure_names_both_versions_with_hint_when_they_differ(tmp_path, mocker):
-    # write_artifact always self-fills metadata.producer.utilities_version from
-    # compat.installed_utilities_version() *before* validating (so the two would otherwise
-    # always agree in-process) - simulating a genuine version skew therefore means the
-    # installed version itself must appear to change between that fill and the later
-    # schema_validation_error check, which reads it again.
+    """A schema validation failure names both utilities versions, with a hint when they differ."""
+    # write_artifact fills utilities_version before validating, so a skew needs the installed version to change.
     destination = tmp_path / "doc-entities.json"
     mocker.patch(
         "living_doc_utilities.contracts.compat.installed_utilities_version",
@@ -257,10 +253,8 @@ def test_write_artifact_schema_validation_failure_names_both_versions_with_hint_
 
 
 def test_write_artifact_schema_validation_failure_omits_hint_when_versions_match(tmp_path):
-    # The natural/default case: write_artifact overwrites metadata.producer.utilities_version
-    # with compat.installed_utilities_version() before it ever validates, so the file's own
-    # producer version and this installed package's version agree by construction - even
-    # though the input result here was built with a deliberately different one.
+    """A schema validation failure omits the pin-alignment hint when the file's and installed versions match."""
+    # write_artifact overwrites producer.utilities_version before validating, so the two versions agree by construction.
     destination = tmp_path / "doc-entities.json"
     result = _TamperedDocEntities(
         metadata=factories.metadata(producer=factories.producer(utilities_version="9.8.7")),
@@ -278,11 +272,8 @@ def test_write_artifact_schema_validation_failure_omits_hint_when_versions_match
 
 
 def test_write_artifact_schema_valid_but_model_invalid_payload_raises_schema_validation_failed(tmp_path):
-    # write_artifact's own mutations (filling producer.utilities_version and metadata.stats)
-    # never invalidate an already-valid result, but the pre-write model re-validation must
-    # still catch a result whose cross-field rules were bypassed before it ever reached
-    # write_artifact (model_copy(update=...) does not re-run validators) rather than silently
-    # writing a file only the bundled JSON Schema would have accepted.
+    """write_artifact rejects a schema-valid result that fails the model's own cross-field rules, writing nothing."""
+    # model_copy(update=...) bypasses validators, so the pre-write model re-validation is what must catch this.
     destination = tmp_path / "doc-entities.json"
     result = _doc_entities_result_with_misowned_ac(producer=_matching_producer())
 
@@ -295,6 +286,7 @@ def test_write_artifact_schema_valid_but_model_invalid_payload_raises_schema_val
 
 
 def test_write_artifact_schema_validation_failure_creates_no_directory_at_all(tmp_path):
+    """A write_artifact failure creates no destination directory at all, not even an empty one."""
     destination = tmp_path / "never" / "created" / "doc-entities.json"
     result = _TamperedDocEntities(metadata=factories.metadata(producer=_matching_producer()), entities=[factories.user_story()])
 
@@ -305,6 +297,7 @@ def test_write_artifact_schema_validation_failure_creates_no_directory_at_all(tm
 
 
 def test_write_artifact_unknown_schema_version_raises_invalid_contract_id(tmp_path):
+    """write_artifact rejects a result whose schema_version names no known contract, and writes no file."""
     result = _valid_doc_entities_result(producer=_matching_producer())
     result.schema_version = "not-a-real-contract-v1.0.0"
 
@@ -321,6 +314,7 @@ def test_write_artifact_unknown_schema_version_raises_invalid_contract_id(tmp_pa
 
 
 def test_write_artifact_cleans_up_the_temp_file_when_the_atomic_rename_crashes(tmp_path, monkeypatch):
+    """If the final atomic rename crashes, write_artifact leaves neither the destination file nor a temp file."""
     destination = tmp_path / "doc-entities.json"
     result = _valid_doc_entities_result(producer=_matching_producer())
 
@@ -342,6 +336,7 @@ def test_write_artifact_cleans_up_the_temp_file_when_the_atomic_rename_crashes(t
 
 
 def test_coverage_matrix_round_trips_through_write_and_read(tmp_path):
+    """A CoverageMatrixResult written by write_artifact and read back by read_artifact round-trips unchanged."""
     destination = tmp_path / "coverage-matrix.json"
     result = CoverageMatrixResult(
         metadata=factories.transform_metadata(producer=_matching_producer()),
@@ -360,6 +355,7 @@ def test_coverage_matrix_round_trips_through_write_and_read(tmp_path):
 
 
 def test_ui_test_catalog_round_trips_through_write_and_read(tmp_path):
+    """A UiTestCatalogResult written by write_artifact and read back by read_artifact round-trips unchanged."""
     destination = tmp_path / "ui-test-catalog.json"
     result = UiTestCatalogResult(
         metadata=factories.transform_metadata(producer=_matching_producer()),
@@ -376,6 +372,7 @@ def test_ui_test_catalog_round_trips_through_write_and_read(tmp_path):
 
 
 def test_read_artifact_accepts_a_string_path_as_well_as_a_path_object(tmp_path):
+    """read_artifact accepts a plain string path as well as a Path object."""
     destination = tmp_path / "doc-entities.json"
     io.write_artifact(_valid_doc_entities_result(producer=_matching_producer()), destination)
 

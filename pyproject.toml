@@ -6,28 +6,19 @@ authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-# Core: everything `living_doc_utilities.contracts`, `.authoring` (except the HTML sanitiser),
-# `.github.utils` and `.inputs` need. Each lower bound is the lowest version the full test suite
-# passes on (Python 3.10): pydantic 2.10.x fails `contracts.schema_export`, and nh3 below 0.2.17
-# has no `attribute_filter`.
+# Lower bounds are the lowest versions the full test suite passes on Python 3.10.
 dependencies = [
     "pydantic>=2.11,<3",
     "jsonschema>=4.20,<5",
 ]
 
 [project.optional-dependencies]
-# `living_doc_utilities.github.rate_limiter` and `living_doc_utilities.github.decorators`
-# import PyGithub and requests at module level. `github.utils` and `inputs` do not.
+# rate_limiter.py/decorators.py import PyGithub/requests at module level; github.utils and inputs don't.
 github = [
     "PyGithub>=2,<3",
     "requests>=2.32,<3",
 ]
-# `living_doc_utilities.authoring.html_to_markdown` and
-# `living_doc_utilities.authoring.url_policy.sanitize_html_fragment` need this to sanitise
-# Azure DevOps rich-text HTML (docs/authoring.md, "URL policy"). Nothing else in the
-# package imports it, and importing either module never requires it - only calling
-# `sanitize_html_fragment` (directly, or via `convert_html_to_markdown`) does. The converter's
-# own parsing is the standard library's `html.parser`, so `nh3` is the only dependency.
+# Only calling sanitize_html_fragment (via html_to_markdown or url_policy) needs nh3; importing either module doesn't.
 html = [
     "nh3>=0.2.17,<1",
 ]
@@ -68,12 +59,7 @@ max-line-length = 120
 # Tiny functions (under 5 lines) need no docstring.
 docstring-min-length = 5
 
-# Undeclared-import gate (`make deptry`): every deptry rule runs, and the two
-# that matter most here are DEP001 (imported but not declared) and DEP004 (a development-only tool
-# imported by the library's own code). deptry counts an extra as declared for the whole package, so
-# which module may use which extra is enforced by the import matrix (`make import-matrix`), not by
-# deptry. The group below is names only - the pinned versions live in requirements-dev.txt - and
-# lets deptry tell a development-only tool (DEP004) from a library that was never declared.
+# Names only (versions pin in requirements-dev.txt); extras are enforced by make import-matrix, not deptry.
 [dependency-groups]
 dev = [
     "black",

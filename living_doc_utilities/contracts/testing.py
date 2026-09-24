@@ -15,16 +15,9 @@
 #
 
 """
-docs/contracts.md, R12 check 3 ("full-sample test") and section 4 ("Rendering rules"): the
-two shared test helpers every component - not just this package - builds its own R12/R11
-tests on.
-
-`full_sample` builds one valid, deterministic instance of a named contract from
-state-consistent records that *jointly* populate every optional field the contract defines,
-so that a fixture exists against which "nothing was lost" and "nothing is missing" are
-statements with content, rather than something an ordinary hand-picked fixture could pass by
-accident. `shown_paths` encodes section 4's field-by-view table, so a generator's own tests
-assert against it instead of a copy that drifts.
+Shared test helpers every component builds its own R12/R11 tests on: `full_sample` builds one
+valid, deterministic contract instance covering every optional field jointly; `shown_paths`
+encodes the field-by-view rendering table, so tests assert against it instead of a drifting copy.
 """
 
 from datetime import datetime, timezone
@@ -56,11 +49,7 @@ from living_doc_utilities.contracts.ui_tests import AcLink, Scenario
 _UTILITIES_VERSION = "0.5.1"
 
 # ---------------------------------------------------------------------------
-# Shared building blocks: one set of state-consistent entities and scenarios, reused as-is
-# everywhere a contract's shape calls for entities or scenarios - including doc-source's
-# three separately-rooted lists and ui-test-catalog's three separate groupings, each of
-# which needs its own full field coverage since metadata.stats.field_occupancy (R11) is
-# computed independently per record root.
+# Shared entities/scenarios reused everywhere a contract needs them; full coverage per root, since R11 is per-root.
 # ---------------------------------------------------------------------------
 
 
@@ -129,13 +118,9 @@ def _deprecated_acceptance_criteria(parent_id: str) -> list[AcceptanceCriterion]
 
 
 def _entities() -> list[Entity]:
-    """One of each entity kind, jointly covering every leaf path doc-entities, doc-source and
-    generator-ready declare for their Entity-shaped record roots (docs/contracts.md, R12
-    check 3): an active User Story with every entity-level extension and every
-    acceptance-criterion-level extension; a deprecated User Story with its deprecation fields
-    and a deprecated acceptance criterion; a Feature with a derived state, a stub_reason and
-    both a primary and a cross-reference page; a Functionality with a rationale. No entity
-    carries a field its own state makes meaningless."""
+    """One of each entity kind, jointly covering every Entity-shaped leaf path doc-entities,
+    doc-source and generator-ready declare - deprecation fields, a derived Feature state with
+    pages, a Functionality rationale - each only where its own state allows it."""
     user_story_active = Entity(
         entity_id="US-001",
         source_ref=_github_source_ref("501", "User Story"),
@@ -379,12 +364,8 @@ _BUILDERS: dict[str, Callable[[], ContractResult]] = {
 
 
 def full_sample(contract: str) -> ContractResult:
-    """
-    R12 check 3: one valid, deterministic instance of `contract`, built from state-consistent
-    records that jointly populate every optional field the contract defines - see the module
-    docstring. Takes no `view` parameter: filtering by view is a transform's job and setting
-    `document.view` for presentation is a generator's job, so this always returns the fully
-    populated, unfiltered record set.
+    """R12 check 3: one valid, deterministic instance of `contract`, covering every optional field jointly.
+    Always unfiltered - filtering by view is a transform's job.
 
     @param contract: one of the six contracts' CONTRACT_ID (e.g. "doc-entities-v1.0.0").
     @return: a fresh, schema-valid instance of that contract's result model.
@@ -397,12 +378,11 @@ def full_sample(contract: str) -> ContractResult:
 
 
 # ---------------------------------------------------------------------------
-# shown_paths: docs/contracts.md section 4 ("Rendering rules"), encoded once.
+# shown_paths: the field-by-view rendering table (R12 check 3), encoded once.
 # ---------------------------------------------------------------------------
 
 _ENTITY_PATH = "content.entities[]."
 
-# Rows shown in both the inner and the release view.
 _SHOWN_BOTH_VIEWS = frozenset(
     {
         f"{_ENTITY_PATH}state",  # US/FUNC state, and a Feature's derived state (marked "derived" in inner)
@@ -411,10 +391,7 @@ _SHOWN_BOTH_VIEWS = frozenset(
         f"{_ENTITY_PATH}acceptance_criteria[].not_in_scope[]",
         f"{_ENTITY_PATH}acceptance_criteria[].preconditions[]",
         f"{_ENTITY_PATH}acceptance_criteria[].removal_planned",
-        # AC header (always canonical_header()), the AC's deprecated badge and, for a planned AC, the
-        # "planned vX.Y.Z" / "backlog" label all read state + version. A planned AC only ever reaches a
-        # generator in the inner view (the release filter drops it as a record), so the label needs no
-        # separate inner-only path.
+        # AC header/badge/label all read state+version; a planned AC only reaches the inner view, so needs no own path.
         f"{_ENTITY_PATH}acceptance_criteria[].state",
         f"{_ENTITY_PATH}acceptance_criteria[].version",
         f"{_ENTITY_PATH}acceptance_criteria[].aspect[]",
@@ -424,7 +401,6 @@ _SHOWN_BOTH_VIEWS = frozenset(
     }
 )
 
-# Rows shown only in the inner view; hidden in release.
 _SHOWN_INNER_ONLY = frozenset(
     {
         f"{_ENTITY_PATH}stub_reason",
@@ -435,12 +411,9 @@ _SHOWN_INNER_ONLY = frozenset(
     }
 )
 
-# Never shown in either view (docs/contracts.md section 4): source_ref.native_type,
-# source_ref.tracker_state - simply never added to either set above.
+# Never shown in either view: source_ref.native_type, source_ref.tracker_state (absent from both sets above).
 
-# coverage-matrix (docs/contracts.md section 4, "Coverage"): per-aspect coverage rows are presented
-# in both views; the planned summary is presented in the inner view only. Paths under `planned_summary`
-# are relative to the document root, since that block sits beside `entities[]`, not inside it.
+# Per-aspect rows show in both views; planned_summary (root-relative, beside entities[]) shows in inner only.
 _COVERAGE_PATH = "entities[].acceptance_criteria[]."
 _COVERAGE_BOTH_VIEWS = frozenset(
     {f"{_COVERAGE_PATH}status", f"{_COVERAGE_PATH}aspects[].aspect", f"{_COVERAGE_PATH}aspects[].status"}
@@ -453,13 +426,8 @@ _VIEWS = ("inner", "release")
 
 
 def shown_paths(contract: str, view: str) -> set[str]:
-    """
-    R12 check 3 / docs/contracts.md section 4: the field paths `view` shows for `contract`,
-    so a generator's own tests assert against this instead of re-deriving the rendering table
-    themselves. Supported for the three contracts a generator renders: `generator-ready`
-    (the Entity/AcceptanceCriterion table), `coverage-matrix` (per-aspect coverage in both
-    views, the planned summary in inner only) and `ui-test-catalog`, which has no
-    view-dependent rows, so it shows nothing beyond its own record fields in either view.
+    """R12 check 3: the field paths `view` shows for `contract`, so a generator's own tests
+    assert against this instead of re-deriving the rendering table themselves.
 
     @param contract: "generator-ready-v1.0.0", "coverage-matrix-v1.0.0" or "ui-test-catalog-v1.0.0".
     @param view: "inner" or "release".

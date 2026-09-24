@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+"""Tests for the debug-log and rate-limit-aware safe-call decorators."""
+
 import pytest
 from github import GithubException
 from requests import RequestException, Timeout
@@ -21,16 +23,12 @@ from requests import RequestException, Timeout
 from living_doc_utilities.github.decorators import debug_log_decorator, safe_call_decorator
 
 
-# sample function to be decorated
 def sample_function(x, y):
     return x + y
 
 
-# debug_log_decorator
-
-
 def test_debug_log_decorator(mocker):
-    # Mock logging
+    """A decorated call returns the wrapped function's result while logging the call and its return value."""
     mock_log_debug = mocker.patch("living_doc_utilities.github.decorators.logger.debug")
 
     decorated_function = debug_log_decorator(sample_function)
@@ -45,10 +43,9 @@ def test_debug_log_decorator(mocker):
     assert mock_log_debug.call_args_list == expected_call
 
 
-# safe_call_decorator
-
-
 def test_safe_call_decorator_success(rate_limiter):
+    """A wrapped call that succeeds returns the underlying result unchanged."""
+
     @safe_call_decorator(rate_limiter)
     def sample_method(x, y):
         return x + y
@@ -59,6 +56,7 @@ def test_safe_call_decorator_success(rate_limiter):
 
 
 def test_safe_call_decorator_none_result_is_not_an_error(rate_limiter, mocker):
+    """A wrapped call returning None is passed through as a valid result, not logged as an error."""
     mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
 
     @safe_call_decorator(rate_limiter)
@@ -89,6 +87,7 @@ def test_safe_call_decorator_none_result_is_not_an_error(rate_limiter, mocker):
     ],
 )
 def test_safe_call_decorator_logs_and_reraises(rate_limiter, mocker, error, expected_message):
+    """Connection, timeout, GitHub API, and HTTP errors are each logged with a type-specific message and re-raised."""
     mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
 
     @safe_call_decorator(rate_limiter)
@@ -108,6 +107,7 @@ def test_safe_call_decorator_logs_and_reraises(rate_limiter, mocker, error, expe
 
 
 def test_safe_call_decorator_github_api_error_message(rate_limiter, mocker):
+    """A GitHub API error is logged with a GitHub-specific message and the original exception before re-raising."""
     mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
     error = GithubException(
         404,
@@ -133,6 +133,7 @@ def test_safe_call_decorator_github_api_error_message(rate_limiter, mocker):
 
 
 def test_safe_call_decorator_exception(rate_limiter, mocker):
+    """An exception of an unrecognized type is logged with a generic message naming its type before re-raising."""
     mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
 
     @safe_call_decorator(rate_limiter)
@@ -152,6 +153,7 @@ def test_safe_call_decorator_exception(rate_limiter, mocker):
 
 
 def test_safe_call_decorator_logs_and_reraises_rate_limit_lookup_failure(rate_limiter, mocker):
+    """A failure while checking the rate limit is logged and re-raised without ever invoking the wrapped call."""
     mock_log_error = mocker.patch("living_doc_utilities.github.decorators.logger.error")
     error = GithubException(401, {"message": "Bad credentials"}, {})
     rate_limiter.github_client.get_rate_limit.side_effect = error

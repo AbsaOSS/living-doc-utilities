@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-This module contains an Action Inputs class methods,
-which are essential for running the GH action.
-"""
+"""The base class for loading and validating a GitHub Action's inputs."""
 
 import logging
 from abc import ABC, abstractmethod
@@ -29,24 +26,15 @@ logger = logging.getLogger(__name__)
 
 
 class BaseActionInputs(ABC):
-    """
-    A class representing all the action inputs. It is responsible for loading, managing
-    and validating the inputs required for running the GH Action.
-    """
+    """Loads, manages and validates the inputs required for running the GH Action."""
 
     @staticmethod
     def get_github_token() -> str:
-        """
-        Getter of the GitHub authorization token.
-        @return: The GitHub authorization token.
-        """
+        """Gets the GitHub authorization token from action inputs."""
         return get_action_input(GITHUB_TOKEN)
 
     def validate_user_configuration(self) -> bool:
-        """
-        Verifies that all user configurations are defined correctly.
-        @return: True if the configuration is correct, False otherwise.
-        """
+        """Validates all user configuration; True if correct, False otherwise."""
         logger.debug("User configuration validation started")
         repository_error_count = self._validate()
         if repository_error_count > 0:
@@ -60,9 +48,7 @@ class BaseActionInputs(ABC):
     def _validate(self) -> int: ...
 
     def print_effective_configuration(self) -> None:
-        """
-        Prints the effective configuration of the action inputs.
-        """
+        """Prints the effective configuration of the action inputs."""
         logger.info("Effective configuration:")
         logger.info("GitHub token: %s", "is-defined" if self.get_github_token() else "not defined")
         self._print_effective_configuration()

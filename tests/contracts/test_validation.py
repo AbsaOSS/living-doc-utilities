@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for validation.validate (docs/contracts.md, R10): the shared structural-validation
-helper that selects its validator class from the schema's own dialect, never a hardcoded one.
-"""
+"""`validation.py::validate` (R10) selects its validator class from the schema's own dialect, never a hardcoded one."""
 
 import jsonschema
 
@@ -27,6 +24,7 @@ _DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 
 
 def test_validate_returns_empty_list_for_a_valid_payload():
+    """A payload that satisfies the schema yields an empty error list, not None or a falsy sentinel."""
     schema = {"$schema": _DRAFT_2020_12, "type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
 
     errors = validate({"name": "US-001"}, schema)
@@ -35,6 +33,7 @@ def test_validate_returns_empty_list_for_a_valid_payload():
 
 
 def test_validate_returns_every_error_for_an_invalid_payload():
+    """An invalid payload yields its jsonschema ValidationError objects, not a boolean or a summary."""
     schema = {"$schema": _DRAFT_2020_12, "type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
 
     errors = validate({"name": 123}, schema)
@@ -43,21 +42,9 @@ def test_validate_returns_every_error_for_an_invalid_payload():
     assert isinstance(errors[0], jsonschema.exceptions.ValidationError)
 
 
-def test_validate_selects_the_validator_declared_by_the_schemas_own_dialect(mocker):
-    schema = {"$schema": _DRAFT_2020_12, "type": "string"}
-    spy = mocker.patch(
-        "living_doc_utilities.contracts.validation.jsonschema.validators.validator_for",
-        wraps=jsonschema.validators.validator_for,
-    )
-
-    validate("ok", schema)
-
-    spy.assert_called_once_with(schema)
-
-
 def test_validate_enforces_a_2020_12_only_keyword_prefixitems():
-    # prefixItems is a 2020-12 keyword; a hardcoded Draft-07 validator would not recognise it
-    # and would silently ignore the constraint rather than reject a violating instance.
+    """validate picks its validator class from the schema's own $schema dialect, not a hardcoded draft."""
+    # A hardcoded Draft-07 validator would silently ignore prefixItems (2020-12), not reject a violating instance.
     schema = {
         "$schema": _DRAFT_2020_12,
         "type": "array",

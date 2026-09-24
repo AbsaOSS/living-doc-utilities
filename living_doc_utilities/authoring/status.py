@@ -15,12 +15,9 @@
 #
 
 """
-`derive_statuses` (docs/contracts.md, "State and `state_origin`"): settles every entity's
-final `state`/`state_origin` in one pass, after all entities in a run have been parsed and
-their relations built. A User Story / Functionality's state is authored, falling back to a
-derivation from its own acceptance criteria only when missing; a Feature's state is always
-derived - from its deprecation, else its Functionalities, else its User Stories, else
-`active` with an `ORPHAN_FEATURE` warning.
+`derive_statuses` settles every entity's `state`/`state_origin` in one pass. A User Story/Functionality's
+state is authored, falling back to its ACs; a Feature's is always derived: `deprecated_at`, then its
+Functionalities, then its User Stories, else `active` with an `ORPHAN_FEATURE` warning.
 """
 
 from typing import Iterable
@@ -31,10 +28,7 @@ from living_doc_utilities.contracts.common import AcceptanceCriterion
 from living_doc_utilities.contracts.envelope import ContractWarning
 
 
-# active > in_review > (all-deprecated) > planned - shared by both derivation tables (a User
-# Story/Functionality deriving from its own ACs, and a Feature deriving from its linked
-# Functionalities'/User Stories' already-settled states): the strongest signal in the group
-# wins, "everything has retired" is itself a signal, and "nothing to go on" is `planned`.
+# active > in_review > (all-deprecated) > planned: the strongest signal wins; shared by both derivation tables.
 def _majority_state(states: Iterable[str]) -> str:
     state_list = list(states)
     state_set = set(state_list)
@@ -131,8 +125,7 @@ def _derive_feature(
 def derive_statuses(entities: list[ParsedEntity]) -> tuple[list[ParsedEntity], list[ContractWarning]]:
     """Settles `state`/`state_origin` on every entity. Non-Feature entities are resolved
     first (their own ACs are the only input they need); Features are resolved from those
-    already-settled states, so input order never matters.
-    """
+    already-settled states, so input order never matters."""
     warnings: list[ContractWarning] = []
     resolved_non_features: dict[str, ParsedEntity] = {}
     for entity in entities:

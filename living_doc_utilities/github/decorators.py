@@ -15,11 +15,8 @@
 #
 
 """
-This module contains decorators for adding debug logging to method calls
-and for creating rate-limited call functions that log every failure and re-raise it.
-
-It imports PyGithub and requests, so it needs the `github` extra
-(`pip install living-doc-utilities[github]`).
+Decorators for debug-logging method calls and for rate-limited calls that log and re-raise
+every failure. Needs the `github` extra (`pip install living-doc-utilities[github]`).
 """
 
 import logging
@@ -35,12 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def debug_log_decorator(method: Callable) -> Callable:
-    """
-    Decorator to add debug logging for a method call.
-
-    @param method: The method to decorate.
-    @return: The decorated method.
-    """
+    """Adds debug logging around a method call."""
 
     @wraps(method)
     def wrapped(*args, **kwargs) -> Optional[Any]:
@@ -53,20 +45,13 @@ def debug_log_decorator(method: Callable) -> Callable:
 
 
 def safe_call_decorator(rate_limiter: GithubRateLimiter) -> Callable:
-    """
-    Decorator factory to create a rate-limited call function that logs a failure and re-raises it.
-
-    A failed call never becomes a `None` result: the caller has to be able to tell "there was no
-    data" from "the fetch failed", so every exception is logged with its traceback and propagated.
-
-    @param rate_limiter: The rate limiter to use.
-    @return: The decorator.
-    """
+    """Decorator factory: wraps `method` in `rate_limiter`, logging and re-raising every
+    failure - never returning `None`, so a caller can tell "no data" from "fetch failed"."""
 
     def decorator(method: Callable) -> Callable:
         rate_limited_method = rate_limiter(method)
 
-        # Note: Keep the log decorator first to log the correct method name.
+        # Keep the log decorator first, to log the correct method name.
         @debug_log_decorator
         @wraps(method)
         def wrapped(*args, **kwargs) -> Optional[Any]:

@@ -15,11 +15,9 @@
 #
 
 """
-The one place that knows all six contracts. Every contract module already exports
-CONTRACT_ID, its own *Result model and RECORD_ROOTS; this module is the only place those
-get collected into a table, so a reader that needs "every contract" - io, schema_export,
-lineage, testing - has one place to read instead of its own hand-written copy of the same
-six-row list.
+The one place that knows all six contracts: every contract module's CONTRACT_ID, *Result
+model and RECORD_ROOTS collected into one table, so io/schema_export/lineage/testing read
+from here instead of keeping their own copy.
 """
 
 from dataclasses import dataclass
@@ -36,9 +34,7 @@ from living_doc_utilities.contracts import (
     ui_tests,
 )
 
-# The six contract result models - a Union rather than a plain BaseModel so that
-# read_artifact's/write_artifact's callers (and mypy) see the shared fields every one of
-# them declares: schema_version, metadata, warnings.
+# A Union (not plain BaseModel) so callers and mypy see the shared fields: schema_version, metadata, warnings.
 ContractResult = Union[
     doc_entities.DocEntitiesResult,
     doc_source.DocSourceResult,
@@ -60,9 +56,7 @@ class ContractSpec:
     is_transform: bool
 
 
-# Every contract's result model, record roots and transform-ness, keyed by CONTRACT_ID - the
-# only hand-written list of all six contracts; every other reader looks it up here instead of
-# keeping its own copy.
+# Every contract's result model, record roots and transform-ness, keyed by CONTRACT_ID; readers look up here.
 _ROWS: tuple[tuple[str, type[BaseModel], dict[str, type[BaseModel]], bool], ...] = (
     (doc_entities.CONTRACT_ID, doc_entities.DocEntitiesResult, doc_entities.RECORD_ROOTS, False),
     (doc_source.CONTRACT_ID, doc_source.DocSourceResult, doc_source.RECORD_ROOTS, False),
@@ -79,9 +73,9 @@ CONTRACTS: dict[str, ContractSpec] = {
 
 
 def record_roots(contract_id: str) -> dict[str, type[BaseModel]]:
-    """
+    """Looks up a contract's RECORD_ROOTS declaration by its id.
+
     @param contract_id: one of the six contracts' CONTRACT_ID (e.g. "doc-entities-v1.0.0").
-    @return: that contract's RECORD_ROOTS declaration.
     @raises ValueError: `contract_id` is not one of the six known contract ids.
     """
     try:

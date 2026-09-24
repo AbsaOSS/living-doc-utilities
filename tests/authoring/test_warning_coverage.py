@@ -14,14 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Every information-losing skip a parser in this package can take is reported as a coded
-`ContractWarning`, never as a bare `logging` call that the caller has no structured way to
-see. `test_no_authoring_module_uses_the_logging_module` proves the second half statically
-(nothing to log through, so there is nothing to lose); the parametrized case below proves
-the first half dynamically, with a log-capture fixture confirming no log record fires
-alongside the warning either.
-"""
+"""Every information-losing skip in a parser is a coded `ContractWarning`, never a bare `logging` call."""
 
 import logging
 from pathlib import Path
@@ -40,6 +33,7 @@ AUTHORING_DIR = Path(__file__).resolve().parents[2] / "living_doc_utilities" / "
 
 
 def test_no_authoring_module_uses_the_logging_module():
+    """No module under `living_doc_utilities/authoring` imports the `logging` module; warnings carry state instead."""
     offenders = [path.name for path in AUTHORING_DIR.glob("*.py") if "import logging" in path.read_text(encoding="utf-8")]
     assert offenders == []
 
@@ -60,6 +54,7 @@ def _skip_cases():
 
 @pytest.mark.parametrize("name, produce_warnings", list(_skip_cases()), ids=[c[0] for c in _skip_cases()])
 def test_information_losing_skip_produces_a_coded_warning_and_no_log_record(name, produce_warnings, caplog):
+    """Every parser's information-losing skip produces a coded `ContractWarning`, never a bare `logging` record."""
     with caplog.at_level(logging.DEBUG):
         warnings = produce_warnings()
 

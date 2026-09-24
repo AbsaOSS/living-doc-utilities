@@ -14,14 +14,7 @@
 # limitations under the License.
 #
 
-"""
-`docs_export.regenerate()` is what `make docs` writes and what the CI "Authoring Docs
-Regeneration Check" job diffs against the committed file (.github/workflows/test.yml). These
-tests prove both halves: the committed table really is what the generator produces from
-`normalisation_cases.yaml` today (so the CI job is green), and the generator actually
-notices when the cases file and the committed table disagree (so the CI job would catch a
-stale table, not just a missing one).
-"""
+"""`docs_export.py::regenerate` reproduces the committed table and notices when cases file and table disagree."""
 
 import pytest
 
@@ -37,19 +30,22 @@ from living_doc_utilities.authoring.docs_export import (
 
 
 def test_committed_doc_matches_a_fresh_regeneration():
+    """The committed docs/authoring.md is exactly what `regenerate()` produces from the cases file today."""
     committed = _DOC_FILE.read_text(encoding="utf-8")
 
     assert regenerate() == committed
 
 
 def test_regenerate_is_idempotent():
+    """Splicing the table into an already-regenerated doc leaves that doc unchanged."""
     once = regenerate()
 
-    doc_with_once_applied = _DOC_FILE.read_text(encoding="utf-8")
-    assert doc_with_once_applied == once
+    twice = docs_export._splice(once, render_table(_load_cases()))
+    assert twice == once
 
 
 def test_render_table_has_one_row_per_case_plus_header():
+    """The rendered table has exactly one row per case, plus a header row and a separator row."""
     cases = _load_cases()
 
     table = render_table(cases)
@@ -61,10 +57,8 @@ def test_render_table_has_one_row_per_case_plus_header():
 
 
 def test_a_stale_table_is_detected_as_different_from_a_fresh_regeneration():
-    # Simulates what the CI job's `git diff --exit-code -- docs/authoring.md` step catches:
-    # a committed table that no longer matches what the cases file produces today - here,
-    # by regenerating from a cases list with one case removed, standing in for a case added
-    # to the YAML without `make docs` having been re-run.
+    """A table regenerated from a shorter case list differs from one regenerated from the full case list."""
+    # Regenerating from a cases list with one case removed stands in for a case added without `make docs`.
     cases = _load_cases()
     stale_table = render_table(cases[:-1])
     fresh_table = render_table(cases)
@@ -74,6 +68,7 @@ def test_a_stale_table_is_detected_as_different_from_a_fresh_regeneration():
 
 
 def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
+    """A literal `|` inside a case's `note` field is escaped so it cannot be mistaken for a table delimiter."""
     case = {
         "id": "case-x",
         "rule": "rule-x",
@@ -92,8 +87,7 @@ def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
 
 @pytest.fixture
 def crlf_checkout(tmp_path, mocker):
-    # The doc and the cases file as a Windows autocrlf checkout can leave them (CRLF), in nested folders so a
-    # path separator shows up in what `main()` prints, wired into `main()` in place of the real files.
+    """Wire `docs_export` to a CRLF, nested-path copy of the doc and cases file, as autocrlf checkouts leave them."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "pkg").mkdir()
     doc, cases = tmp_path / "docs" / "authoring.md", tmp_path / "pkg" / "cases.yaml"
@@ -106,6 +100,7 @@ def crlf_checkout(tmp_path, mocker):
 
 
 def test_main_writes_lf_line_endings_on_every_os_and_from_any_checkout(crlf_checkout):
+    """`main()` writes the regenerated doc with LF line endings only, regardless of OS or the checkout's own."""
     # Text mode would turn each newline into CRLF on Windows.
     docs_export.main()
 
@@ -115,6 +110,7 @@ def test_main_writes_lf_line_endings_on_every_os_and_from_any_checkout(crlf_chec
 
 
 def test_main_prints_forward_slash_paths_on_every_os(crlf_checkout, capsys):
+    """`main()` prints the doc and cases paths with forward slashes, regardless of OS."""
     docs_export.main()
 
     assert capsys.readouterr().out == "Regenerated docs/authoring.md from pkg/cases.yaml\n"

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-"""entity_id extraction from a title (docs/contracts.md, "Entity identity")."""
+"""entity_id extraction from a title (identity.py::derive_entity_id)."""
 
 import pytest
 
@@ -32,6 +32,7 @@ from living_doc_utilities.contracts.codes import Code
     ],
 )
 def test_valid_title_prefixes_extract_us_001(title):
+    """Any of the accepted id-prefix separators (`·`, `-`, `:`, and the `GH-` source prefix) still yield US-001."""
     entity_id, warnings = derive_entity_id(title)
 
     assert entity_id == "US-001"
@@ -39,6 +40,7 @@ def test_valid_title_prefixes_extract_us_001(title):
 
 
 def test_title_with_no_parseable_id_produces_no_entity_and_a_warning():
+    """A title with no parseable entity id yields no id and a `MISSING_ENTITY_ID` warning that quotes the title."""
     entity_id, warnings = derive_entity_id("Customer Login")
 
     assert entity_id is None

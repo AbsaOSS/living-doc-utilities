@@ -15,10 +15,8 @@
 #
 
 """
-docs/contracts.md, R11: computes a contract result's own metadata.stats - cardinality and
-field_occupancy - from the result model itself. "Each contract declares its own record
-roots in its contract module. The stats helper (R11) ... reads the declaration from that
-one place" - so this module takes a contract's RECORD_ROOTS declaration as an explicit
+R11: computes a contract result's own metadata.stats (cardinality and field_occupancy) from
+the result model itself. Takes the contract's RECORD_ROOTS declaration as an explicit
 argument rather than keeping its own copy of which model belongs to which contract.
 """
 
@@ -36,31 +34,24 @@ from living_doc_utilities.contracts.ui_tests import Scenario
 
 
 class _ContractResult(Protocol):
-    """Structural stand-in for io.ContractResult: every one of the six models declares
-    `warnings` (io.py's own Union docstring), but importing it here would cycle back (io
-    imports this module)."""
+    """Structural stand-in for `registry.py::ContractResult`: every one of the six models declares
+    `warnings`."""
 
     warnings: list[ContractWarning]
 
 
-# Record types whose lists tally into cardinality.acceptance_criteria / .scenarios
-# wherever they occur in a contract's record-root subtree - doc-entities/doc-source/
-# generator-ready nest AcceptanceCriterion under Entity, coverage-matrix nests AcCoverage
-# under EntityCoverage, and ui-test-catalog nests Scenario several levels under
-# FeatureFileCatalog; matching by type, not by field name or nesting depth, covers all of
-# them with one rule.
+# Record types whose lists tally into cardinality.acceptance_criteria/.scenarios wherever they occur, by type not depth.
 _ACCEPTANCE_CRITERION_TYPES = (AcceptanceCriterion, AcCoverage)
 
 
 def _is_empty(value: Any) -> bool:
-    """R11: "null, "", [] and {} all count as empty; a present-but-empty field is not
-    carried information."""
+    """R11: null, "", [] and {} all count as empty - a present-but-empty field carries no information."""
     return value is None or value == "" or value == [] or value == {}
 
 
 def _is_entity_shaped(model: type[BaseModel]) -> bool:
-    """An entity-identity record (docs/contracts.md, "Entity identity"): every documented
-    entity and every coverage-matrix EntityCoverage row carries both entity_id and type."""
+    """An entity-identity record: every documented entity and every coverage-matrix
+    EntityCoverage row carries both entity_id and type."""
     fields = model.model_fields
     return "entity_id" in fields and "type" in fields
 
@@ -105,14 +96,9 @@ def _walk(instances: Sequence[Any], model: type[BaseModel], prefix: str, state: 
 
 
 def compute_stats(result: _ContractResult, record_roots: dict[str, type[BaseModel]], reported: Cardinality) -> Stats:
-    """
-    Computes a fresh metadata.stats for `result`: cardinality (entities, entities_by_type,
-    acceptance_criteria, scenarios and warnings_by_code are derived from `result` itself;
-    sources_configured, sources_failed, unresolved_refs and entities_skipped are carried
-    over from `reported` unchanged - R11 says these four "are filled from what the
-    producing collector or transform reports, not computed by this helper itself") and
-    field_occupancy (keyed by record-relative path, starting at each of `record_roots`'
-    own root).
+    """Computes a fresh metadata.stats for `result`: cardinality fields are derived from
+    `result` itself, except sources_configured/sources_failed/unresolved_refs/entities_skipped,
+    carried over from `reported` unchanged (R11).
 
     @param result: a contract result model instance.
     @param record_roots: the contract's RECORD_ROOTS declaration (its own module's constant).

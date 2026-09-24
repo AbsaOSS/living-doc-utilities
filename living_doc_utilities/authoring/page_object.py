@@ -15,11 +15,9 @@
 #
 
 """
-PageObject header parsing for a Feature (living-doc's docs/guides/living-doc-header-types.md,
-"Feature in a PageObject File"). A PageObject carries no status - only `stub-reason:`, the
-"documented but not yet instrumented" marker. A full header describes the whole Feature
-plus its own page; a cross-reference header (`parent-feat:` present) only describes its own
-page, scoped to an already-described Feature.
+PageObject header parsing for a Feature. A PageObject carries no status - only
+`stub-reason:`. A full header describes the whole Feature plus its own page; a
+cross-reference header (`parent-feat:` present) only describes its own page.
 """
 
 import re
@@ -39,15 +37,10 @@ _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*(?P<val>.*
 _COMMENT_OPEN_RE = re.compile(r"^\s*/\*")
 _COMMENT_CLOSE_RE = re.compile(r".*\*/\s*$")
 
-# A glossary-defined key that maps to no model field, with the reason it is dropped rather
-# than stored (docs/contracts.md, "State and `state_origin`") - a documented drop, not a
-# silent one. Every other PageObject header key maps to a real field instead (see
-# tests/contracts/test_authored_field_set.py). The reason text itself is issue_body's -
-# both formats drop the same glossary key for the same reason, so it is declared once.
+# A glossary key that maps to no field, dropped for the same reason issue_body drops it (declared once, reused here).
 IGNORED_AUTHORED_KEYS = {"status": _ISSUE_BODY_IGNORED_AUTHORED_KEYS["Status"]}
 
-# Required + optional keys of a full header, and of a cross-reference header (living-doc's
-# header-types.md tables). `status` is recognised - only to be reported as ignored.
+# Required + optional keys of a full header and a cross-reference header; status is recognised only to be flagged.
 _FULL_HEADER_KEYS = {
     "surface_type",
     "route",
@@ -74,11 +67,9 @@ _CROSS_REFERENCE_KEYS = {
 
 @dataclass
 class PageObjectResult:
-    """One PageObject file's parse result. `entity` is only populated for a full header
-    (it describes the whole Feature); a cross-reference header instead carries `parent_feat`,
-    the id of the Feature its `page_ref` belongs to - the collector is responsible for
-    appending `page_ref` onto that already-parsed Feature's `pages` list.
-    """
+    """One PageObject file's parse result. `entity` is only populated for a full header; a
+    cross-reference header instead carries `parent_feat`, the Feature id its `page_ref`
+    belongs to - the collector appends `page_ref` onto that Feature's `pages` list."""
 
     page_ref: PageRef
     entity: Optional[ParsedEntity] = None
@@ -87,9 +78,7 @@ class PageObjectResult:
 
 def _header_comment_lines(lines: list[str]) -> list[str]:
     """The file's leading `/* ... */` block comment - the Living Doc header - and nothing
-    past its closing `*/`. A later JSDoc block (e.g. above a class method) is never part
-    of this block, so a `key: value`-shaped line inside one can't be mistaken for a header
-    field and silently overwrite it."""
+    past its closing `*/`. A later JSDoc block can't be mistaken for header fields."""
     start = next((i for i, ln in enumerate(lines) if _COMMENT_OPEN_RE.match(ln)), None)
     if start is None:
         return []
@@ -112,8 +101,7 @@ def _extract_title(contents: list[str]) -> Optional[str]:
     title = extract_living_doc_title(contents)
     if title is None:
         return None
-    # Strip an optional "[cross-reference]" suffix - `parent-feat:` is the authoritative
-    # format signal, this is just cosmetic on the title line.
+    # Strip an optional "[cross-reference]" suffix - cosmetic; parent-feat: is the authoritative format signal.
     return re.sub(r"\s*\[cross-reference]\s*$", "", title)
 
 

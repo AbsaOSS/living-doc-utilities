@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-The acceptance-criterion header and extension grammar: the four states, the
-version-less `planned` backlog form, the deprecated/removal-planned form, every
-acceptance-criterion-level extension, the legacy `descoped` conversion, and every
-`MALFORMED_AC` / `UNPARSED_AC_LINE` trigger (docs/contracts.md, "Errors and warnings").
-"""
+"""The acceptance-criterion header and extension grammar, and every `MALFORMED_AC` / `UNPARSED_AC_LINE` trigger."""
 
 from pathlib import Path
 
@@ -38,6 +33,7 @@ def _parse_one(text: str, entity_id: str = "US-001"):
 
 
 def test_active_form_with_version():
+    """An AC header with an explicit version and "active" state parses to that state, version and description."""
     acs, warnings = _parse_one("AC:US-001-01 (v1.2.0 - active)\n- desc\n")
 
     assert warnings == []
@@ -49,6 +45,7 @@ def test_active_form_with_version():
 
 
 def test_planned_form_with_target_version():
+    """An AC header in "planned" state with a target version parses to that state and version."""
     acs, warnings = _parse_one("AC:US-001-01 (v1.3.0 - planned)\n- desc\n")
 
     assert warnings == []
@@ -58,6 +55,7 @@ def test_planned_form_with_target_version():
 
 
 def test_planned_backlog_form_without_version():
+    """A "planned" AC header with no version parses to state "planned" with a null version."""
     acs, warnings = _parse_one("AC:US-001-01 (planned)\n- desc\n")
 
     assert warnings == []
@@ -67,6 +65,7 @@ def test_planned_backlog_form_without_version():
 
 
 def test_deprecated_form_with_removal_planned():
+    """A "deprecated" AC header with a "removal planned" version captures both the current and removal versions."""
     acs, warnings = _parse_one("AC:US-001-04 (v1.0.0 - deprecated - removal planned v2.0.0)\n- desc\n")
 
     assert warnings == []
@@ -77,6 +76,7 @@ def test_deprecated_form_with_removal_planned():
 
 
 def test_every_acceptance_criterion_level_extension_parses():
+    """Every AC-level extension (aspect, error code, rationale, preconditions, scope) parses onto its own field."""
     text = (
         "AC:FUNC-001-02 (v1.0.0 - active)\n"
         "- Raises {error code} when the credential check fails.\n"
@@ -110,6 +110,7 @@ def test_every_acceptance_criterion_level_extension_parses():
     ids=["unknown_state", "missing_version", "unversioned_short_form"],
 )
 def test_malformed_headers_produce_malformed_ac(inner):
+    """An AC header with an unrecognised state, a missing version, or a bare "v1" form is rejected as malformed."""
     acs, warnings = _parse_one(f"AC:US-001-01 ({inner})\n- desc\n")
 
     assert acs == []
@@ -117,6 +118,7 @@ def test_malformed_headers_produce_malformed_ac(inner):
 
 
 def test_header_with_no_id_is_malformed():
+    """An AC header missing its id is rejected as malformed."""
     acs, warnings = _parse_one("AC: (v1.0.0 - active)\n- desc\n")
 
     assert acs == []
@@ -124,6 +126,7 @@ def test_header_with_no_id_is_malformed():
 
 
 def test_legacy_descoped_state_converts_to_version_less_planned():
+    """A legacy "descoped" AC state converts to version-less "planned" with a legacy-state warning, kept rationale."""
     acs, warnings = _parse_one("AC:US-001-03 (v1.2.0 - descoped)\n- desc\n- Rationale: deferred\n")
 
     assert [w.code for w in warnings] == [Code.LEGACY_AC_STATE.name]
@@ -134,6 +137,7 @@ def test_legacy_descoped_state_converts_to_version_less_planned():
 
 
 def test_defect_form_parses_correctly_after_normalize_runs_first():
+    """An AC header normalized from a short version and non-canonical state still parses to the canonical form."""
     raw = "AC:US-001-01 (v1.0 - In Review)\n- desc\n"
     normalized = normalize(raw, SourceFormat.ISSUE_BODY, "DocumentedUserStory")
 
@@ -146,6 +150,7 @@ def test_defect_form_parses_correctly_after_normalize_runs_first():
 
 
 def test_unassignable_ac_block_line_produces_unparsed_ac_line():
+    """An AC block line with no colon or recognised keyword is reported as unparsed without dropping the criterion."""
     text = "AC:US-001-01 (v1.0.0 - active)\n- desc\n- this line has no colon or recognised keyword\n"
     acs, warnings = _parse_one(text)
 
@@ -158,6 +163,7 @@ def test_unassignable_ac_block_line_produces_unparsed_ac_line():
     ["v1.2.0 - active", "v1.3.0 - planned", "planned", "v1.0.0 - deprecated - removal planned v2.0.0"],
 )
 def test_canonical_header_round_trips_through_normalize_and_ac_grammar_again(inner):
+    """An AC's canonical header, re-normalized and re-parsed, reproduces the identical criterion and header text."""
     text = f"AC:US-001-01 ({inner})\n- desc\n"
     acs, _ = _parse_one(text)
     ac = acs[0]
@@ -172,6 +178,7 @@ def test_canonical_header_round_trips_through_normalize_and_ac_grammar_again(inn
 
 
 def test_fenced_ac_example_is_never_parsed_as_a_real_criterion():
+    """AC-header-shaped text inside a fenced code block is not parsed as a real acceptance criterion."""
     text = (
         "AC:US-001-01 (v1.0.0 - active)\n"
         "- desc\n"
@@ -189,6 +196,7 @@ def test_fenced_ac_example_is_never_parsed_as_a_real_criterion():
 
 @pytest.mark.parametrize("inner", ["V1.0.0 - active", "1.0.0 - active"], ids=["uppercase_v", "missing_v"])
 def test_non_canonical_version_prefix_is_malformed(inner):
+    """An AC header whose version lacks the canonical lowercase "v" prefix is rejected as malformed."""
     acs, warnings = _parse_one(f"AC:US-001-01 ({inner})\n- desc\n")
 
     assert acs == []
@@ -196,9 +204,7 @@ def test_non_canonical_version_prefix_is_malformed(inner):
 
 
 def test_complete_feature_file_stops_at_the_closing_banner():
-    # Regression case for a full living-doc-header-types.md-shaped .feature file: the
-    # last AC's block must end at the closing "# ====...====" banner, not absorb the
-    # Feature: declaration, tags and scenario body that follow it in the same file.
+    """In a full feature-file header, the last AC's block stops at the closing banner, not the Feature/scenario body."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — FUNC-1 · Password Strength\n"
@@ -236,6 +242,7 @@ def test_complete_feature_file_stops_at_the_closing_banner():
 
 
 def test_agentic_toolkit_descope_fixture_round_trips_with_only_legacy_warning():
+    """A real-world descoped-AC fixture round-trips through normalize and parsing with only the legacy-state warning."""
     raw_text = FIXTURE_PATH.read_text(encoding="utf-8")
     # Strip the file's own provenance comment (an HTML comment block, not AC content).
     _, _, after_comment = raw_text.partition("-->")

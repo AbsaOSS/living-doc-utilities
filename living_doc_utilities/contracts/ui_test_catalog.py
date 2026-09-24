@@ -66,6 +66,5 @@ class UiTestCatalogResult(ContractModel):
         return self
 
 
-# Declares this contract's record roots (docs/contracts.md, section 1) - see
-# doc_entities.RECORD_ROOTS.
+# This contract's record roots; see `doc_entities.py::RECORD_ROOTS`.
 RECORD_ROOTS: dict[str, type[BaseModel]] = {"feature_files": FeatureFileCatalog}

@@ -16,6 +16,5 @@
 
 """
 The shared, typed documentation contracts: the metadata envelope and the doc-entities,
-doc-source, ui-tests, generator-ready, coverage-matrix and ui-test-catalog pydantic
-models, per docs/contracts.md.
+doc-source, ui-tests, generator-ready, coverage-matrix and ui-test-catalog pydantic models.
 """

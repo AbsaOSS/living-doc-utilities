@@ -16,8 +16,7 @@
 
 """
 The doc-source-v1.0.0 contract: the source-scanning collector's output. Three record
-roots - user_stories[], features[], functionalities[] - each holding the same Entity
-shape as doc-entities (docs/contracts.md, section 1).
+roots - user_stories[], features[], functionalities[] - each holding the same Entity shape as doc-entities.
 """
 
 from typing import Literal
@@ -42,7 +41,7 @@ class DocSourceResult(ContractModel):
     functionalities: list[Entity] = Field(default_factory=list)
 
 
-# Declares this contract's record roots (docs/contracts.md, section 1) - see doc_entities.RECORD_ROOTS.
+# This contract's record roots; see `doc_entities.py::RECORD_ROOTS`.
 RECORD_ROOTS: dict[str, type[BaseModel]] = {
     "user_stories": Entity,
     "features": Entity,

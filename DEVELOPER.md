@@ -131,12 +131,6 @@ Every rule that is not listed here stays on for tests, so unused imports, undefi
 | `unidiomatic-typecheck` | `type(x) is Foo`. Pylint says: use `isinstance(x, Foo)`. | A test sometimes has to check the exact type: a `Foo`, not a subclass. `isinstance` also accepts subclasses. Pylint also flags the harmless `type(None)`. |
 | `unused-argument` | A function argument is never used. | pytest fills in the arguments. A test can receive a `parametrize` value (one of several inputs it runs with) that it does not need, or a fixture it needs only for its side effect, such as a temporary folder. |
 
-**Off for now**
-
-| Rule | What Pylint complains about | Why it is off for now |
-|---|---|---|
-| `missing-function-docstring`, `missing-module-docstring`, `missing-class-docstring` | A function, module or class has no docstring. | Each test should get a one-line docstring that says what it protects, so whoever changes the code later can see the target. Many tests have none yet, and the suite is still being merged and trimmed, so writing them now would be wasted work. When the suite is settled, delete the line marked `TEMPORARY` in the `Makefile` and this table, and add the missing docstrings. |
-
 ---
 ## Run Black Tool Locally
 

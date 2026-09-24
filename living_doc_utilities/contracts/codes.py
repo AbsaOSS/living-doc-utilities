@@ -16,12 +16,7 @@
 
 """
 The single registry of every error/warning code the Living Documentation fleet raises or
-emits (docs/contracts.md, section 5 - "This section is the single source of truth for
-every code below; nothing elsewhere redefines one"). `ALL_CODES` is read both by this
-package's own helpers (compat.py raises INVALID_CONTRACT_ID, CONTRACT_MISMATCH,
-SCHEMA_VALIDATION_FAILED) and by other repos' documentation checks, so every code any
-component in the fleet can produce has exactly one entry here, with its kind and its
-emitting component.
+emits. `ALL_CODES` maps every code name to its kind and emitting component.
 """
 
 from enum import Enum
@@ -29,8 +24,7 @@ from typing import Optional
 
 
 class CodeKind(str, Enum):
-    """Whether a code is raised as a structured hard error, or only ever recorded in an
-    artifact's warnings[] array (docs/contracts.md, section 5)."""
+    """Whether a code is raised as a structured hard error, or only ever recorded in warnings[]."""
 
     ERROR = "error"
     WARNING = "warning"
@@ -39,12 +33,9 @@ class CodeKind(str, Enum):
 class Emitter(str, Enum):
     """Which fleet component raises or emits a code."""
 
-    # This package's own compat.check_input / io.read_artifact / io.write_artifact (R5) -
-    # the only place these three codes are ever raised, regardless of which component
-    # (collector, transform or generator) called through to them.
+    # R5: raised only by `compat.py::check_input`, `io.py::read_artifact` and `io.py::write_artifact`.
     UTILITIES = "utilities"
-    # living_doc_toolkit_core.input_validation - the shared, cross-input checks a transform
-    # command runs before any transform (docs/contracts.md, "Shared input validation").
+    # living_doc_toolkit_core.input_validation: shared cross-input checks run before any transform command.
     TOOLKIT = "toolkit"
     TRANSFORM = "transform"
     COLLECTOR = "collector"
@@ -52,21 +43,20 @@ class Emitter(str, Enum):
 
 
 class Code(Enum):
-    """Every code from docs/contracts.md section 5, with its kind and emitting component."""
+    """Every code, with its kind and emitting component."""
 
     kind: CodeKind
     emitter: Emitter
 
     def __new__(cls, kind: CodeKind, emitter: Emitter) -> "Code":
         member = object.__new__(cls)
-        # Unique per member and 1-indexed to match the prior auto()-based numbering: Enum
-        # aliases members whose values are equal, and many codes share (kind, emitter).
+        # Unique per member, 1-indexed (Enum aliases members whose values are equal; many codes share (kind, emitter)).
         member._value_ = len(cls.__members__) + 1
         member.kind = kind
         member.emitter = emitter
         return member
 
-    # --- R5: the shared compatibility check (contracts.compat.check_input) ---
+    # --- R5: the shared compatibility check (`compat.py::check_input`) ---
     INVALID_CONTRACT_ID = CodeKind.ERROR, Emitter.UTILITIES
     CONTRACT_MISMATCH = CodeKind.ERROR, Emitter.UTILITIES
     SCHEMA_VALIDATION_FAILED = CodeKind.ERROR, Emitter.UTILITIES
@@ -88,8 +78,7 @@ class Code(Enum):
 
     # --- Collectors (R13, and the authoring/parsing rules) ---
     INVALID_CONFIGURATION = CodeKind.ERROR, Emitter.COLLECTOR
-    # Hard by default; a warning only under a collector's opt-in partial mode (R13) - kept
-    # as ERROR here since that is the default disposition.
+    # Hard by default; a warning only under a collector's opt-in partial mode (R13).
     SOURCE_UNAVAILABLE = CodeKind.ERROR, Emitter.COLLECTOR
     EMPTY_SOURCE = CodeKind.WARNING, Emitter.COLLECTOR
     MALFORMED_AC = CodeKind.WARNING, Emitter.COLLECTOR
@@ -115,16 +104,12 @@ class Code(Enum):
     URL_FETCH_REFUSED = CodeKind.WARNING, Emitter.GENERATOR
 
 
-# The registry other repos' documentation checks and this package's own helpers read from -
-# every code, keyed by its name, e.g. ALL_CODES["CONTRACT_MISMATCH"].kind.
+# The registry other repos' doc checks and this package's own helpers read from, keyed by name.
 ALL_CODES: dict[str, Code] = dict(Code.__members__)
 
 
 class ContractError(Exception):
-    """A structured hard error (docs/contracts.md, section 5): "Hard errors are raised as
-    structured errors with a code, a message and context." Every ContractError this package
-    raises carries its Code, a human-readable message, and optional context.
-    """
+    """A structured hard error: raised with a Code, a human-readable message, and optional context."""
 
     def __init__(self, code: Code, message: str, context: Optional[str] = None) -> None:
         self.code = code

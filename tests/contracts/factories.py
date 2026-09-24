@@ -14,13 +14,10 @@
 # limitations under the License.
 #
 
-"""
-Builders for minimal, schema-valid contract instances, shared by the contracts test suite.
-Not a test module itself - no test_* functions live here.
-"""
+"""Builders for minimal, schema-valid contract instances, shared by the contracts tests."""
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from living_doc_utilities.contracts.common import AcceptanceCriterion, SourceRef
 from living_doc_utilities.contracts.coverage_matrix import (
@@ -54,143 +51,167 @@ from living_doc_utilities.contracts.ui_test_catalog import (
 from living_doc_utilities.contracts.ui_tests import AcLink, Scenario
 
 
-def github_source_ref(native_id: str = "1", **overrides: Any) -> SourceRef:
-    fields: dict[str, Any] = {
-        "system": "GitHub",
-        "native_id": native_id,
-        "native_type": "User Story",
-        "url": f"https://github.com/absaoss/payments-service/issues/{native_id}",
-        "tracker_state": "open",
-    }
+def _build(model: Callable[..., Any], defaults: dict[str, Any], **overrides: Any) -> Any:
+    fields = dict(defaults)
     fields.update(overrides)
-    return SourceRef(**fields)
+    return model(**fields)
+
+
+def github_source_ref(native_id: str = "1", **overrides: Any) -> SourceRef:
+    return _build(
+        SourceRef,
+        {
+            "system": "GitHub",
+            "native_id": native_id,
+            "native_type": "User Story",
+            "url": f"https://github.com/absaoss/payments-service/issues/{native_id}",
+            "tracker_state": "open",
+        },
+        **overrides,
+    )
 
 
 def azure_devops_source_ref(native_id: str = "42", **overrides: Any) -> SourceRef:
-    fields: dict[str, Any] = {
-        "system": "AzureDevOps",
-        "native_id": native_id,
-        "native_type": "User Story",
-        "url": f"https://dev.azure.com/absaoss/payments/_workitems/edit/{native_id}",
-        "tracker_state": "Active",
-        "area_path": "Payments\\Checkout",
-        "iteration_path": "Payments\\Sprint 12",
-    }
-    fields.update(overrides)
-    return SourceRef(**fields)
+    return _build(
+        SourceRef,
+        {
+            "system": "AzureDevOps",
+            "native_id": native_id,
+            "native_type": "User Story",
+            "url": f"https://dev.azure.com/absaoss/payments/_workitems/edit/{native_id}",
+            "tracker_state": "Active",
+            "area_path": "Payments\\Checkout",
+            "iteration_path": "Payments\\Sprint 12",
+        },
+        **overrides,
+    )
 
 
 def acceptance_criterion(parent_id: str = "US-001", seq: int = 1, **overrides: Any) -> AcceptanceCriterion:
-    fields: dict[str, Any] = {
-        "id": f"{parent_id}-{seq:02d}",
-        "state": "active",
-        "version": "1.0.0",
-        "description": "It works.",
-    }
-    fields.update(overrides)
-    return AcceptanceCriterion(**fields)
+    return _build(
+        AcceptanceCriterion,
+        {
+            "id": f"{parent_id}-{seq:02d}",
+            "state": "active",
+            "version": "1.0.0",
+            "description": "It works.",
+        },
+        **overrides,
+    )
 
 
 def page_ref(**overrides: Any) -> PageRef:
-    fields: dict[str, Any] = {
-        "is_primary": True,
-        "route": "/checkout",
-        "page_object": "CheckoutPage.ts",
-        "owners": ["team-payments"],
-        "purpose": "The screen where a customer reviews and confirms an order.",
-    }
-    fields.update(overrides)
-    return PageRef(**fields)
+    return _build(
+        PageRef,
+        {
+            "is_primary": True,
+            "route": "/checkout",
+            "page_object": "CheckoutPage.ts",
+            "owners": ["team-payments"],
+            "purpose": "The screen where a customer reviews and confirms an order.",
+        },
+        **overrides,
+    )
 
 
 def user_story(entity_id: str = "US-001", **overrides: Any) -> Entity:
-    fields: dict[str, Any] = {
-        "entity_id": entity_id,
-        "source_ref": github_source_ref(),
-        "type": "DocumentedUserStory",
-        "title": "A user story",
-        "state": "active",
-        "state_origin": "authored",
-        "narrative": "As a user, I want...",
-        "business_value": ["Reduces checkout time."],
-        "acceptance_criteria": [acceptance_criterion(parent_id=entity_id)],
-    }
-    fields.update(overrides)
-    return Entity(**fields)
+    return _build(
+        Entity,
+        {
+            "entity_id": entity_id,
+            "source_ref": github_source_ref(),
+            "type": "DocumentedUserStory",
+            "title": "A user story",
+            "state": "active",
+            "state_origin": "authored",
+            "narrative": "As a user, I want...",
+            "business_value": ["Reduces checkout time."],
+            "acceptance_criteria": [acceptance_criterion(parent_id=entity_id)],
+        },
+        **overrides,
+    )
 
 
 def feature(entity_id: str = "FEAT-001", **overrides: Any) -> Entity:
-    fields: dict[str, Any] = {
-        "entity_id": entity_id,
-        "source_ref": github_source_ref(),
-        "type": "DocumentedFeature",
-        "title": "A feature",
-        "state": "active",
-        "state_origin": "derived",
-        "purpose": "The checkout page.",
-        "surface_type": "page",
-        "owners": ["team-payments"],
-        "user_stories": ["US-001"],
-        "functionalities": ["FUNC-001"],
-        "pages": [page_ref()],
-    }
-    fields.update(overrides)
-    return Entity(**fields)
+    return _build(
+        Entity,
+        {
+            "entity_id": entity_id,
+            "source_ref": github_source_ref(),
+            "type": "DocumentedFeature",
+            "title": "A feature",
+            "state": "active",
+            "state_origin": "derived",
+            "purpose": "The checkout page.",
+            "surface_type": "page",
+            "owners": ["team-payments"],
+            "user_stories": ["US-001"],
+            "functionalities": ["FUNC-001"],
+            "pages": [page_ref()],
+        },
+        **overrides,
+    )
 
 
 def functionality(entity_id: str = "FUNC-001", **overrides: Any) -> Entity:
-    fields: dict[str, Any] = {
-        "entity_id": entity_id,
-        "source_ref": github_source_ref(),
-        "type": "DocumentedFunctionality",
-        "title": "A functionality",
-        "state": "active",
-        "state_origin": "authored",
-        "narrative": "Validates the card number.",
-        "parent": "FEAT-001",
-        "func_type": "API",
-        "acceptance_criteria": [acceptance_criterion(parent_id=entity_id)],
-    }
-    fields.update(overrides)
-    return Entity(**fields)
+    return _build(
+        Entity,
+        {
+            "entity_id": entity_id,
+            "source_ref": github_source_ref(),
+            "type": "DocumentedFunctionality",
+            "title": "A functionality",
+            "state": "active",
+            "state_origin": "authored",
+            "narrative": "Validates the card number.",
+            "parent": "FEAT-001",
+            "func_type": "API",
+            "acceptance_criteria": [acceptance_criterion(parent_id=entity_id)],
+        },
+        **overrides,
+    )
 
 
 def ac_link(**overrides: Any) -> AcLink:
-    fields: dict[str, Any] = {"id": "US-001-01", "aspect": None}
-    fields.update(overrides)
-    return AcLink(**fields)
+    return _build(AcLink, {"id": "US-001-01", "aspect": None}, **overrides)
 
 
 def scenario(scenario_id: str = "SCN-001", **overrides: Any) -> Scenario:
-    fields: dict[str, Any] = {
-        "scenario_id": scenario_id,
-        "title": "A scenario",
-        "source_ref": github_source_ref(native_id="checkout.feature"),
-        "acceptance_criteria": [ac_link()],
-    }
-    fields.update(overrides)
-    return Scenario(**fields)
+    return _build(
+        Scenario,
+        {
+            "scenario_id": scenario_id,
+            "title": "A scenario",
+            "source_ref": github_source_ref(native_id="checkout.feature"),
+            "acceptance_criteria": [ac_link()],
+        },
+        **overrides,
+    )
 
 
 def producer(**overrides: Any) -> Producer:
-    fields: dict[str, Any] = {
-        "name": "AbsaOSS/living-doc-collector-gh",
-        "version": "0.2.0",
-        "utilities_version": "0.5.1",
-    }
-    fields.update(overrides)
-    return Producer(**fields)
+    return _build(
+        Producer,
+        {
+            "name": "AbsaOSS/living-doc-collector-gh",
+            "version": "0.2.0",
+            "utilities_version": "0.5.1",
+        },
+        **overrides,
+    )
 
 
 def source(**overrides: Any) -> Source:
-    fields: dict[str, Any] = {
-        "project_id": "payments",
-        "systems": ["GitHub"],
-        "organizations": ["absaoss"],
-        "repositories": ["absaoss/payments-service"],
-    }
-    fields.update(overrides)
-    return Source(**fields)
+    return _build(
+        Source,
+        {
+            "project_id": "payments",
+            "systems": ["GitHub"],
+            "organizations": ["absaoss"],
+            "repositories": ["absaoss/payments-service"],
+        },
+        **overrides,
+    )
 
 
 def cardinality(**overrides: Any) -> Cardinality:
@@ -214,118 +235,120 @@ def source_input_entry(
 
 
 def metadata(**overrides: Any) -> Metadata:
-    fields: dict[str, Any] = {
-        "producer": producer(),
-        "source": source(),
-        "generated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
-        "stats": Stats(cardinality=cardinality()),
-        "source_inputs": [],
-    }
-    fields.update(overrides)
-    return Metadata(**fields)
+    return _build(
+        Metadata,
+        {
+            "producer": producer(),
+            "source": source(),
+            "generated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            "stats": Stats(cardinality=cardinality()),
+            "source_inputs": [],
+        },
+        **overrides,
+    )
 
 
 def transform_metadata(**overrides: Any) -> Metadata:
     """metadata() with a non-empty source_inputs - for the three transform-output contracts
     (generator-ready, coverage-matrix, ui-test-catalog), whose result models require at
     least one entry (R7). Collector-output fixtures keep using metadata()."""
-    fields: dict[str, Any] = {"source_inputs": [source_input_entry()]}
-    fields.update(overrides)
-    return metadata(**fields)
+    return _build(metadata, {"source_inputs": [source_input_entry()]}, **overrides)
 
 
 def selection_summary(**overrides: Any) -> SelectionSummary:
-    fields: dict[str, Any] = {
-        "total_entities": 10,
-        "included_entities": 8,
-        "excluded_entities": 2,
-        "total_acceptance_criteria": 20,
-        "included_acceptance_criteria": 15,
-        "excluded_acceptance_criteria": 5,
-    }
-    fields.update(overrides)
-    return SelectionSummary(**fields)
+    return _build(
+        SelectionSummary,
+        {
+            "total_entities": 10,
+            "included_entities": 8,
+            "excluded_entities": 2,
+            "total_acceptance_criteria": 20,
+            "included_acceptance_criteria": 15,
+            "excluded_acceptance_criteria": 5,
+        },
+        **overrides,
+    )
 
 
 def generator_ready_document(**overrides: Any) -> GeneratorReadyDocument:
-    fields: dict[str, Any] = {
-        "title": "Payments service",
-        "version": "1.4.0",
-        "view": "release",
-        "selection_summary": selection_summary(),
-    }
-    fields.update(overrides)
-    return GeneratorReadyDocument(**fields)
+    return _build(
+        GeneratorReadyDocument,
+        {
+            "title": "Payments service",
+            "version": "1.4.0",
+            "view": "release",
+            "selection_summary": selection_summary(),
+        },
+        **overrides,
+    )
 
 
 def aspect_coverage(**overrides: Any) -> AspectCoverage:
+    """An AspectCoverage builder that infers status from scenario_ids when only scenario_ids is
+    overridden, so callers don't have to keep the two fields in sync by hand."""
     if "scenario_ids" in overrides and "status" not in overrides:
         status = "covered" if overrides["scenario_ids"] else "not_covered"
     else:
         status = overrides.get("status", "covered")
-    fields: dict[str, Any] = {
-        "aspect": "checkout",
-        "status": status,
-        "scenario_ids": ["SCN-001"] if status == "covered" else [],
-    }
-    fields.update(overrides)
-    return AspectCoverage(**fields)
+    return _build(
+        AspectCoverage,
+        {"aspect": "checkout", "status": status, "scenario_ids": ["SCN-001"] if status == "covered" else []},
+        **overrides,
+    )
 
 
 def ac_coverage(parent_id: str = "US-001", seq: int = 1, **overrides: Any) -> AcCoverage:
-    fields: dict[str, Any] = {
-        "ac_id": f"{parent_id}-{seq:02d}",
-        "state": "active",
-        "status": "covered",
-        "aspects": [],
-        "scenario_ids": ["SCN-001"],
-    }
-    fields.update(overrides)
-    return AcCoverage(**fields)
+    return _build(
+        AcCoverage,
+        {
+            "ac_id": f"{parent_id}-{seq:02d}",
+            "state": "active",
+            "status": "covered",
+            "aspects": [],
+            "scenario_ids": ["SCN-001"],
+        },
+        **overrides,
+    )
 
 
 def entity_coverage(entity_id: str = "US-001", **overrides: Any) -> EntityCoverage:
-    fields: dict[str, Any] = {
-        "entity_id": entity_id,
-        "type": "DocumentedUserStory",
-        "title": "A user story",
-        "state": "active",
-        "acceptance_criteria": [ac_coverage(parent_id=entity_id)],
-    }
-    fields.update(overrides)
-    return EntityCoverage(**fields)
+    return _build(
+        EntityCoverage,
+        {
+            "entity_id": entity_id,
+            "type": "DocumentedUserStory",
+            "title": "A user story",
+            "state": "active",
+            "acceptance_criteria": [ac_coverage(parent_id=entity_id)],
+        },
+        **overrides,
+    )
 
 
 def planned_summary(**overrides: Any) -> PlannedSummary:
-    fields: dict[str, Any] = {"total": 3, "backlog": 1, "by_target_version": {"1.5.0": 2}}
-    fields.update(overrides)
-    return PlannedSummary(**fields)
+    return _build(PlannedSummary, {"total": 3, "backlog": 1, "by_target_version": {"1.5.0": 2}}, **overrides)
 
 
 def coverage_matrix_document(**overrides: Any) -> CoverageMatrixDocument:
-    fields: dict[str, Any] = {"view": "release"}
-    fields.update(overrides)
-    return CoverageMatrixDocument(**fields)
+    return _build(CoverageMatrixDocument, {"view": "release"}, **overrides)
 
 
 def linked_scenarios(entity_id: str = "US-001", **overrides: Any) -> LinkedScenarios:
-    fields: dict[str, Any] = {"entity_id": entity_id, "scenarios": [scenario()]}
-    fields.update(overrides)
-    return LinkedScenarios(**fields)
+    return _build(LinkedScenarios, {"entity_id": entity_id, "scenarios": [scenario()]}, **overrides)
 
 
 def feature_file_catalog(**overrides: Any) -> FeatureFileCatalog:
-    fields: dict[str, Any] = {
-        "feature_file": "checkout.feature",
-        "linked_to_user_story": [linked_scenarios()],
-        "linked_to_functionality": [],
-        "unlinked": [],
-    }
-    fields.update(overrides)
-    return FeatureFileCatalog(**fields)
+    return _build(
+        FeatureFileCatalog,
+        {
+            "feature_file": "checkout.feature",
+            "linked_to_user_story": [linked_scenarios()],
+            "linked_to_functionality": [],
+            "unlinked": [],
+        },
+        **overrides,
+    )
 
 
 def ui_test_catalog_document(**overrides: Any) -> UiTestCatalogDocument:
-    fields: dict[str, Any] = {"view": "release"}
-    fields.update(overrides)
-    return UiTestCatalogDocument(**fields)
+    return _build(UiTestCatalogDocument, {"view": "release"}, **overrides)

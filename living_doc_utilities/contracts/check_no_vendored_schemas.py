@@ -15,18 +15,9 @@
 #
 
 """
-docs/contracts.md, R12 check 1 - "No vendored schemas": outside `living-doc-utilities`, no
-repository commits its own copy of a contract schema. This is a filename check only, run from
-every component's own `make qa`: `python -m living_doc_utilities.contracts.check_no_vendored_schemas
-[--allow <dir> ...]`, from the root of the repository being checked. It fails on any file
-*committed to git* whose name matches `*-schema.json` or `*.schema.json`, outside `tests/`
-and any `--allow`ed directory - the generic filename pattern also catches a schema under a
-retired contract name, which a check keyed to today's six names would miss. Checking git's
-index rather than walking the filesystem is what keeps this from tripping over a local
-virtualenv or build directory that happens to hold a same-named file but was never committed.
-
-Only `living-doc-utilities` itself passes `--allow living_doc_utilities/contracts/schemas`,
-for its own generated, shipped schemas.
+R12 check 1: outside `living-doc-utilities`, no repository commits its own copy of a contract
+schema. Checks git's index (not the filesystem) for `*-schema.json` / `*.schema.json` files
+outside tests/ and any --allow directory; only this package allows its own shipped schemas.
 """
 
 import argparse
@@ -39,8 +30,7 @@ _PATTERNS = ("*-schema.json", "*.schema.json")
 
 
 def find_vendored_schemas(root: Path, allow: Sequence[Path] = ()) -> list[str]:
-    """
-    Lists every git-tracked file under `root` matching `*-schema.json` or `*.schema.json`,
+    """Lists every git-tracked file under `root` matching `*-schema.json` or `*.schema.json`,
     excluding anything under a `tests` directory or one of `allow`.
 
     @param root: the repository root to check (must be inside a git working tree).

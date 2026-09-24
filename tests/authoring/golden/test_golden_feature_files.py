@@ -14,13 +14,7 @@
 # limitations under the License.
 #
 
-"""
-The `.feature`-header form of US-001 and FUNC-001 must carry the same required content and
-acceptance-criterion set as their issue-body golden entities - allowing for the one optional
-extension living-doc's own corpus conventions (docs/examples/README.md) assign to only the
-`.feature`-header form: AC-level `preconditions` on `AC:US-001-01`, and `Aspect:` on
-`AC:FUNC-001-01`.
-"""
+"""US-001's and FUNC-001's `.feature` headers match their issue-body golden entities plus one optional extension."""
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
 from tests.authoring.golden.helpers import load_expected, read_fixture
@@ -31,6 +25,7 @@ def _ac_core(ac):
 
 
 def test_us_001_feature_header_matches_its_issue_body_golden_entity():
+    """A user story's `.feature`-header form matches its issue-body golden entity, plus its own AC preconditions."""
     text = read_fixture("gherkin", "liv_doc_us", "us-001-customer-login.feature")
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
     expected = load_expected("us-001-customer-login.json")
@@ -46,9 +41,7 @@ def test_us_001_feature_header_matches_its_issue_body_golden_entity():
         for ac in expected["acceptance_criteria"]
     ]
 
-    # AC:US-001-01's own nested `preconditions:` sub-list must never leak into the
-    # entity-level field of the same name (this fixture carries no entity-level
-    # `preconditions:` key of its own).
+    # The AC's nested `preconditions:` sub-list must not leak into the entity-level field of the same name.
     assert entity.preconditions == []
 
     # The one extension this corpus assigns only to the .feature-header form.
@@ -59,6 +52,7 @@ def test_us_001_feature_header_matches_its_issue_body_golden_entity():
 
 
 def test_func_001_feature_header_matches_its_issue_body_golden_entity():
+    """A functionality's `.feature`-header form matches its issue-body golden entity, plus its own AC aspects."""
     text = read_fixture("gherkin", "liv_doc_func", "func-001-validate-password-strength.feature")
     entity, warnings = parse_feature_header(text, "DocumentedFunctionality")
     expected = load_expected("func-001-validate-password-strength.json")

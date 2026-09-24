@@ -14,13 +14,7 @@
 # limitations under the License.
 #
 
-"""
-`convert_html_to_markdown`: one test per supported construct (headings, paragraphs,
-`<div>`/`<br>`, lists, tables, links, inline code), the hostile-input case that must fold
-every drop - of whatever kind - into exactly one `HTML_CONTENT_DROPPED` warning, and two
-cross-checks that its output really does reach the rest of the pipeline (`normalize` then
-`issue_body`) in the same canonical form a hand-authored Markdown issue body would.
-"""
+"""`convert_html_to_markdown`: each construct, hostile input folded into one warning, output reaching `issue_body`."""
 
 import pytest
 
@@ -33,6 +27,7 @@ from tests.authoring.golden.helpers import load_expected, to_entity_dict
 
 @pytest.mark.parametrize("level", [1, 2, 3, 4, 5, 6])
 def test_heading_levels_produce_matching_hash_count(level):
+    """An HTML heading of any level 1-6 converts to Markdown with the matching number of leading hash marks."""
     html = f"<h{level}>Title</h{level}>"
 
     text, warnings = convert_html_to_markdown(html)
@@ -42,6 +37,7 @@ def test_heading_levels_produce_matching_hash_count(level):
 
 
 def test_paragraph_becomes_plain_text():
+    """An HTML paragraph converts to its plain text content."""
     text, warnings = convert_html_to_markdown("<p>Some text</p>")
 
     assert text == "Some text"
@@ -49,6 +45,7 @@ def test_paragraph_becomes_plain_text():
 
 
 def test_div_with_br_splits_into_two_lines():
+    """A `<div>` containing a `<br>` converts to two plain-text lines joined by a newline."""
     text, warnings = convert_html_to_markdown("<div>line one<br>line two</div>")
 
     assert text == "line one\nline two"
@@ -56,6 +53,7 @@ def test_div_with_br_splits_into_two_lines():
 
 
 def test_bare_div_becomes_plain_text():
+    """A `<div>` with no line breaks converts to its plain text content."""
     text, warnings = convert_html_to_markdown("<div>text</div>")
 
     assert text == "text"
@@ -64,6 +62,7 @@ def test_bare_div_becomes_plain_text():
 
 @pytest.mark.parametrize("list_tag", ["ul", "ol"])
 def test_list_renders_as_bullets_regardless_of_ordered_or_unordered(list_tag):
+    """Both ordered and unordered HTML lists convert to the same plain bullet Markdown syntax."""
     html = f"<{list_tag}><li>a</li><li>b</li></{list_tag}>"
 
     text, warnings = convert_html_to_markdown(html)
@@ -73,6 +72,7 @@ def test_list_renders_as_bullets_regardless_of_ordered_or_unordered(list_tag):
 
 
 def test_table_renders_as_gfm_style_table():
+    """An HTML table converts to a GitHub-Flavored-Markdown-style pipe table with a header separator row."""
     html = "<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>"
 
     text, warnings = convert_html_to_markdown(html)
@@ -86,6 +86,7 @@ def test_table_renders_as_gfm_style_table():
 
 
 def test_link_with_allowed_scheme_becomes_markdown_link():
+    """A link with an allowed URL scheme converts to a Markdown link, preserving both text and href."""
     text, warnings = convert_html_to_markdown('<a href="https://example.com">click here</a>')
 
     assert text == "[click here](https://example.com)"
@@ -93,6 +94,7 @@ def test_link_with_allowed_scheme_becomes_markdown_link():
 
 
 def test_link_with_disallowed_scheme_keeps_text_and_warns():
+    """A link with a disallowed URL scheme keeps its visible text but drops the href and warns."""
     text, warnings = convert_html_to_markdown('<a href="javascript:alert(1)">click</a>')
 
     assert text == "click"
@@ -102,6 +104,7 @@ def test_link_with_disallowed_scheme_keeps_text_and_warns():
 
 
 def test_inline_code_becomes_backtick_span():
+    """A `<code>` element converts to an inline backtick-delimited Markdown code span."""
     text, warnings = convert_html_to_markdown("<p>Use <code>foo()</code> here</p>")
 
     assert text == "Use `foo()` here"
@@ -109,6 +112,7 @@ def test_inline_code_becomes_backtick_span():
 
 
 def test_hostile_input_folds_every_drop_kind_into_one_warning():
+    """HTML mixing scripts, styles, event handlers, images and unsafe links is sanitized into a single warning."""
     hostile_html = (
         "<script>doEvil()</script>"
         "<style>.x { color: red; }</style>"
@@ -135,6 +139,7 @@ def test_hostile_input_folds_every_drop_kind_into_one_warning():
 
 
 def test_tag_outside_the_sanitizer_allowlist_is_counted_not_silently_dropped():
+    """An HTML tag outside the sanitizer's allowlist is stripped and counted in a warning, not silently discarded."""
     text, warnings = convert_html_to_markdown('<p>keep</p><iframe src="https://evil.example">hijacked</iframe>')
 
     assert "keep" in text
@@ -142,7 +147,17 @@ def test_tag_outside_the_sanitizer_allowlist_is_counted_not_silently_dropped():
     assert "unsupported_tag=1" in warnings[0].context
 
 
+def test_tag_with_no_markdown_form_is_unwrapped_and_counted_as_unknown_tag():
+    """A sanitizer-allowed tag this converter can't render (e.g. `<strong>`) keeps its text and counts unknown_tag."""
+    text, warnings = convert_html_to_markdown("<p>before <strong>bold</strong> after</p>")
+
+    assert text == "before bold after"
+    assert len(warnings) == 1
+    assert "unknown_tag=1" in warnings[0].context
+
+
 def test_en_dash_bullet_in_div_is_normalized_to_a_plain_bullet():
+    """An en-dash-prefixed bullet from a converted div is normalized to a plain hyphen bullet once normalize runs."""
     html = "<h2>Business Value</h2><div>&ndash; Registered customers can reach their account area.</div>"
 
     text, warnings = convert_html_to_markdown(html)
@@ -155,6 +170,7 @@ def test_en_dash_bullet_in_div_is_normalized_to_a_plain_bullet():
 
 
 def test_en_dash_bullet_reaches_issue_body_in_canonical_form():
+    """An en-dash bullet converted from HTML reaches the parsed issue body as a canonical plain-bullet value."""
     html = "<h2>Business Value</h2><div>&ndash; Registered customers can reach their account area.</div>"
 
     text, warnings = convert_html_to_markdown(html)
@@ -192,6 +208,7 @@ _US_001_HTML = (
 
 
 def test_golden_us_001_rewritten_as_simple_html_matches_the_markdown_golden_fixture():
+    """An HTML rewrite of the US-001 fixture, converted and parsed, matches the hand-authored Markdown golden."""
     text, html_warnings = convert_html_to_markdown(_US_001_HTML)
     assert html_warnings == []
 

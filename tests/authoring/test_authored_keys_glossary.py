@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Every key the project's glossary defines for an entity or an acceptance criterion maps
-either to a real model field (tests/contracts/test_authored_field_set.py's `ALL_HEADINGS`)
-or appears in one parser's `IGNORED_AUTHORED_KEYS` with a reason - nothing is silently
-dropped. Both `IGNORED_AUTHORED_KEY` and `UNKNOWN_SECTION` are exercised here too.
-"""
+"""Every glossary key maps to a model field or a parser's `IGNORED_AUTHORED_KEYS` with a reason."""
 
 from living_doc_utilities.authoring import issue_body, page_object
 from living_doc_utilities.authoring.issue_body import parse_issue_body
@@ -27,8 +22,7 @@ from living_doc_utilities.authoring.page_object import parse_page_object
 from living_doc_utilities.contracts.codes import Code
 from tests.contracts.test_authored_field_set import ALL_HEADINGS
 
-# The two glossary-defined keys with no model field (a Feature's status is derived, never
-# authored - docs/contracts.md), one per authoring surface that could carry it.
+# Glossary keys with no model field (a Feature's status is derived, never authored), one per authoring surface.
 _IGNORED_KEYS = [
     ("Status", issue_body.IGNORED_AUTHORED_KEYS, "issue body"),
     ("status", page_object.IGNORED_AUTHORED_KEYS, "PageObject header"),
@@ -36,6 +30,7 @@ _IGNORED_KEYS = [
 
 
 def test_every_mapped_heading_has_a_field_and_every_ignored_key_has_a_reason():
+    """Every glossary key each parser deliberately ignores is registered with a non-empty explanation."""
     # ALL_HEADINGS already proves the "maps to a field" half (imported, not duplicated).
     assert len(ALL_HEADINGS) > 0
     for key, mapping, surface in _IGNORED_KEYS:
@@ -44,6 +39,7 @@ def test_every_mapped_heading_has_a_field_and_every_ignored_key_has_a_reason():
 
 
 def test_ignored_authored_key_is_exercised_for_feature_status_in_both_forms():
+    """An authored `status`/`Status` key on a Feature is ignored with its documented reason on both surfaces."""
     entity, warnings = parse_issue_body(
         "## Description\n\nd\n\n## Status\n\nactive\n\n## Surface Type\n\nUI\n\n"
         "## Owners\n\nTeam\n\n## User Stories\n\nnone\n\n## Functionalities\n\nnone\n",
@@ -67,6 +63,7 @@ def test_ignored_authored_key_is_exercised_for_feature_status_in_both_forms():
 
 
 def test_unknown_section_is_exercised_for_an_unrecognised_issue_body_heading():
+    """An issue-body heading with no glossary mapping produces an `UNKNOWN_SECTION` warning, not a silent drop."""
     entity, warnings = parse_issue_body(
         "## Description\n\nd\n\n## Nonsense Heading\n\nv\n", "US-001 · Sample", "DocumentedUserStory"
     )

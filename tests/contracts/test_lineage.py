@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for contracts.lineage (docs/contracts.md, R11): assert_complete and check_field_loss,
-exercised only against synthetic record roots and tables - the real, component-owned tables
-live in the repository that owns each transform, not here.
-"""
+"""`lineage` (R11): `assert_complete` and `check_field_loss` against synthetic record roots and tables."""
 
 import re
 from pathlib import Path
@@ -46,6 +42,7 @@ _SYNTHETIC_ROOTS: dict[str, type[BaseModel]] = {"items": _Leaf}
 
 
 def test_assert_complete_fails_on_a_table_missing_one_leaf_path():
+    """`assert_complete` raises, naming the path, when one leaf path has no entry at all."""
     table = LineageTable({"items[].a": "out[].a"})  # "items[].b" has no entry at all
 
     with pytest.raises(AssertionError, match=r"items\[\]\.b"):
@@ -53,18 +50,21 @@ def test_assert_complete_fails_on_a_table_missing_one_leaf_path():
 
 
 def test_assert_complete_passes_on_a_complete_table_of_mapped_and_dropped_entries():
+    """`assert_complete` does not raise when every leaf path is either mapped or explicitly dropped."""
     table = LineageTable({"items[].a": "out[].a", "items[].b": Dropped("not carried downstream")})
 
     lineage.assert_complete(table, _SYNTHETIC_ROOTS)  # must not raise
 
 
 def test_assert_complete_passes_when_every_leaf_path_is_explicitly_dropped():
+    """`assert_complete` does not raise when every leaf path is explicitly dropped, with none mapped."""
     table = LineageTable({"items[].a": Dropped("reason a"), "items[].b": Dropped("reason b")})
 
     lineage.assert_complete(table, _SYNTHETIC_ROOTS)  # must not raise
 
 
 def test_assert_complete_accepts_a_contract_id_in_place_of_its_record_roots():
+    """assert_complete accepts a contract id directly, resolving it to that contract's record roots."""
     every_path = schema_export.field_occupancy_paths(doc_entities.RECORD_ROOTS)
     complete = LineageTable({path: Dropped("not carried") for path in every_path})
 
@@ -74,6 +74,7 @@ def test_assert_complete_accepts_a_contract_id_in_place_of_its_record_roots():
 
 
 def test_assert_complete_rejects_an_unknown_contract_id():
+    """`assert_complete` raises `ValueError` when given a contract id it does not recognise."""
     with pytest.raises(ValueError, match="unknown contract id"):
         lineage.assert_complete(LineageTable({}), "not-a-contract-v1.0.0")
 
@@ -84,6 +85,7 @@ def test_assert_complete_rejects_an_unknown_contract_id():
 
 
 def test_check_field_loss_raises_field_loss_for_a_mapped_path_with_input_gt_0_output_0():
+    """A mapped field present on input but absent on output raises FIELD_LOSS naming both paths and the lost count."""
     table = LineageTable({"items[].a": "out[].a"})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 3})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={"out[].a": 0})
@@ -99,6 +101,7 @@ def test_check_field_loss_raises_field_loss_for_a_mapped_path_with_input_gt_0_ou
 
 
 def test_check_field_loss_reports_every_lost_path_in_one_error():
+    """All lost paths across a table are collected into a single raised error, not one per path."""
     table = LineageTable({"items[].a": "out[].a", "items[].b": "out[].b", "items[].c": "out[].c"})
     input_selected_stats = AuditStats(
         cardinality=Cardinality(), field_occupancy={"items[].a": 3, "items[].b": 2, "items[].c": 1}
@@ -114,7 +117,7 @@ def test_check_field_loss_reports_every_lost_path_in_one_error():
 
 
 def test_check_field_loss_raises_when_the_mapped_output_path_is_entirely_absent():
-    # The output's field_occupancy simply has no entry for the mapped path - equivalent to 0.
+    """A mapped output path missing from field_occupancy entirely is treated the same as zero."""
     table = LineageTable({"items[].a": "out[].a"})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 3})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={})
@@ -124,6 +127,7 @@ def test_check_field_loss_raises_when_the_mapped_output_path_is_entirely_absent(
 
 
 def test_check_field_loss_does_not_raise_when_the_output_still_has_occupancy():
+    """A mapped path with any non-zero output occupancy passes, even if lower than the input."""
     table = LineageTable({"items[].a": "out[].a"})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 3})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={"out[].a": 2})
@@ -132,6 +136,7 @@ def test_check_field_loss_does_not_raise_when_the_output_still_has_occupancy():
 
 
 def test_check_field_loss_does_not_raise_for_a_path_explicitly_marked_dropped():
+    """A path explicitly marked Dropped in the table is exempt from field-loss checking."""
     table = LineageTable({"items[].a": Dropped("legitimately not carried")})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 3})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={})
@@ -140,10 +145,8 @@ def test_check_field_loss_does_not_raise_for_a_path_explicitly_marked_dropped():
 
 
 def test_check_field_loss_does_not_raise_when_a_view_filter_legitimately_removed_the_records():
-    # A record dropped because a view legitimately filtered it out (e.g. the release view
-    # drops `planned` acceptance criteria) shows up as *input* occupancy already at 0, because
-    # `input_selected_stats` is computed over the records the view filter kept (R7) - so this
-    # is indistinguishable, by design, from "there was never anything here to lose".
+    """A path with zero *input* occupancy (already filtered out by the view) never raises field loss."""
+    # A view-filtered record shows as input occupancy 0 (R7 selected_stats), so it looks like "nothing to lose".
     table = LineageTable({"items[].a": "out[].a"})
     input_selected_stats = AuditStats(cardinality=Cardinality(), field_occupancy={"items[].a": 0})
     output_stats = Stats(cardinality=Cardinality(), field_occupancy={"out[].a": 0})
@@ -157,6 +160,7 @@ def test_check_field_loss_does_not_raise_when_a_view_filter_legitimately_removed
 
 
 def test_lineage_module_declares_no_transform_specific_table():
+    """The `lineage` module's own source names no transform-specific lineage table; it is machinery only."""
     source = Path(lineage.__file__).read_text(encoding="utf-8")
 
     assert not re.search(r"normalize-issues|coverage-matrix", source)

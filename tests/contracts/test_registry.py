@@ -14,11 +14,7 @@
 # limitations under the License.
 #
 
-"""
-Tests for contracts.registry: the one table every reader that needs "all six contracts"
-looks up instead of keeping its own hand-written copy - this file pins that the registry,
-testing._BUILDERS and the committed schema files never drift apart.
-"""
+"""`registry.py::CONTRACTS`, `testing.py::_BUILDERS` and the committed schema files never drift apart."""
 
 from pathlib import Path
 
@@ -39,29 +35,35 @@ _KNOWN_CONTRACT_IDS = {
 
 
 def test_registry_covers_exactly_the_six_known_contract_ids():
+    """`registry.py::CONTRACTS` covers exactly the six known contract ids."""
     assert set(registry.CONTRACTS) == _KNOWN_CONTRACT_IDS
 
 
 def test_registry_and_testing_builders_cover_the_same_ids():
+    """`registry.py::CONTRACTS` and `testing.py::_BUILDERS` cover exactly the same set of contract ids."""
     assert set(registry.CONTRACTS) == set(testing._BUILDERS)
 
 
 def test_registry_and_the_committed_schema_files_cover_the_same_ids():
+    """`registry.py::CONTRACTS` and the committed schema files on disk cover exactly the same set of ids."""
     schema_ids = {path.name.removesuffix("-schema.json") for path in SCHEMAS_DIR.glob("*-schema.json")}
 
     assert set(registry.CONTRACTS) == schema_ids
 
 
 def test_registry_marks_exactly_the_three_transform_contracts():
+    """`registry.py::CONTRACTS` marks exactly the three transform contracts as is_transform."""
     transform_ids = {contract_id for contract_id, spec in registry.CONTRACTS.items() if spec.is_transform}
 
     assert transform_ids == {"generator-ready-v1.0.0", "coverage-matrix-v1.0.0", "ui-test-catalog-v1.0.0"}
 
 
 def test_record_roots_returns_the_contracts_own_declaration():
+    """`registry.py::record_roots` returns the exact RECORD_ROOTS object the contract module declares."""
     assert registry.record_roots(doc_entities.CONTRACT_ID) is doc_entities.RECORD_ROOTS
 
 
 def test_record_roots_rejects_an_unknown_contract_id():
+    """`registry.py::record_roots` raises for a contract id that isn't registered."""
     with pytest.raises(ValueError, match="unknown contract id"):
         registry.record_roots("not-a-contract-v1.0.0")

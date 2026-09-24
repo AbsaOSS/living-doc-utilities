@@ -15,10 +15,9 @@
 #
 
 """
-The generator-ready-v1.0.0 contract: a transform's output for a generator
-(docs/contracts.md, section 1). Every authored entity and acceptance-criterion field is
-carried at its authored level under content.entities[] - the doc-entities Entity and
-AcceptanceCriterion models are reused directly rather than redeclared here.
+The generator-ready-v1.0.0 contract: a transform's output for a generator. Every authored
+entity/AC field is carried at its authored level under content.entities[] - doc-entities'
+Entity/AcceptanceCriterion models are reused directly, not redeclared.
 """
 
 from typing import Literal
@@ -33,18 +32,15 @@ CONTRACT_ID: Literal["generator-ready-v1.0.0"] = "generator-ready-v1.0.0"
 
 
 class SelectionSummary(ContractModel):
-    """Counts of what the transform's view filter kept and dropped (docs/contracts.md,
-    section 4). A record: exactly these six named properties, nothing else.
+    """Counts of what the transform's view filter kept and dropped: a record with exactly
+    these six named properties, nothing else.
 
-    `total_entities == included_entities + excluded_entities` always holds: the producer
-    derives `excluded_entities` as `total_entities - included_entities` over one fixed
-    entity set, so it is a guaranteed identity, not a coincidence - the same check does not
-    apply to the three acceptance-criteria fields, because the producer only reports
-    view-filtered criteria for entities it kept and never tallies criteria belonging to a
-    dropped entity, so those three fields are not established as a disjoint partition. This
-    identity is Pydantic-only: JSON Schema has no keyword for a sum across sibling
-    properties, so a consumer validating raw JSON against the generated schema alone (not
-    through this model) cannot catch a violation.
+    `total_entities == included_entities + excluded_entities` always holds - the producer
+    derives `excluded_entities` from one fixed entity set, so it's a guaranteed identity. The
+    three acceptance-criteria fields aren't a disjoint partition the same way: the producer
+    only tallies AC counts for entities it kept, never for a dropped one. This identity is
+    Pydantic-only - JSON Schema has no sum-across-siblings keyword, so a consumer validating
+    raw JSON alone can't catch a violation.
     """
 
     total_entities: int = Field(ge=0)
@@ -62,7 +58,7 @@ class SelectionSummary(ContractModel):
 
 
 class Document(ViewDocument):
-    """What the generator titles and filters by (docs/contracts.md, "The metadata envelope")."""
+    """What the generator titles and filters by."""
 
     title: str
     version: str
@@ -90,7 +86,5 @@ class GeneratorReadyResult(ContractModel):
         return self
 
 
-# Declares this contract's record roots (docs/contracts.md, section 1) - see
-# doc_entities.RECORD_ROOTS. The root is nested under `content`, matching R11's
-# `content.entities[]` field_occupancy path prefix.
+# This contract's record roots (see `doc_entities.py::RECORD_ROOTS`), nested under `content` per R11's path prefix.
 RECORD_ROOTS: dict[str, type[BaseModel]] = {"content.entities": Entity}

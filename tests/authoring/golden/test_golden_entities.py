@@ -14,12 +14,7 @@
 # limitations under the License.
 #
 
-"""
-The guarantee acceptance criterion: `parse_issue_body` followed by `derive_statuses`
-reproduces the hand-written golden entity for each of the project's three canonical example
-issue bodies, run together (so FEAT-001's derived state depends on FUNC-001's authored one,
-exactly as a real collector run would see them).
-"""
+"""Parsing and status-deriving the three canonical issue bodies together reproduces each golden entity."""
 
 from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.authoring.status import derive_statuses
@@ -51,6 +46,7 @@ def _parse_all():
 
 
 def test_golden_entities_match_hand_written_json():
+    """Parsing and status-deriving the three canonical issue bodies reproduces each hand-written golden entity."""
     derived, _warnings = _parse_all()
     by_id = {entity.entity_id: entity for entity in derived}
 
@@ -61,5 +57,6 @@ def test_golden_entities_match_hand_written_json():
 
 
 def test_golden_run_produces_no_warnings():
+    """Parsing and status-deriving the three canonical issue bodies together produces no warnings."""
     _derived, warnings = _parse_all()
     assert warnings == []

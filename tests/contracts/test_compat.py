@@ -14,13 +14,9 @@
 # limitations under the License.
 #
 
-"""
-Tests for compat.py (docs/contracts.md, R5): the shared three-step compatibility check, and
-the SCHEMA_VALIDATION_FAILED message builder it shares with io.write_artifact.
-"""
+"""`compat.py` (R5): the three-step compatibility check and the `SCHEMA_VALIDATION_FAILED` message builder."""
 
 import json
-from importlib.metadata import version as installed_version
 
 import pytest
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
@@ -42,11 +38,8 @@ def _valid_payload(**metadata_overrides) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_installed_utilities_version_delegates_to_importlib_metadata():
-    assert compat.installed_utilities_version() == installed_version("living-doc-utilities")
-
-
 def test_installed_utilities_version_reads_this_packages_own_name(mocker):
+    """`installed_utilities_version` delegates to `importlib.metadata.version` with the package's own name."""
     spy = mocker.patch("living_doc_utilities.contracts.compat._installed_version", return_value="9.9.9")
 
     assert compat.installed_utilities_version() == "9.9.9"
@@ -59,6 +52,7 @@ def test_installed_utilities_version_reads_this_packages_own_name(mocker):
 
 
 def test_check_input_missing_schema_version_raises_invalid_contract_id():
+    """A payload with no schema_version key is rejected as an invalid contract id."""
     with pytest.raises(ContractError) as excinfo:
         compat.check_input({}, "doc-entities")
 
@@ -66,6 +60,7 @@ def test_check_input_missing_schema_version_raises_invalid_contract_id():
 
 
 def test_check_input_non_string_schema_version_raises_invalid_contract_id():
+    """A non-string schema_version value is rejected as an invalid contract id."""
     with pytest.raises(ContractError) as excinfo:
         compat.check_input({"schema_version": 123}, "doc-entities")
 
@@ -85,6 +80,7 @@ def test_check_input_non_string_schema_version_raises_invalid_contract_id():
     ],
 )
 def test_check_input_malformed_schema_version_raises_invalid_contract_id(schema_version):
+    """A schema_version string that doesn't match the "<name>-vX.Y.Z" shape is rejected as an invalid contract id."""
     with pytest.raises(ContractError) as excinfo:
         compat.check_input({"schema_version": schema_version}, "doc-entities")
 
@@ -92,6 +88,7 @@ def test_check_input_malformed_schema_version_raises_invalid_contract_id(schema_
 
 
 def test_check_input_non_dict_payload_raises_invalid_contract_id():
+    """A non-dict payload is rejected as an invalid contract id."""
     with pytest.raises(ContractError) as excinfo:
         compat.check_input(["not", "a", "dict"], "doc-entities")
 
@@ -104,6 +101,7 @@ def test_check_input_non_dict_payload_raises_invalid_contract_id():
 
 
 def test_check_input_contract_name_not_in_expected_single_string_raises_contract_mismatch():
+    """A payload whose contract name doesn't match the single expected name is rejected, naming both in the message."""
     with pytest.raises(ContractError) as excinfo:
         compat.check_input({"schema_version": "doc-entities-v1.0.0"}, "doc-source")
 
@@ -113,6 +111,7 @@ def test_check_input_contract_name_not_in_expected_single_string_raises_contract
 
 
 def test_check_input_contract_name_not_in_a_two_name_expected_set_names_both():
+    """A payload whose contract name isn't in a two-name expected set is rejected, naming both expected names."""
     with pytest.raises(ContractError) as excinfo:
         compat.check_input({"schema_version": "ui-tests-v1.0.0"}, {"doc-entities", "doc-source"})
 
@@ -122,6 +121,7 @@ def test_check_input_contract_name_not_in_a_two_name_expected_set_names_both():
 
 
 def test_check_input_accepts_a_single_string_expected_as_a_one_element_set():
+    """`check_input` treats a single string `expected` argument as a one-element set of contract names."""
     payload = _valid_payload()
 
     assert compat.check_input(payload, "doc-entities") == CONTRACT_ID
@@ -133,6 +133,7 @@ def test_check_input_accepts_a_single_string_expected_as_a_one_element_set():
 
 
 def test_check_input_structurally_invalid_payload_raises_schema_validation_failed():
+    """A payload that is structurally invalid against the bundled schema is rejected with SCHEMA_VALIDATION_FAILED."""
     payload = _valid_payload()
     del payload["metadata"]["source"]
 
@@ -143,14 +144,14 @@ def test_check_input_structurally_invalid_payload_raises_schema_validation_faile
 
 
 def test_check_input_returns_the_contract_id_on_success():
+    """`check_input` returns the payload's own contract id string when all three checks pass."""
     payload = _valid_payload()
 
     assert compat.check_input(payload, {"doc-entities", "doc-source"}) == "doc-entities-v1.0.0"
 
 
 def test_check_input_never_raises_or_warns_on_an_unfamiliar_producer_version():
-    # metadata.producer.version is audit-only (R6) - check_input never reads it, only
-    # metadata.producer.utilities_version (and only inside the step-3 error path at that).
+    """check_input succeeds regardless of an unrecognized metadata.producer.version, which it never reads."""
     payload = _valid_payload(producer=factories.producer(version="not-a-version-anyone-has-seen-before"))
 
     result = compat.check_input(payload, "doc-entities")
@@ -164,6 +165,7 @@ def test_check_input_never_raises_or_warns_on_an_unfamiliar_producer_version():
 
 
 def test_schema_validation_error_names_both_versions_and_the_failing_path():
+    """schema_validation_error names the file's producer version, the installed version, and the failing path."""
     payload = _valid_payload(producer=factories.producer(utilities_version="0.4.0"))
     payload["metadata"]["stats"]["field_occupancy"] = {"entities[].not_a_real_field": 1}
     errors = validate(payload, schema_export.load_schema(CONTRACT_ID))
@@ -176,6 +178,7 @@ def test_schema_validation_error_names_both_versions_and_the_failing_path():
 
 
 def test_schema_validation_error_appends_pin_alignment_hint_when_versions_differ(mocker):
+    """schema_validation_error appends a pin-alignment hint when the file's producer version differs from installed."""
     mocker.patch("living_doc_utilities.contracts.compat.installed_utilities_version", return_value="9.9.9")
     payload = {"metadata": {"producer": {"utilities_version": "0.5.0"}}}
 
@@ -185,6 +188,7 @@ def test_schema_validation_error_appends_pin_alignment_hint_when_versions_differ
 
 
 def test_schema_validation_error_omits_hint_when_versions_are_equal(mocker):
+    """schema_validation_error omits the pin-alignment hint when the file's producer version equals installed."""
     mocker.patch("living_doc_utilities.contracts.compat.installed_utilities_version", return_value="0.5.0")
     payload = {"metadata": {"producer": {"utilities_version": "0.5.0"}}}
 
@@ -194,6 +198,7 @@ def test_schema_validation_error_omits_hint_when_versions_are_equal(mocker):
 
 
 def test_schema_validation_error_omits_hint_when_producer_version_is_absent(mocker):
+    """schema_validation_error omits the hint and reports "utilities None" when producer.utilities_version is absent."""
     mocker.patch("living_doc_utilities.contracts.compat.installed_utilities_version", return_value="0.5.0")
 
     error = compat.schema_validation_error([_dummy_error()], {})

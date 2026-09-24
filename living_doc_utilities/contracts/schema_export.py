@@ -15,9 +15,8 @@
 #
 
 """
-Generates the six contracts' JSON Schemas from their pydantic models (docs/contracts.md,
-section 2) and writes them to contracts/schemas/. Run as
-`python -m living_doc_utilities.contracts.schema_export`, or `make schemas`.
+Generates the six contracts' JSON Schemas from their pydantic models and writes them to
+contracts/schemas/. Run as `python -m living_doc_utilities.contracts.schema_export`, or `make schemas`.
 """
 
 import json
@@ -57,11 +56,8 @@ def unwrap_field_type(annotation: Any) -> tuple[Any, bool]:
 
 
 def iter_model_fields(model: type[BaseModel], prefix: str) -> Iterator[tuple[str, str, Any, bool]]:
-    """
-    One level of `model`'s own fields, each already unwrapped - the per-field step every
-    walk of a contract model's field tree needs (this module's own _iter_leaf_paths,
-    stats.compute_stats, and a generator's own field-mapping tests) instead of each
-    re-deriving it from field_info.annotation.
+    """One level of `model`'s own fields, each already unwrapped - the per-field step every walk of a
+    contract model's field tree shares.
 
     @param model: the pydantic model whose fields to walk (not recursive - one level only).
     @param prefix: prepended to each field's own name to build its record-relative path.
@@ -82,13 +78,10 @@ def _iter_leaf_paths(model: type[BaseModel], prefix: str) -> Iterator[str]:
 
 
 def field_occupancy_paths(record_roots: dict[str, type[BaseModel]]) -> list[str]:
-    """
-    Computes the sorted, record-relative leaf paths a contract's own field_occupancy map
-    may report (R11): one record root's fields, prefixed by that root and marking every
-    array level with "[]".
+    """Sorted, record-relative leaf paths a contract's own field_occupancy map may report (R11).
 
     @param record_roots: a contract's RECORD_ROOTS declaration.
-    @return: the sorted list of leaf paths.
+    @return: the sorted leaf paths - each record root's fields prefixed by the root, array levels marked "[]".
     """
     paths = {
         path
@@ -99,11 +92,8 @@ def field_occupancy_paths(record_roots: dict[str, type[BaseModel]]) -> list[str]
 
 
 def _rewrite_pattern_maps(node: Any) -> None:
-    """
-    Rewrites pydantic's bare `patternProperties` maps into typed `additionalProperties` plus
-    `propertyNames: {pattern}` (R9) - pydantic 2.13 emits the former for a pattern-constrained
-    dict key and never the latter on its own.
-    """
+    """Rewrites pydantic's bare `patternProperties` maps into typed `additionalProperties` +
+    `propertyNames: {pattern}` (R9): pydantic 2.13 emits the former, never the latter."""
     if isinstance(node, dict):
         pattern_properties = node.get("patternProperties")
         if isinstance(pattern_properties, dict) and len(pattern_properties) == 1 and "additionalProperties" not in node:
@@ -123,28 +113,23 @@ def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -
     schema["$defs"][Stats.__name__]["properties"]["field_occupancy"]["propertyNames"] = {"enum": paths}
 
 
-# AcCoverage's no-aspects rules share these two building blocks (AcCoverage._check_status_matches_aspects).
+# The no-aspects rules share these two blocks (`coverage_matrix.py::AcCoverage._check_status_matches_aspects`).
 _AC_COVERAGE_NO_ASPECTS: dict[str, Any] = {"properties": {"aspects": {"maxItems": 0}}}
 _AC_COVERAGE_NOT_COVERED_ASPECT: dict[str, Any] = {
     "properties": {"status": {"const": "not_covered"}},
     "required": ["status"],
 }
 
-# Each $defs name's model_validator cross-field rules, encoded as `allOf` if/then/else so a
-# plain jsonschema validator rejects what pydantic rejects: AcceptanceCriterion
-# (_check_version_required_unless_planned, _check_removal_planned_only_when_deprecated),
-# Entity (_check_state_origin, _check_stub_reason_is_feature_only,
-# _check_pages_have_exactly_one_primary), AspectCoverage
-# (_check_status_matches_scenario_ids), AcCoverage (_check_status_matches_aspects, incl. its
-# no-aspects scenario_ids tie-in). A def name absent from a contract's own $defs (e.g.
-# ui-tests has neither) is simply skipped by _inject_cross_field_constraints below.
+# Each $defs model's model_validator rules as allOf if/then/else, so plain jsonschema rejects what pydantic does.
 _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
     "AcceptanceCriterion": [
         {
+            # `common.py::AcceptanceCriterion._check_version_required_unless_planned`: required unless planned.
             "if": {"properties": {"state": {"const": "planned"}}, "required": ["state"]},
             "else": {"properties": {"version": {"type": "string"}}, "required": ["version"]},
         },
         {
+            # `common.py::AcceptanceCriterion._check_removal_planned_only_when_deprecated`: only when deprecated.
             "if": {"properties": {"state": {"const": "deprecated"}}, "required": ["state"]},
             "then": {"properties": {"removal_planned": {"type": "string"}}, "required": ["removal_planned"]},
             "else": {"properties": {"removal_planned": {"type": "null"}}},
@@ -152,18 +137,18 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
     ],
     "Entity": [
         {
+            # a Feature's state is derived, any other type's authored (`doc_entities.py::Entity._check_state_origin`).
             "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
             "then": {"properties": {"state_origin": {"const": "derived"}}},
             "else": {"properties": {"state_origin": {"const": "authored"}}},
         },
         {
-            # stub_reason only ever describes a Feature (Entity._check_stub_reason_is_feature_only).
+            # stub_reason only ever describes a Feature (`doc_entities.py::Entity._check_stub_reason_is_feature_only`).
             "if": {"properties": {"type": {"const": "DocumentedFeature"}}, "required": ["type"]},
             "else": {"properties": {"stub_reason": {"type": "null"}}},
         },
         {
-            # a non-empty pages list has exactly one primary PageRef
-            # (Entity._check_pages_have_exactly_one_primary).
+            # `doc_entities.py::Entity._check_pages_have_exactly_one_primary`: non-empty pages have one primary.
             "if": {"properties": {"pages": {"minItems": 1}}},
             "then": {
                 "properties": {
@@ -181,8 +166,7 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
     ],
     "AspectCoverage": [
         {
-            # status is evidence-backed by scenario_ids, never independently authored
-            # (AspectCoverage._check_status_matches_scenario_ids).
+            # `coverage_matrix.py::AspectCoverage._check_status_matches_scenario_ids`: status needs scenario_ids.
             "if": {"properties": {"status": {"const": "covered"}}, "required": ["status"]},
             "then": {"properties": {"scenario_ids": {"minItems": 1}}, "required": ["scenario_ids"]},
             "else": {"properties": {"scenario_ids": {"maxItems": 0}}},
@@ -194,8 +178,7 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
             "then": {"properties": {"status": {"enum": ["covered", "not_covered"]}}},
         },
         {
-            # without aspects, status is evidence-backed by the AC's own scenario_ids (same
-            # rule as AspectCoverage, applied at the AC level).
+            # without aspects, status is evidence-backed by the AC's own scenario_ids (as for AspectCoverage).
             "if": {
                 **_AC_COVERAGE_NO_ASPECTS,
                 "properties": {**_AC_COVERAGE_NO_ASPECTS["properties"], "status": {"const": "covered"}},
@@ -228,29 +211,9 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
 
 
 def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) -> None:
-    """
-    Applies _CROSS_FIELD_RULES to `schema`'s $defs, one `allOf` extend per def name that's
-    actually present.
-
-    metadata.source_inputs[] additionally gets a `minItems: 1` constraint (R7), but only for
-    the transform contracts the registry marks `is_transform` - a collector output's
-    `Metadata` def legitimately allows the empty list, and each contract's own generated
-    schema carries its own private copy of the `Metadata` def, so this cannot leak across
-    contracts.
-
-    Three model_validator rules are deliberately not encoded here, because plain JSON Schema
-    has no keyword that can express them: Entity._check_acceptance_criteria_belong_to_this_entity
-    and CoverageMatrixResult._check_acceptance_criteria_belong_to_this_entity both require an
-    id field's value to be used as a runtime prefix pattern against a sibling/ancestor
-    field's value, which JSON Schema cannot cross-reference; PlannedSummary's
-    _check_total_equals_backlog_plus_targeted sums the values of a dynamic-keyed map
-    (by_target_version), which JSON Schema has no arithmetic/aggregation keyword for. A
-    consumer validating raw JSON against the generated schema alone (not through these
-    Pydantic models) will not catch a misowned acceptance-criterion id or an inconsistent
-    planned-summary total; this is a documented, accepted schema limitation, not an oversight -
-    the same is true of GeneratorReadyResult's SelectionSummary entity-total identity (see
-    generator_ready.SelectionSummary docstring).
-    """
+    """Applies _CROSS_FIELD_RULES to `schema`'s $defs, plus `source_inputs[]: minItems 1` (R7) for transforms.
+    Unencoded, no JSON Schema keyword: `common.py::check_ac_ids_owned`, `coverage_matrix.py::PlannedSummary`,
+    `generator_ready.py::SelectionSummary` and `envelope.py::Source` (their model_validators are Pydantic-only)."""
     defs = schema.get("$defs", {})
 
     for def_name, rules in _CROSS_FIELD_RULES.items():
@@ -267,10 +230,9 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
 
 
 def find_schema_violations(schema: dict[str, Any]) -> list[str]:
-    """
-    Walks a generated schema for the one rule R9 leaves no exception to: every object is
-    either a record (`additionalProperties: false`) or a typed map (`additionalProperties`
-    plus `propertyNames`) - never untyped, never a bare `patternProperties`.
+    """Walks a generated schema for R9's map/record rule: every object is either a record
+    (`additionalProperties: false`) or a typed map (`additionalProperties` + `propertyNames`),
+    never untyped or a bare `patternProperties`.
 
     @param schema: a full contract schema document.
     @return: one message per violating node; empty when the schema is clean.
@@ -300,8 +262,7 @@ def find_schema_violations(schema: dict[str, Any]) -> list[str]:
 def generate_schema(
     contract_id: str, model: type[BaseModel], record_roots: dict[str, type[BaseModel]]
 ) -> dict[str, Any]:
-    """
-    Builds one contract's full JSON Schema: the raw pydantic schema with the R1/R2 header
+    """Builds one contract's full JSON Schema: the raw pydantic schema with the R1/R2 header
     keys added and the R9 map post-processing applied.
 
     @param contract_id: the contract's versioned id, e.g. "doc-entities-v1.0.0".
@@ -324,9 +285,8 @@ def generate_schema(
 
 
 def write_schemas(output_dir: Path = SCHEMAS_DIR) -> list[Path]:
-    """
-    Regenerates every contract's schema file. Deterministic: re-running without a model
-    change produces byte-identical files.
+    """Regenerates every contract's schema file. Deterministic: a re-run without a model change
+    produces byte-identical files.
 
     @param output_dir: the directory to write "<contract-id>-schema.json" files into.
     @return: the written file paths.
@@ -343,9 +303,8 @@ def write_schemas(output_dir: Path = SCHEMAS_DIR) -> list[Path]:
 
 
 def load_schema(contract_id: str) -> dict[str, Any]:
-    """
-    Loads one contract's committed schema from the installed package via importlib.resources,
-    never from a path relative to the source tree.
+    """Loads one contract's committed schema from the installed package via
+    importlib.resources, never from a path relative to the source tree.
 
     @param contract_id: the contract's versioned id, e.g. "doc-entities-v1.0.0".
     @return: the parsed schema document.
