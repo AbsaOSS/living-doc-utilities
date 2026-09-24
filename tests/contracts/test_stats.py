@@ -54,6 +54,7 @@ _ALL_CARDINALITY_KEYS = {
 
 
 def test_empty_value_variants_are_not_counted_in_field_occupancy():
+    """A present-but-empty value (empty string, list, or dict) is not counted in field_occupancy."""
     story = factories.user_story(
         entity_id="US-001",
         narrative="",  # empty string
@@ -72,6 +73,7 @@ def test_empty_value_variants_are_not_counted_in_field_occupancy():
 
 
 def test_non_empty_value_variants_are_counted_in_field_occupancy():
+    """A present, non-empty value is counted in field_occupancy."""
     story = factories.user_story(
         entity_id="US-001",
         narrative="As a user...",
@@ -90,6 +92,7 @@ def test_non_empty_value_variants_are_counted_in_field_occupancy():
 
 
 def test_boolean_false_is_not_miscounted_as_empty():
+    """An explicit boolean False value is counted as present in field_occupancy, not treated as empty."""
     # PageRef.is_primary is a bool defaulting to False - _is_empty must not treat a false-y,
     # present value the same as an actually-absent one.
     primary = factories.page_ref(is_primary=True)
@@ -109,6 +112,7 @@ def test_boolean_false_is_not_miscounted_as_empty():
 
 
 def test_entity_level_and_ac_level_not_in_scope_are_distinct_keys():
+    """Entity-level and AC-level not_in_scope produce distinct field_occupancy keys, counted independently."""
     story = factories.user_story(
         entity_id="US-001",
         not_in_scope=["entity-level exclusion"],
@@ -134,6 +138,7 @@ def test_entity_level_and_ac_level_not_in_scope_are_distinct_keys():
 
 
 def test_doc_entities_field_occupancy_uses_the_entities_prefix():
+    """Every doc-entities field_occupancy path uses the entities[] prefix."""
     result = DocEntitiesResult(metadata=factories.metadata(), entities=[factories.user_story()])
 
     computed = stats.compute_stats(result, DOC_ENTITIES_ROOTS, Cardinality())
@@ -142,6 +147,7 @@ def test_doc_entities_field_occupancy_uses_the_entities_prefix():
 
 
 def test_doc_source_field_occupancy_uses_the_three_named_prefixes():
+    """doc-source field_occupancy paths use three separate prefixes: user_stories, features, and functionalities."""
     result = DocSourceResult(
         metadata=factories.metadata(),
         user_stories=[factories.user_story()],
@@ -156,6 +162,7 @@ def test_doc_source_field_occupancy_uses_the_three_named_prefixes():
 
 
 def test_generator_ready_field_occupancy_uses_the_content_entities_prefix():
+    """generator-ready field_occupancy paths use the content.entities[] prefix."""
     result = GeneratorReadyResult(
         metadata=factories.transform_metadata(),
         document=factories.generator_ready_document(),
@@ -168,6 +175,7 @@ def test_generator_ready_field_occupancy_uses_the_content_entities_prefix():
 
 
 def test_ui_tests_field_occupancy_uses_the_scenarios_prefix():
+    """ui-tests field_occupancy paths use the scenarios[] prefix."""
     result = UITestsResult(metadata=factories.metadata(), scenarios=[factories.scenario()])
 
     computed = stats.compute_stats(result, UI_TESTS_ROOTS, Cardinality())
@@ -176,6 +184,7 @@ def test_ui_tests_field_occupancy_uses_the_scenarios_prefix():
 
 
 def test_coverage_matrix_field_occupancy_uses_the_entities_prefix():
+    """coverage-matrix field_occupancy paths use the entities[] prefix."""
     result = CoverageMatrixResult(
         metadata=factories.transform_metadata(),
         document=factories.coverage_matrix_document(),
@@ -189,6 +198,7 @@ def test_coverage_matrix_field_occupancy_uses_the_entities_prefix():
 
 
 def test_ui_test_catalog_field_occupancy_uses_the_feature_files_prefix():
+    """ui-test-catalog field_occupancy paths use the feature_files[] prefix."""
     result = UiTestCatalogResult(
         metadata=factories.transform_metadata(),
         document=factories.ui_test_catalog_document(),
@@ -206,6 +216,7 @@ def test_ui_test_catalog_field_occupancy_uses_the_feature_files_prefix():
 
 
 def test_every_cardinality_key_is_always_present_even_when_not_applicable():
+    """Every Cardinality key appears in the dumped output, even one left at its zero/empty default."""
     # ui-tests' record root is Scenario, which has neither entity_id nor type, so the
     # entity-shaped counters stay at their zero/empty default rather than being omitted.
     result = UITestsResult(metadata=factories.metadata(), scenarios=[factories.scenario()])
@@ -225,6 +236,7 @@ def test_every_cardinality_key_is_always_present_even_when_not_applicable():
 
 
 def test_cardinality_entities_and_entities_by_type_are_tallied_for_doc_entities():
+    """cardinality.entities and .entities_by_type tally doc-entities' mixed-type entity list correctly."""
     result = DocEntitiesResult(
         metadata=factories.metadata(), entities=[factories.user_story(), factories.feature(), factories.functionality()]
     )
@@ -240,6 +252,7 @@ def test_cardinality_entities_and_entities_by_type_are_tallied_for_doc_entities(
 
 
 def test_cardinality_entities_and_entities_by_type_are_tallied_for_coverage_matrix_entity_coverage():
+    """cardinality.entities and .entities_by_type tally coverage-matrix's EntityCoverage records by entity type."""
     result = CoverageMatrixResult(
         metadata=factories.transform_metadata(),
         document=factories.coverage_matrix_document(),
@@ -254,6 +267,7 @@ def test_cardinality_entities_and_entities_by_type_are_tallied_for_coverage_matr
 
 
 def test_cardinality_acceptance_criteria_tallies_acceptance_criterion_lists():
+    """cardinality.acceptance_criteria tallies AcceptanceCriterion lists nested under doc-entities entities."""
     story = factories.user_story(
         entity_id="US-001",
         acceptance_criteria=[
@@ -269,6 +283,7 @@ def test_cardinality_acceptance_criteria_tallies_acceptance_criterion_lists():
 
 
 def test_cardinality_acceptance_criteria_tallies_ac_coverage_lists():
+    """cardinality.acceptance_criteria tallies AcCoverage lists nested under coverage-matrix entities."""
     entity = factories.entity_coverage(
         entity_id="US-001",
         acceptance_criteria=[
@@ -289,6 +304,7 @@ def test_cardinality_acceptance_criteria_tallies_ac_coverage_lists():
 
 
 def test_cardinality_scenarios_tallies_top_level_scenarios_for_ui_tests():
+    """cardinality.scenarios tallies ui-tests' top-level scenario list."""
     result = UITestsResult(metadata=factories.metadata(), scenarios=[factories.scenario("SCN-001"), factories.scenario("SCN-002")])
 
     computed = stats.compute_stats(result, UI_TESTS_ROOTS, Cardinality())
@@ -297,6 +313,7 @@ def test_cardinality_scenarios_tallies_top_level_scenarios_for_ui_tests():
 
 
 def test_cardinality_scenarios_tallies_deeply_nested_scenarios_for_ui_test_catalog():
+    """cardinality.scenarios tallies scenarios nested arbitrarily deep inside a ui-test-catalog feature file."""
     feature_file = factories.feature_file_catalog(
         linked_to_user_story=[
             factories.linked_scenarios(entity_id="US-001", scenarios=[factories.scenario("SCN-001"), factories.scenario("SCN-002")])
@@ -321,6 +338,7 @@ def test_cardinality_scenarios_tallies_deeply_nested_scenarios_for_ui_test_catal
 
 
 def test_cardinality_warnings_by_code_counts_each_code_from_the_warnings_array():
+    """cardinality.warnings_by_code tallies each warning code's occurrences from the warnings array."""
     result = DocEntitiesResult(
         metadata=factories.metadata(),
         entities=[factories.user_story()],
@@ -342,6 +360,7 @@ def test_cardinality_warnings_by_code_counts_each_code_from_the_warnings_array()
 
 
 def test_passthrough_cardinality_fields_come_from_reported_unchanged():
+    """The four passthrough cardinality fields are copied verbatim from the reported Cardinality, not recomputed."""
     result = DocEntitiesResult(metadata=factories.metadata(), entities=[factories.user_story()])
     reported = Cardinality(sources_configured=7, sources_failed=3, unresolved_refs=5, entities_skipped=9)
 
@@ -354,6 +373,7 @@ def test_passthrough_cardinality_fields_come_from_reported_unchanged():
 
 
 def test_passthrough_cardinality_fields_default_to_zero_when_reported_is_default():
+    """The four passthrough cardinality fields default to zero when the reported Cardinality is left at default."""
     result = DocEntitiesResult(metadata=factories.metadata(), entities=[factories.user_story()])
 
     computed = stats.compute_stats(result, DOC_ENTITIES_ROOTS, Cardinality())

@@ -40,12 +40,14 @@ def _case(case_id: str) -> dict:
 
 
 def test_module_never_branches_on_entity_type():
+    """The `normalize` module's source contains no `entity_type ==` or `entity_type !=` branch."""
     source = inspect.getsource(normalize_module)
     assert "entity_type ==" not in source
     assert "entity_type !=" not in source
 
 
 def test_type_profiles_is_the_only_place_with_bullet_section_data():
+    """`TYPE_PROFILES` alone determines which bullet sections apply per entity type."""
     assert TYPE_PROFILES["DocumentedFeature"] == frozenset()
     assert "business_value" in TYPE_PROFILES["DocumentedUserStory"]
     assert "rationale" in TYPE_PROFILES["DocumentedFunctionality"]
@@ -53,6 +55,7 @@ def test_type_profiles_is_the_only_place_with_bullet_section_data():
 
 
 def test_normalized_source_text_joins_lines():
+    """`NormalizedSource.text` is always exactly its `lines` rejoined with newlines, never drifting from them."""
     case = _case("rule3_state_casing_status_heading_issue_body")
     result = normalize(case["input"], SourceFormat(case["format"]), case["entity_type"])
 
@@ -61,6 +64,7 @@ def test_normalized_source_text_joins_lines():
 
 
 def test_changes_name_every_rule_that_fired_on_one_line():
+    """When multiple rules fire on one line, every one is named in `changes`, sharing that line's before/after."""
     # Reuses normalisation_cases.yaml's own multi-rule case rather than a new literal,
     # per the "cases file is normalize's only test data" rule; this test asserts a
     # property that case's own harness does not check - every fired rule is named,
@@ -85,6 +89,7 @@ def test_changes_name_every_rule_that_fired_on_one_line():
 
 
 def test_normalize_title_leaves_text_with_no_entity_id_untouched():
+    """A title with no entity id passes through `normalize_title` unchanged, with no changes recorded."""
     title, changes = normalize_title("Just some free text")
 
     assert title == "Just some free text"
@@ -92,6 +97,7 @@ def test_normalize_title_leaves_text_with_no_entity_id_untouched():
 
 
 def test_normalize_title_leaves_already_canonical_title_untouched():
+    """A title already in canonical form passes through `normalize_title` unchanged, with no changes recorded."""
     title, changes = normalize_title("US-001 · Customer Login")
 
     assert title == "US-001 · Customer Login"
@@ -99,6 +105,7 @@ def test_normalize_title_leaves_already_canonical_title_untouched():
 
 
 def test_normalize_title_fixes_separator_and_later_dash_together():
+    """A title with both a non-canonical id separator and an en dash further on gets both fixed in one pass."""
     title, changes = normalize_title("FUNC-001-Login Page–Validate Password Strength")
 
     assert title == "FUNC-001 · Login Page - Validate Password Strength"
@@ -107,12 +114,14 @@ def test_normalize_title_fixes_separator_and_later_dash_together():
 
 
 def test_normalize_title_preserves_text_before_the_id():
+    """`normalize_title` keeps any free text preceding the entity id intact."""
     title, _ = normalize_title("LIVING DOC — US-001 - Customer Login")
 
     assert title.startswith("LIVING DOC — US-001")
 
 
 def test_fence_flags_backtick_info_string_with_a_backtick_does_not_open_a_fence():
+    """A backtick fence whose info string itself contains a backtick is not a fence, so content below it stays live."""
     # CommonMark: a backtick fence's info string may not itself contain a backtick
     # (a tilde fence has no such restriction) - so this is not a fence at all, and the
     # "AC:" line below it is live content, not a quoted example.
@@ -122,6 +131,7 @@ def test_fence_flags_backtick_info_string_with_a_backtick_does_not_open_a_fence(
 
 
 def test_fence_flags_tab_indented_marker_does_not_open_a_fence():
+    """A tab-indented fence marker does not open a fence, since a tab expands past the three-space indent limit."""
     # CommonMark: a fence marker may be indented by at most three spaces; a tab
     # advances to the next 4-space tab stop, so it disqualifies the marker.
     lines = ["\t```", "AC:US-001-01 (v1.0.0 - active)", "```"]
@@ -130,6 +140,7 @@ def test_fence_flags_tab_indented_marker_does_not_open_a_fence():
 
 
 def test_fence_flags_over_indented_closer_does_not_close_the_fence():
+    """A closing fence marker indented four or more spaces fails to close the fence, so the line after stays inside."""
     # CommonMark: a closing fence may be indented by at most three spaces; four or
     # more leaves the block open, so the line after it is still inside the fence.
     lines = ["```", "AC:US-001-01 (v1.0.0 - active) example inside the fence", "    ```", "still inside"]

@@ -35,6 +35,7 @@ from tests.authoring.golden.helpers import load_expected, read_fixture
 
 
 def test_login_page_produces_feat_001_with_stub_reason_and_no_authored_state():
+    """A PageObject header with no `status:` key produces an entity with no authored state and its `stub_reason` set."""
     text = read_fixture("pageobject", "LoginPage.ts")
     result, warnings = parse_page_object(text)
 
@@ -59,6 +60,7 @@ def test_login_page_produces_feat_001_with_stub_reason_and_no_authored_state():
 
 
 def test_feature_state_derives_active_alongside_func_001():
+    """A stub Feature derives to state active with state_origin derived once its child functionality is also parsed."""
     po_text = read_fixture("pageobject", "LoginPage.ts")
     po_result, po_warnings = parse_page_object(po_text)
 
@@ -77,6 +79,7 @@ def test_feature_state_derives_active_alongside_func_001():
 
 
 def test_status_key_is_ignored_with_the_documented_message():
+    """A PageObject header's `status:` key is ignored with a message pointing authors at `stub-reason:` instead."""
     text = (
         "/* =============================================================================\n"
         " * LIVING DOC — FEAT-002 · Sample Page\n"

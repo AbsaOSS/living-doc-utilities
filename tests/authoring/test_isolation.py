@@ -60,6 +60,7 @@ def _regex_pattern_literals(source: str) -> list[str]:
 
 
 def test_no_module_other_than_ac_grammar_validates_ac_state_or_version():
+    """No `authoring` module other than `ac_grammar.py` defines a regex validating AC state or version shape."""
     offenders = []
     for path in sorted(AUTHORING_DIR.glob("*.py")):
         if path.name == "ac_grammar.py":
@@ -75,6 +76,7 @@ def test_no_module_other_than_ac_grammar_validates_ac_state_or_version():
 
 
 def test_ac_grammar_itself_owns_that_validation():
+    """`ac_grammar` validates versions via `contracts.common`'s own pattern, not a second hand-rolled copy."""
     # ac_grammar validates via contracts.common's own VERSION_PATTERN/LifecycleState,
     # not a second, hand-rolled copy - confirm those are in fact what it uses.
     from living_doc_utilities.authoring import ac_grammar
@@ -83,6 +85,7 @@ def test_ac_grammar_itself_owns_that_validation():
 
 
 def test_contracts_imports_nothing_from_authoring():
+    """No module under `contracts/` imports anything from `authoring` - the dependency runs one way only."""
     offenders = []
     for path in sorted(CONTRACTS_DIR.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -108,6 +111,7 @@ def _imported_module_names(node: "ast.Import | ast.ImportFrom") -> list[str]:
 
 
 def test_authoring_imports_nothing_github_or_azure_devops_specific():
+    """No module under `authoring/` imports a GitHub- or Azure-DevOps-specific module - parsers stay source-agnostic."""
     offenders = []
     for path in sorted(AUTHORING_DIR.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -134,6 +138,7 @@ def _has_enclosing_function(tree: ast.AST, target: ast.AST) -> bool:
 
 
 def test_nh3_is_imported_only_inside_a_function_that_needs_it():
+    """`nh3` is imported only inside the functions that call it, never at module load time in `authoring/`."""
     offenders = []
     for path in sorted(AUTHORING_DIR.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))

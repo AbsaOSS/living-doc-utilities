@@ -81,6 +81,7 @@ def _func(entity_id="FUNC-001", state="active", parent=None, **overrides) -> Par
     ],
 )
 def test_missing_status_derives_from_acceptance_criteria(ac_states, expected_state):
+    """A User Story or Functionality with no authored state derives one from its acceptance criteria per the table."""
     acs = [_ac(i + 1, state) for i, state in enumerate(ac_states)]
     entities, warnings = derive_statuses([_us(acceptance_criteria=acs)])
 
@@ -112,6 +113,7 @@ def test_missing_status_derives_from_acceptance_criteria(ac_states, expected_sta
     ],
 )
 def test_status_ac_mismatch_table(authored, ac_states, expect_mismatch):
+    """The authored state always wins over the AC-derived one; mismatch warns only for the documented combinations."""
     acs = [_ac(i + 1, state) for i, state in enumerate(ac_states)]
     entities, warnings = derive_statuses([_us(state=authored, acceptance_criteria=acs)])
 
@@ -121,6 +123,7 @@ def test_status_ac_mismatch_table(authored, ac_states, expect_mismatch):
 
 
 def test_in_review_never_mismatches_for_any_ac_combination():
+    """An authored "in_review" state never triggers STATUS_AC_MISMATCH, regardless of the ACs' own states."""
     for ac_states in ([], ["planned"], ["active"], ["in_review"], ["deprecated"], ["active", "deprecated"]):
         acs = [_ac(i + 1, state) for i, state in enumerate(ac_states)]
         _entities, warnings = derive_statuses([_us(state="in_review", acceptance_criteria=acs)])
@@ -131,6 +134,7 @@ def test_in_review_never_mismatches_for_any_ac_combination():
 
 
 def test_feature_deprecated_at_wins_over_everything_else():
+    """A Feature with deprecated_at set is always derived as deprecated, overriding its functionalities' states."""
     feature = _feature(deprecated_at="2026-01-01", functionalities=["FUNC-001"])
     func = _func(state="active", parent="FEAT-001")
 
@@ -143,6 +147,7 @@ def test_feature_deprecated_at_wins_over_everything_else():
 
 
 def test_feature_derives_from_linked_functionalities_via_parent():
+    """A Feature's derived state follows the state of a Functionality that names it as parent."""
     feature = _feature()
     func = _func(state="active", parent="FEAT-001")
 
@@ -154,6 +159,7 @@ def test_feature_derives_from_linked_functionalities_via_parent():
 
 
 def test_feature_derives_from_own_functionalities_list_when_func_has_no_parent():
+    """A Feature derives its state from its own functionalities list when the linked Functionality has no parent."""
     feature = _feature(functionalities=["FUNC-001"])
     func = _func(state="in_review", parent=None)
 
@@ -165,6 +171,7 @@ def test_feature_derives_from_own_functionalities_list_when_func_has_no_parent()
 
 
 def test_feature_falls_back_to_user_stories_when_no_functionalities_linked():
+    """A Feature with no linked functionalities falls back to its linked user stories to derive its state."""
     feature = _feature(user_stories=["US-001"])
     story = _us(state="active")
 
@@ -176,6 +183,7 @@ def test_feature_falls_back_to_user_stories_when_no_functionalities_linked():
 
 
 def test_orphan_feature_defaults_to_active_with_a_warning():
+    """A Feature with no linked functionalities or user stories defaults to active state with an orphan warning."""
     entities, warnings = derive_statuses([_feature()])
 
     assert entities[0].state == "active"

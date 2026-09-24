@@ -50,6 +50,7 @@ CONTRACT_IDS = [contract_id for contract_id, _, _ in CONTRACTS]
 
 @pytest.mark.parametrize("contract_id, model, _record_roots", CONTRACTS, ids=CONTRACT_IDS)
 def test_full_sample_is_the_right_model_and_validates_against_the_committed_schema(contract_id, model, _record_roots):
+    """full_sample returns an instance of the contract's own result model, valid against its committed schema."""
     sample = testing.full_sample(contract_id)
 
     assert isinstance(sample, model)
@@ -59,6 +60,7 @@ def test_full_sample_is_the_right_model_and_validates_against_the_committed_sche
 
 @pytest.mark.parametrize("contract_id, _model, record_roots", CONTRACTS, ids=CONTRACT_IDS)
 def test_full_sample_has_non_zero_occupancy_for_every_leaf_path(contract_id, _model, record_roots):
+    """Every leaf path of the contract's schema is actually populated in full_sample, none left empty."""
     sample = testing.full_sample(contract_id)
 
     computed = stats.compute_stats(sample, record_roots, sample.metadata.stats.cardinality)
@@ -70,15 +72,18 @@ def test_full_sample_has_non_zero_occupancy_for_every_leaf_path(contract_id, _mo
 
 @pytest.mark.parametrize("contract_id", CONTRACT_IDS)
 def test_full_sample_is_deterministic(contract_id):
+    """testing.full_sample returns an equal result across repeated calls for the same contract."""
     assert testing.full_sample(contract_id) == testing.full_sample(contract_id)
 
 
 def test_full_sample_rejects_an_unknown_contract_id():
+    """testing.full_sample raises for a contract id that isn't registered."""
     with pytest.raises(ValueError, match="unknown contract id"):
         testing.full_sample("not-a-real-contract-v1.0.0")
 
 
 def test_full_sample_takes_no_view_parameter():
+    """testing.full_sample's signature has no 'view' parameter."""
     assert "view" not in inspect.signature(testing.full_sample).parameters
 
 
@@ -100,6 +105,7 @@ def _every_entity_across_full_samples():
 
 
 def test_no_deprecated_only_field_is_populated_on_a_non_deprecated_entity():
+    """deprecated_at, deprecation_reason and superseded_by stay unset on every non-deprecated entity."""
     for entity in _every_entity_across_full_samples():
         if entity.state != "deprecated":
             assert entity.deprecated_at is None, entity.entity_id
@@ -108,6 +114,7 @@ def test_no_deprecated_only_field_is_populated_on_a_non_deprecated_entity():
 
 
 def test_at_least_one_deprecated_entity_actually_carries_its_deprecation_fields():
+    """full_sample actually includes a deprecated entity, and it has its deprecation fields populated."""
     # The check above would pass vacuously if full_sample never included a deprecated entity
     # at all - this asserts the deprecated case is actually present.
     deprecated = [entity for entity in _every_entity_across_full_samples() if entity.state == "deprecated"]
@@ -118,6 +125,7 @@ def test_at_least_one_deprecated_entity_actually_carries_its_deprecation_fields(
 
 
 def test_no_acceptance_criterion_outside_planned_is_version_less():
+    """Every acceptance criterion not in the 'planned' state carries a version."""
     for entity in _every_entity_across_full_samples():
         for ac in entity.acceptance_criteria:
             if ac.state != "planned":
@@ -125,6 +133,7 @@ def test_no_acceptance_criterion_outside_planned_is_version_less():
 
 
 def test_full_sample_includes_a_targeted_and_a_backlog_planned_acceptance_criterion():
+    """full_sample includes both a version-targeted and a version-less (backlog) planned AC."""
     planned = [
         ac
         for entity in _every_entity_across_full_samples()
@@ -261,6 +270,7 @@ SHOWN_PATH_CASES = [
 
 @pytest.mark.parametrize("case", SHOWN_PATH_CASES, ids=[f"{c.row}[{c.view}]" for c in SHOWN_PATH_CASES])
 def test_shown_paths_matches_the_0e_table_row(case: ShownPathCase):
+    """shown_paths shows/hides exactly the paths docs/contracts.md section 4's table row says, per view."""
     shown = testing.shown_paths(_CID, case.view)
 
     for path in case.shown:
@@ -270,11 +280,13 @@ def test_shown_paths_matches_the_0e_table_row(case: ShownPathCase):
 
 
 def test_shown_paths_rejects_an_unsupported_contract():
+    """testing.shown_paths raises for a contract id, such as doc-entities, that it doesn't support."""
     with pytest.raises(ValueError, match="only supports"):
         testing.shown_paths(doc_entities.CONTRACT_ID, _INNER)
 
 
 def test_shown_paths_coverage_matrix_shows_aspect_breakdown_in_both_views_and_planned_summary_in_inner_only():
+    """Coverage-matrix's aspect breakdown is shown in both views; planned_summary only in inner."""
     both = {
         "entities[].acceptance_criteria[].status",
         "entities[].acceptance_criteria[].aspects[].aspect",
@@ -290,10 +302,12 @@ def test_shown_paths_coverage_matrix_shows_aspect_breakdown_in_both_views_and_pl
 
 
 def test_shown_paths_ui_test_catalog_has_no_view_dependent_rows():
+    """ui-test-catalog's shown_paths returns an empty set for every view; it has no view-dependent rows."""
     for view in (_INNER, _RELEASE):
         assert testing.shown_paths(ui_test_catalog.CONTRACT_ID, view) == set()
 
 
 def test_shown_paths_rejects_an_unknown_view():
+    """testing.shown_paths raises for a view name that isn't 'inner' or 'release'."""
     with pytest.raises(ValueError, match="view"):
         testing.shown_paths(_CID, "somewhere-else")

@@ -13,8 +13,6 @@ COV_MIN     ?= 80
 
 # Off for tests/ only, because they flag normal test code. Why each rule: DEVELOPER.md, "Rules switched off for tests" (change both together).
 PYLINT_TESTS_DISABLE = use-implicit-booleaness-not-comparison,redefined-outer-name,protected-access,unsupported-membership-test,unsubscriptable-object,unidiomatic-typecheck,unused-argument
-# TEMPORARY: docstring checks stay off for tests while the suite is being merged and trimmed. Delete this line and its DEVELOPER.md table to enforce them.
-PYLINT_TESTS_DISABLE := $(PYLINT_TESTS_DISABLE),missing-function-docstring,missing-module-docstring,missing-class-docstring
 
 .DEFAULT_GOAL := help
 .PHONY: help install qa lint format format-check types deptry test coverage schemas docs no-vendored-schemas import-matrix

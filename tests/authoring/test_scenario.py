@@ -41,6 +41,7 @@ Feature: Customer Login
 
 
 def test_scenario_tags_are_parsed_and_comment_is_ignored():
+    """A `@AC:<id>` scenario tag links the scenario to that criterion; the `# AC:` comment above it is not a tag."""
     scenarios, warnings = parse_scenarios(_FEATURE_BODY, "DocumentedUserStory")
 
     assert warnings == []
@@ -56,6 +57,7 @@ def test_scenario_tags_are_parsed_and_comment_is_ignored():
 
 
 def test_scenario_tag_with_aspect_param():
+    """A `@AC:<id>/aspect:<value>` tag links the scenario to that criterion and records the aspect value."""
     scenarios, _warnings = parse_scenarios(_FEATURE_BODY, "DocumentedUserStory")
 
     second = scenarios[1]
@@ -66,6 +68,7 @@ def test_scenario_tag_with_aspect_param():
 
 
 def test_malformed_ac_tag_produces_a_warning_and_no_link():
+    """A `@AC:` tag with an unparseable id produces a `MALFORMED_AC` warning and links the scenario to nothing."""
     body = "Feature: Sample\n\n  @AC:not-a-valid-id\n  Scenario: Something\n    Given a step\n"
     scenarios, warnings = parse_scenarios(body, "DocumentedUserStory")
 
@@ -74,6 +77,7 @@ def test_malformed_ac_tag_produces_a_warning_and_no_link():
 
 
 def test_tag_before_a_non_scenario_construct_does_not_leak_onto_a_later_scenario():
+    """A tag preceding a non-scenario construct like `Examples:` never carries over onto a later, untagged scenario."""
     # A tag can precede a construct other than `Scenario:`/`Scenario Outline:` - here an
     # `Examples:` table belonging to the outline above it. That tag must not survive past
     # the table and attach itself to the next, untagged, `Scenario:`.
@@ -99,6 +103,7 @@ def test_tag_before_a_non_scenario_construct_does_not_leak_onto_a_later_scenario
 
 
 def test_en_dash_comment_is_normalized_before_parsing():
+    """An en dash inside an ignored `# AC:` comment does not disrupt parsing of the `@AC:` tag on the next line."""
     body = (
         "Feature: Sample\n\n"
         "  # AC:US-001-01 (v1.0.0 – active) - description\n"

@@ -27,6 +27,7 @@ _DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 
 
 def test_validate_returns_empty_list_for_a_valid_payload():
+    """A payload that satisfies the schema yields an empty error list, not None or a falsy sentinel."""
     schema = {"$schema": _DRAFT_2020_12, "type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
 
     errors = validate({"name": "US-001"}, schema)
@@ -35,6 +36,7 @@ def test_validate_returns_empty_list_for_a_valid_payload():
 
 
 def test_validate_returns_every_error_for_an_invalid_payload():
+    """An invalid payload yields its jsonschema ValidationError objects, not a boolean or a summary."""
     schema = {"$schema": _DRAFT_2020_12, "type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
 
     errors = validate({"name": 123}, schema)
@@ -44,6 +46,7 @@ def test_validate_returns_every_error_for_an_invalid_payload():
 
 
 def test_validate_enforces_a_2020_12_only_keyword_prefixitems():
+    """validate picks its validator class from the schema's own $schema dialect, not a hardcoded draft."""
     # prefixItems is a 2020-12 keyword; a hardcoded Draft-07 validator would not recognise it
     # and would silently ignore the constraint rather than reject a violating instance.
     schema = {

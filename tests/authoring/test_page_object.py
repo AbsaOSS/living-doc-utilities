@@ -70,6 +70,7 @@ _HEADER_WITH_UNKNOWN_KEY = """\
 
 
 def test_full_header_populates_the_feature_entity_and_its_page_ref():
+    """A primary PageObject header populates both the Feature entity's fields and the page reference's own fields."""
     result, warnings = parse_page_object(_FULL_HEADER)
 
     assert warnings == []
@@ -88,6 +89,7 @@ def test_full_header_populates_the_feature_entity_and_its_page_ref():
 
 
 def test_cross_reference_header_produces_no_entity_but_a_page_ref():
+    """A `[cross-reference]` PageObject header produces a non-primary page reference and no Feature entity."""
     result, warnings = parse_page_object(_CROSS_REFERENCE_HEADER)
 
     assert warnings == []
@@ -100,6 +102,7 @@ def test_cross_reference_header_produces_no_entity_but_a_page_ref():
 
 
 def test_jsdoc_block_after_the_header_does_not_leak_into_it():
+    """A JSDoc block after the header, even one with lines shaped like header keys, never overwrites header values."""
     # A method-level JSDoc block below the header can carry its own "*"-prefixed lines;
     # one that happens to look like "route: ..." must never overwrite the header's own
     # value, since it belongs to a different comment block entirely.
@@ -123,6 +126,7 @@ def test_jsdoc_block_after_the_header_does_not_leak_into_it():
 
 
 def test_unrecognised_key_produces_ignored_authored_key():
+    """An unrecognised PageObject-header key produces an `IGNORED_AUTHORED_KEY` warning naming that key."""
     result, warnings = parse_page_object(_HEADER_WITH_UNKNOWN_KEY)
 
     assert result is not None
@@ -131,6 +135,7 @@ def test_unrecognised_key_produces_ignored_authored_key():
 
 
 def test_missing_title_line_produces_missing_entity_id():
+    """A PageObject header with no parseable title line yields no result and a `MISSING_ENTITY_ID` warning."""
     text = "/* ===\n * no title here\n * === */\n"
     result, warnings = parse_page_object(text)
 
@@ -139,6 +144,7 @@ def test_missing_title_line_produces_missing_entity_id():
 
 
 def test_en_dash_input_is_normalized_before_extraction():
+    """An en-dash id/title separator is normalized to the canonical form before the title and id are extracted."""
     # The id-to-title separator (an en dash here, instead of the canonical " · ") is
     # `normalize`'s job (rule 5); the "LIVING DOC — " marker ahead of the id is left
     # untouched by `normalize` itself (normalize.py), so it stays the literal em dash canon

@@ -43,12 +43,14 @@ def _imported_module_names(path: Path) -> set[str]:
 
 
 def test_feature_header_issue_body_and_scenario_import_ac_grammar():
+    """feature_header.py, issue_body.py, and scenario.py each import ac_grammar rather than reimplementing it."""
     for module_name in ("feature_header.py", "issue_body.py", "scenario.py"):
         imports = _imported_module_names(AUTHORING_DIR / module_name)
         assert any("ac_grammar" in name for name in imports), f"{module_name} does not import ac_grammar"
 
 
 def test_criteria_id_table_layout_has_no_trace_left():
+    """The retired `Criteria ID | State | Version | Description` table layout appears nowhere in the package."""
     offenders = []
     for path in LIVING_DOC_UTILITIES_DIR.rglob("*.py"):
         if "Criteria ID" in path.read_text(encoding="utf-8"):

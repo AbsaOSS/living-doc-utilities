@@ -157,6 +157,7 @@ FUNC-002
 
 
 def test_every_user_story_heading_lands_on_its_field():
+    """Every canonical heading in a User Story issue body maps to its corresponding entity field."""
     entity, warnings = parse_issue_body(_USER_STORY_BODY, "US-001 · Sample", "DocumentedUserStory")
 
     assert warnings == []
@@ -172,6 +173,7 @@ def test_every_user_story_heading_lands_on_its_field():
 
 
 def test_every_feature_heading_lands_on_its_field_and_status_is_ignored():
+    """Every canonical Feature heading maps to its field, and an authored Status is ignored since it is derived."""
     entity, warnings = parse_issue_body(_FEATURE_BODY, "FEAT-001 · Sample", "DocumentedFeature")
 
     assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
@@ -189,6 +191,7 @@ def test_every_feature_heading_lands_on_its_field_and_status_is_ignored():
 
 
 def test_every_functionality_heading_lands_on_its_field():
+    """Every canonical heading in a Functionality issue body maps to its corresponding entity field."""
     entity, warnings = parse_issue_body(_FUNCTIONALITY_BODY, "FUNC-001 · Sample", "DocumentedFunctionality")
 
     assert warnings == []
@@ -206,6 +209,7 @@ def test_every_functionality_heading_lands_on_its_field():
 
 
 def test_unrecognised_heading_produces_unknown_section():
+    """An unrecognised heading produces a warning naming it, without preventing the rest of the entity from parsing."""
     body = "## Description\n\nSome text.\n\n## Totally Unknown Heading\n\nsome value\n"
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 
@@ -215,6 +219,7 @@ def test_unrecognised_heading_produces_unknown_section():
 
 
 def test_entity_level_rationale_does_not_affect_ac_level_rationale():
+    """An entity-level Rationale section sets only the entity's rationale, leaving any AC's own rationale unset."""
     body = (
         "## Description\n\ndesc\n\n## Status\n\nactive\n\n## Parent Feature\n\nFEAT-001\n\n"
         "## Func Type\n\nfield_validation\n\n## Rationale\n\n- Entity-level reason.\n\n"
@@ -228,6 +233,7 @@ def test_entity_level_rationale_does_not_affect_ac_level_rationale():
 
 
 def test_ac_level_rationale_does_not_affect_entity_level_rationale():
+    """An acceptance criterion's own Rationale line sets only that criterion's rationale, not the entity-level one."""
     body = (
         "## Description\n\ndesc\n\n## Status\n\nactive\n\n## Parent Feature\n\nFEAT-001\n\n"
         "## Func Type\n\nfield_validation\n\n"
@@ -241,6 +247,7 @@ def test_ac_level_rationale_does_not_affect_entity_level_rationale():
 
 
 def test_missing_entity_id_short_circuits_before_any_section_parsing():
+    """A title with no entity id fails fast with MISSING_ENTITY_ID, without parsing any section."""
     entity, warnings = parse_issue_body("## Description\n\ndesc\n", "No id here", "DocumentedUserStory")
 
     assert entity is None
@@ -248,6 +255,7 @@ def test_missing_entity_id_short_circuits_before_any_section_parsing():
 
 
 def test_en_dash_input_is_normalized_before_ac_grammar_runs():
+    """An en-dash in an AC header's version separator is normalized first, so the header still parses correctly."""
     body = "## Description\n\ndesc\n\n## Status\n\nactive\n\n## Business Value\n\n- v\n\n" "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 – active)\n\n- desc\n"
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 
@@ -257,6 +265,7 @@ def test_en_dash_input_is_normalized_before_ac_grammar_runs():
 
 
 def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
+    """A `## Status` value outside the four lifecycle states is reported as a warning instead of raising."""
     # A mistyped `## Status` value must not raise: ParsedEntity.state narrows to
     # LifecycleState, so pydantic validates it eagerly on construction - it must be caught
     # and reported the same way every other unrecognised authored value is (MALFORMED_AC,

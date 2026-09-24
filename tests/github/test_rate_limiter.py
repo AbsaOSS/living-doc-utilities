@@ -14,10 +14,13 @@
 # limitations under the License.
 #
 
+"""Tests for GithubRateLimiter, the callable that throttles calls against the GitHub API rate limit."""
+
 import time
 
 
 def test_exceeds_max_iterations(rate_limiter, mock_rate_limiter, mocker):
+    """When the reset time can't be pushed past now within the iteration cap, a default delay is used."""
     # Mock time.time() to return a value much larger than reset timestamp
     mock_time = mocker.patch("living_doc_utilities.github.rate_limiter.time")
     mock_time.time.return_value = 200000000
@@ -47,6 +50,7 @@ def test_exceeds_max_iterations(rate_limiter, mock_rate_limiter, mocker):
 
 
 def test_rate_limiter_extended_sleep_remaining_1(mocker, rate_limiter, mock_rate_limiter):
+    """When only one call remains before the rate limit resets, the wrapped call sleeps before it runs."""
     # Patch time.sleep to avoid actual delay and track call count
     mock_sleep = mocker.patch("time.sleep", return_value=None)
     mock_rate_limiter.rate.remaining = 1
@@ -63,6 +67,7 @@ def test_rate_limiter_extended_sleep_remaining_1(mocker, rate_limiter, mock_rate
 
 
 def test_rate_limiter_extended_sleep_remaining_10(mocker, rate_limiter):
+    """When enough calls remain before the rate limit resets, the wrapped call runs without sleeping."""
     # Patch time.sleep to avoid actual delay and track call count
     mock_sleep = mocker.patch("time.sleep", return_value=None)
 
@@ -77,6 +82,7 @@ def test_rate_limiter_extended_sleep_remaining_10(mocker, rate_limiter):
 
 
 def test_rate_limiter_extended_sleep_remaining_1_negative_reset_time(mocker, rate_limiter, mock_rate_limiter):
+    """When calls are low and the recorded reset time is already past, the call still sleeps after it is advanced."""
     # Patch time.sleep to avoid actual delay and track call count
     mock_sleep = mocker.patch("time.sleep", return_value=None)
     mock_rate_limiter.rate.remaining = 1

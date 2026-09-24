@@ -51,6 +51,7 @@ def _parse_all():
 
 
 def test_golden_entities_match_hand_written_json():
+    """Parsing and status-deriving the three canonical issue bodies reproduces each hand-written golden entity."""
     derived, _warnings = _parse_all()
     by_id = {entity.entity_id: entity for entity in derived}
 
@@ -61,5 +62,6 @@ def test_golden_entities_match_hand_written_json():
 
 
 def test_golden_run_produces_no_warnings():
+    """Parsing and status-deriving the three canonical issue bodies together produces no warnings."""
     _derived, warnings = _parse_all()
     assert warnings == []

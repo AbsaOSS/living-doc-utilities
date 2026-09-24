@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+"""Tests for the GitHub Action input and output helper functions."""
+
 import pytest
 
 from living_doc_utilities.github.utils import get_action_input, set_action_output
@@ -22,6 +24,7 @@ from living_doc_utilities.github.utils import get_action_input, set_action_outpu
 
 
 def test_get_input_with_hyphen(monkeypatch):
+    """An input name with a hyphen is read from the INPUT_ variable with the hyphen turned into an underscore."""
     monkeypatch.setenv("INPUT_TEST_INPUT", "test_value")
 
     actual = get_action_input("test-input")
@@ -30,6 +33,7 @@ def test_get_input_with_hyphen(monkeypatch):
 
 
 def test_get_input_without_hyphen(monkeypatch):
+    """An input name without a hyphen is read from its INPUT_ environment variable unchanged."""
     monkeypatch.setenv("INPUT_ANOTHERINPUT", "another_test_value")
 
     actual = get_action_input("anotherinput")
@@ -41,6 +45,7 @@ def test_get_input_without_hyphen(monkeypatch):
 
 
 def test_set_action_output_writes_to_the_github_output_path(tmp_path, monkeypatch):
+    """An action output is appended to the GITHUB_OUTPUT file in the name=value format GitHub Actions expects."""
     output_file = tmp_path / "the_output.txt"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
 
@@ -50,6 +55,7 @@ def test_set_action_output_writes_to_the_github_output_path(tmp_path, monkeypatc
 
 
 def test_set_action_output_raises_when_github_output_is_not_set(monkeypatch):
+    """`set_action_output` raises `KeyError` when the GITHUB_OUTPUT environment variable is unset."""
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
 
     with pytest.raises(KeyError):
@@ -57,6 +63,7 @@ def test_set_action_output_raises_when_github_output_is_not_set(monkeypatch):
 
 
 def test_set_action_output_ioerror(tmp_path, monkeypatch):
+    """An unwritable GITHUB_OUTPUT path raises OSError instead of silently swallowing the write failure."""
     # R13: no silent swallowing in shared code - an unwritable output file must fail the
     # Action step loudly, not log-and-continue as if the output had been written.
     monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "missing-dir" / "fail.txt"))

@@ -287,6 +287,8 @@ def generator_ready_document(**overrides: Any) -> GeneratorReadyDocument:
 
 
 def aspect_coverage(**overrides: Any) -> AspectCoverage:
+    """An AspectCoverage builder that infers status from scenario_ids when only scenario_ids is
+    overridden, so callers don't have to keep the two fields in sync by hand."""
     if "scenario_ids" in overrides and "status" not in overrides:
         status = "covered" if overrides["scenario_ids"] else "not_covered"
     else:

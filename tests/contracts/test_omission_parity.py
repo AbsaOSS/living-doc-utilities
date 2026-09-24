@@ -197,6 +197,8 @@ def _jsonschema_rejects(data: dict, schema: dict) -> bool:
 
 @pytest.mark.parametrize("case", CASES, ids=[case.case_id for case in CASES])
 def test_omitting_the_key_entirely_is_treated_the_same_by_pydantic_and_jsonschema(case: OmissionCase):
+    """Pydantic and the exported JSON Schema agree on whether omitting this key is valid, and
+    that agreed answer matches what the cross-field rule requires."""
     sample = testing.full_sample(case.contract_id)
     model_cls = type(sample)
     data = json.loads(sample.model_dump_json())

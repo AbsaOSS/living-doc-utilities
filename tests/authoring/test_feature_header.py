@@ -64,6 +64,7 @@ Feature: Another Story
 
 
 def test_recognised_keys_land_on_their_fields():
+    """Every recognised `.feature`-header key is assigned to its matching entity field, with no warnings."""
     entity, warnings = parse_feature_header(_US_HEADER, "DocumentedUserStory")
 
     assert warnings == []
@@ -79,6 +80,7 @@ def test_recognised_keys_land_on_their_fields():
 
 
 def test_unrecognised_key_produces_ignored_authored_key():
+    """An unrecognised `.feature`-header key produces an `IGNORED_AUTHORED_KEY` warning naming that key."""
     entity, warnings = parse_feature_header(_HEADER_WITH_UNKNOWN_KEY, "DocumentedUserStory")
 
     assert entity is not None
@@ -87,6 +89,7 @@ def test_unrecognised_key_produces_ignored_authored_key():
 
 
 def test_missing_title_line_produces_missing_entity_id():
+    """A `.feature` header with no parseable title line yields no entity and a `MISSING_ENTITY_ID` warning."""
     text = "# =============================================================================\n# not a title\n"
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
 
@@ -95,6 +98,7 @@ def test_missing_title_line_produces_missing_entity_id():
 
 
 def test_banner_shaped_comment_in_scenario_body_is_not_absorbed_into_header():
+    """A banner-shaped comment inside the scenario body is never absorbed into the header block or double-parsed."""
     # A "# ===...===" comment pair in the Gherkin body (a human habit, e.g. separating
     # scenario groups with a divider that itself brackets a documentation-only "# AC:"
     # line) must never be mistaken for the header's own block: the header ends at the
@@ -129,6 +133,7 @@ def test_banner_shaped_comment_in_scenario_body_is_not_absorbed_into_header():
 
 
 def test_en_dash_input_is_normalized_before_ac_grammar_runs():
+    """An en dash in an acceptance-criterion header is normalized before parsing, so state and version still parse."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-003 · Dash Story\n"
@@ -151,6 +156,7 @@ def test_en_dash_input_is_normalized_before_ac_grammar_runs():
 
 
 def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
+    """An authored `status:` value outside the four lifecycle states warns and leaves state unset, not a crash."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-005 · Bad Status Story\n"

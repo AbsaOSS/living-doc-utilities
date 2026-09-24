@@ -37,12 +37,14 @@ from living_doc_utilities.authoring.docs_export import (
 
 
 def test_committed_doc_matches_a_fresh_regeneration():
+    """The committed docs/authoring.md is exactly what `regenerate()` produces from the cases file today."""
     committed = _DOC_FILE.read_text(encoding="utf-8")
 
     assert regenerate() == committed
 
 
 def test_regenerate_is_idempotent():
+    """Calling `regenerate()` does not itself change what the next `regenerate()` call produces."""
     once = regenerate()
 
     doc_with_once_applied = _DOC_FILE.read_text(encoding="utf-8")
@@ -50,6 +52,7 @@ def test_regenerate_is_idempotent():
 
 
 def test_render_table_has_one_row_per_case_plus_header():
+    """The rendered table has exactly one row per case, plus a header row and a separator row."""
     cases = _load_cases()
 
     table = render_table(cases)
@@ -61,6 +64,7 @@ def test_render_table_has_one_row_per_case_plus_header():
 
 
 def test_a_stale_table_is_detected_as_different_from_a_fresh_regeneration():
+    """A table regenerated from a shorter case list differs from one regenerated from the full case list."""
     # Simulates what the CI job's `git diff --exit-code -- docs/authoring.md` step catches:
     # a committed table that no longer matches what the cases file produces today - here,
     # by regenerating from a cases list with one case removed, standing in for a case added
@@ -74,6 +78,7 @@ def test_a_stale_table_is_detected_as_different_from_a_fresh_regeneration():
 
 
 def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
+    """A literal `|` inside a case's `note` field is escaped so it cannot be mistaken for a table delimiter."""
     case = {
         "id": "case-x",
         "rule": "rule-x",
@@ -92,6 +97,7 @@ def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
 
 @pytest.fixture
 def crlf_checkout(tmp_path, mocker):
+    """Wire `docs_export` to a CRLF, nested-path copy of the doc and cases file, as autocrlf checkouts leave them."""
     # The doc and the cases file as a Windows autocrlf checkout can leave them (CRLF), in nested folders so a
     # path separator shows up in what `main()` prints, wired into `main()` in place of the real files.
     (tmp_path / "docs").mkdir()
@@ -106,6 +112,7 @@ def crlf_checkout(tmp_path, mocker):
 
 
 def test_main_writes_lf_line_endings_on_every_os_and_from_any_checkout(crlf_checkout):
+    """`main()` writes the regenerated doc with LF line endings only, regardless of OS or the checkout's own."""
     # Text mode would turn each newline into CRLF on Windows.
     docs_export.main()
 
@@ -115,6 +122,7 @@ def test_main_writes_lf_line_endings_on_every_os_and_from_any_checkout(crlf_chec
 
 
 def test_main_prints_forward_slash_paths_on_every_os(crlf_checkout, capsys):
+    """`main()` prints the doc and cases paths with forward slashes, regardless of OS."""
     docs_export.main()
 
     assert capsys.readouterr().out == "Regenerated docs/authoring.md from pkg/cases.yaml\n"

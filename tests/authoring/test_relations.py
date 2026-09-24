@@ -43,6 +43,7 @@ def _us(entity_id="US-001", **overrides) -> ParsedEntity:
 
 
 def test_unresolved_relation_for_a_feature_pointing_outside_the_run():
+    """A Feature referencing ids outside the collected set gets one unresolved-relation warning per dangling id."""
     feature = _feature(user_stories=["US-999"], functionalities=["FUNC-999"])
 
     warnings = check_relations([feature])
@@ -52,6 +53,7 @@ def test_unresolved_relation_for_a_feature_pointing_outside_the_run():
 
 
 def test_unresolved_relation_for_a_functionality_parent_and_superseded_by():
+    """A Functionality whose parent and superseded-by point outside the run each get their own unresolved warning."""
     func = _func(parent="FEAT-999", superseded_by="FUNC-888")
 
     warnings = check_relations([func])
@@ -60,6 +62,7 @@ def test_unresolved_relation_for_a_functionality_parent_and_superseded_by():
 
 
 def test_relation_mismatch_when_feature_does_not_list_its_functionality_back():
+    """A Feature is flagged with a relation mismatch when it fails to list back a Functionality naming it as parent."""
     feature = _feature(functionalities=["FUNC-002"])
     func = _func(parent="FEAT-001")
     other_func = _func(entity_id="FUNC-002", parent="FEAT-001")
@@ -70,6 +73,7 @@ def test_relation_mismatch_when_feature_does_not_list_its_functionality_back():
 
 
 def test_no_warnings_for_a_consistent_relation_set():
+    """A fully consistent, correctly cross-linked set of Feature, Functionality and User Story raises no warnings."""
     feature = _feature(functionalities=["FUNC-001"], user_stories=["US-001"])
     func = _func(parent="FEAT-001")
     story = _us()
@@ -80,6 +84,7 @@ def test_no_warnings_for_a_consistent_relation_set():
 
 
 def test_relation_mismatch_when_feature_claims_a_functionality_parented_elsewhere():
+    """A Feature's stale claim on a Functionality actually parented elsewhere is caught as a relation mismatch."""
     # FUNC-002's real parent is FEAT-003, which correctly lists it back - so the
     # Functionality-side check alone finds nothing wrong. FEAT-001's own claim on
     # FUNC-002 is still stale/incorrect and must be caught from the Feature side.
@@ -93,6 +98,7 @@ def test_relation_mismatch_when_feature_claims_a_functionality_parented_elsewher
 
 
 def test_no_mismatch_when_feature_declares_no_functionalities_list_at_all():
+    """A Feature linked to a Functionality only via its parent, with no functionalities list of its own, is fine."""
     # Linked purely via `parent`, with the Feature carrying no `functionalities` list of
     # its own (empty list means "nothing declared", not "declared as empty").
     feature = _feature()
@@ -104,6 +110,7 @@ def test_no_mismatch_when_feature_declares_no_functionalities_list_at_all():
 
 
 def test_relation_type_mismatch_when_a_functionality_id_is_copy_pasted_into_user_stories():
+    """A Functionality id mistakenly listed in user_stories is flagged as a type mismatch, not silently accepted."""
     # The issue's concrete failure case: FUNC-001 exists in the collected set, so the
     # naive by_id lookup alone finds nothing wrong even though it's the wrong entity type.
     feature = _feature(user_stories=["FUNC-001"])
@@ -121,6 +128,7 @@ def test_relation_type_mismatch_when_a_functionality_id_is_copy_pasted_into_user
 
 
 def test_relation_type_mismatch_when_a_user_story_id_is_copy_pasted_into_functionalities():
+    """A User Story id mistakenly listed in a Feature's functionalities is flagged as a relation type mismatch."""
     feature = _feature(functionalities=["US-001"])
     story = _us()
 
@@ -136,6 +144,7 @@ def test_relation_type_mismatch_when_a_user_story_id_is_copy_pasted_into_functio
 
 
 def test_relation_type_mismatch_when_functionality_parent_resolves_to_a_non_feature():
+    """A Functionality whose parent resolves to a non-Feature entity is flagged as a relation type mismatch."""
     func = _func(parent="US-001")
     story = _us()
 
@@ -151,6 +160,7 @@ def test_relation_type_mismatch_when_functionality_parent_resolves_to_a_non_feat
 
 
 def test_relation_type_mismatch_when_superseded_by_resolves_to_a_different_type():
+    """A superseded-by reference that resolves to an entity of a different type is flagged as a type mismatch."""
     story = _us(entity_id="US-001", superseded_by="FUNC-001")
     func = _func()
 
@@ -166,6 +176,7 @@ def test_relation_type_mismatch_when_superseded_by_resolves_to_a_different_type(
 
 
 def test_type_mismatch_does_not_also_raise_relation_mismatch_for_functionalities():
+    """A wrong-type functionalities target short-circuits the back-link check, raising only the type mismatch."""
     # A wrong-type target short-circuits the back-link consistency check - checking
     # `func.parent` against a non-Functionality target isn't a meaningful comparison.
     feature = _feature(functionalities=["US-001"])
@@ -177,6 +188,7 @@ def test_type_mismatch_does_not_also_raise_relation_mismatch_for_functionalities
 
 
 def test_type_mismatch_does_not_also_raise_relation_mismatch_for_parent():
+    """A wrong-type parent target short-circuits the back-link check, raising only the type mismatch."""
     # If the type check didn't short-circuit, the back-link elif below it would still run:
     # entity_id "FUNC-001" is not in story.functionalities, which would additionally raise
     # a (nonsensical) RELATION_MISMATCH on top of the type mismatch.
@@ -189,6 +201,7 @@ def test_type_mismatch_does_not_also_raise_relation_mismatch_for_parent():
 
 
 def test_no_type_mismatch_for_a_correctly_typed_relation_set():
+    """A correctly typed and cross-linked relation set produces no relation type mismatch warnings."""
     feature = _feature(functionalities=["FUNC-001"], user_stories=["US-001"])
     func = _func(parent="FEAT-001")
     story = _us()
@@ -199,6 +212,7 @@ def test_no_type_mismatch_for_a_correctly_typed_relation_set():
 
 
 def test_check_relations_preserves_field_order_within_one_entity():
+    """Relation warnings are reported per entity in a fixed field order: stories, functionalities, then superseder."""
     # Regression pin for the S-13 refactor (relations.py: check_relations iterates a
     # (field, target_id, expected_type) table instead of one hand-written block per
     # field): a Feature's user_stories must still be reported before its
@@ -223,6 +237,7 @@ def test_check_relations_preserves_field_order_within_one_entity():
 
 
 def test_no_relation_warnings_for_the_golden_entity_fixtures():
+    """The project's canonical, correctly cross-linked golden fixtures clear relation checking with no warnings."""
     # Regression: the project's three canonical example issues (FEAT-001/FUNC-001/US-001),
     # correctly typed and cross-linked, must clear check_relations with no warnings at all.
     entities = [

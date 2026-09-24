@@ -42,6 +42,7 @@ _COMPAT_RAISED_CODES = ["INVALID_CONTRACT_ID", "CONTRACT_MISMATCH", "SCHEMA_VALI
 
 
 def test_all_codes_has_exactly_36_entries():
+    """ALL_CODES contains exactly 36 entries, one per code documented in docs/contracts.md section 5."""
     # Canary: docs/contracts.md, section 5 currently enumerates exactly 36 codes. A change
     # to this count means a code was added/removed there without a matching Code member.
     assert len(ALL_CODES) == 36
@@ -49,6 +50,7 @@ def test_all_codes_has_exactly_36_entries():
 
 @pytest.mark.parametrize("name, kind, emitter", _KNOWN_CODES)
 def test_all_codes_contains_known_codes_with_expected_kind_and_emitter(name, kind, emitter):
+    """Every representative code is registered in ALL_CODES with its documented kind and emitter."""
     assert name in ALL_CODES
     code = ALL_CODES[name]
     assert code.kind == kind
@@ -56,18 +58,21 @@ def test_all_codes_contains_known_codes_with_expected_kind_and_emitter(name, kin
 
 
 def test_all_codes_keys_match_their_own_member_name():
+    """Every ALL_CODES key equals the .name of the Code member it maps to."""
     for name, code in ALL_CODES.items():
         assert code.name == name
 
 
 @pytest.mark.parametrize("name", _COMPAT_RAISED_CODES)
 def test_compat_raised_codes_are_registered_as_errors_emitted_by_utilities(name):
+    """Every code compat.py raises is registered as an ERROR kind emitted by UTILITIES."""
     code = ALL_CODES[name]
     assert code.kind == CodeKind.ERROR
     assert code.emitter == Emitter.UTILITIES
 
 
 def test_every_code_member_is_a_distinct_object():
+    """Every Code member is a distinct object, none collapsed into another by a shared value."""
     # Guards against the Enum-aliasing bug class: two members sharing a value collapse into
     # one. Code.__new__ assigns each member a unique, sequential _value_ rather than using
     # its (kind, emitter) tuple as the value precisely to avoid this.
@@ -75,17 +80,20 @@ def test_every_code_member_is_a_distinct_object():
 
 
 def test_every_code_has_a_kind_and_an_emitter():
+    """Every Code member exposes a CodeKind kind and an Emitter emitter."""
     for code in Code:
         assert isinstance(code.kind, CodeKind)
         assert isinstance(code.emitter, Emitter)
 
 
 def test_code_kind_is_a_str_enum_with_the_documented_values():
+    """CodeKind is a str enum whose ERROR and WARNING members equal their documented lowercase values."""
     assert CodeKind.ERROR == "error"
     assert CodeKind.WARNING == "warning"
 
 
 def test_emitter_is_a_str_enum_with_the_documented_values():
+    """Emitter members compare equal to their documented lowercase string values."""
     assert Emitter.UTILITIES == "utilities"
     assert Emitter.TOOLKIT == "toolkit"
     assert Emitter.TRANSFORM == "transform"
@@ -94,6 +102,7 @@ def test_emitter_is_a_str_enum_with_the_documented_values():
 
 
 def test_contract_error_carries_code_message_and_context():
+    """A ContractError exposes the code, message and context it was constructed with, unchanged."""
     error = ContractError(Code.CONTRACT_MISMATCH, "expected one of ['doc-entities']", context="US-001")
 
     assert error.code == Code.CONTRACT_MISMATCH
@@ -102,6 +111,7 @@ def test_contract_error_carries_code_message_and_context():
 
 
 def test_contract_error_str_without_context_omits_the_parenthetical():
+    """A ContractError's str omits the trailing parenthetical when no context was given."""
     error = ContractError(Code.INVALID_CONTRACT_ID, "schema_version is missing or not a string")
 
     assert error.context is None
@@ -109,11 +119,13 @@ def test_contract_error_str_without_context_omits_the_parenthetical():
 
 
 def test_contract_error_str_with_context_appends_the_parenthetical():
+    """A ContractError's str appends its context in parentheses when context was given."""
     error = ContractError(Code.SCHEMA_VALIDATION_FAILED, "boom", context="doc-entities-v1.0.0")
 
     assert str(error) == "[SCHEMA_VALIDATION_FAILED] boom (doc-entities-v1.0.0)"
 
 
 def test_contract_error_is_an_exception():
+    """ContractError can be raised and caught like any other exception."""
     with pytest.raises(ContractError):
         raise ContractError(Code.MISSING_INPUT, "no input configured")

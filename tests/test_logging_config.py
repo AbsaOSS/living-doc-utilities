@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+"""Tests for setup_logging, the project's logging configuration entry point."""
+
 import logging
 import os
 import sys
@@ -23,6 +25,7 @@ from living_doc_utilities.logging_config import setup_logging
 
 
 def validate_logging_config(mock_logging_setup, caplog, expected_level, expected_message):
+    """Assert that logging was configured with the expected level, format, stdout handler, and log message."""
     mock_logging_setup.assert_called_once()
 
     # Get the actual call arguments from the mock
@@ -47,6 +50,7 @@ def validate_logging_config(mock_logging_setup, caplog, expected_level, expected
 
 
 def test_setup_logging_default_logging_level(mock_logging_setup, caplog):
+    """`setup_logging` configures the INFO level and logs a setup confirmation message when called with no args."""
     with caplog.at_level(logging.INFO):
         setup_logging()
 
@@ -54,6 +58,7 @@ def test_setup_logging_default_logging_level(mock_logging_setup, caplog):
 
 
 def test_setup_logging_verbose_logging_enabled(mock_logging_setup, caplog):
+    """Setting INPUT_VERBOSE_LOGGING enables debug-level logging and logs that verbose logging is enabled."""
     os.environ["INPUT_VERBOSE_LOGGING"] = "true"
 
     with caplog.at_level(logging.DEBUG):
@@ -63,6 +68,7 @@ def test_setup_logging_verbose_logging_enabled(mock_logging_setup, caplog):
 
 
 def test_setup_logging_debug_mode_enabled_by_ci(mock_logging_setup, caplog):
+    """Setting RUNNER_DEBUG enables debug-level logging and logs that debug mode was enabled by the CI runner."""
     os.environ["RUNNER_DEBUG"] = "1"
 
     with caplog.at_level(logging.DEBUG):

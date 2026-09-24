@@ -31,6 +31,7 @@ def _ac_core(ac):
 
 
 def test_us_001_feature_header_matches_its_issue_body_golden_entity():
+    """A user story's `.feature`-header form matches its issue-body golden entity, plus its own AC preconditions."""
     text = read_fixture("gherkin", "liv_doc_us", "us-001-customer-login.feature")
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
     expected = load_expected("us-001-customer-login.json")
@@ -59,6 +60,7 @@ def test_us_001_feature_header_matches_its_issue_body_golden_entity():
 
 
 def test_func_001_feature_header_matches_its_issue_body_golden_entity():
+    """A functionality's `.feature`-header form matches its issue-body golden entity, plus its own AC aspects."""
     text = read_fixture("gherkin", "liv_doc_func", "func-001-validate-password-strength.feature")
     entity, warnings = parse_feature_header(text, "DocumentedFunctionality")
     expected = load_expected("func-001-validate-password-strength.json")

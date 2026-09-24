@@ -13,6 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+"""
+Tests for the doc-entities-v1.0.0 contract: Entity's state_origin/stub_reason rules per
+documentation type, acceptance-criterion/page ownership checks, and the result envelope.
+"""
+
 import pytest
 from pydantic import ValidationError
 
@@ -21,6 +27,7 @@ from tests.contracts import factories
 
 
 def test_entity_carries_the_required_identity_and_provenance_fields():
+    """Entity declares the required identity/provenance fields, and source_ref carries its tracker fields."""
     required = {"entity_id", "state", "state_origin", "source_ref"}
 
     assert required.issubset(Entity.model_fields)
@@ -30,31 +37,37 @@ def test_entity_carries_the_required_identity_and_provenance_fields():
 
 
 def test_feature_with_authored_state_origin_fails():
+    """A Feature with state_origin='authored' is rejected; Features are always derived."""
     with pytest.raises(ValidationError, match="state_origin must be 'derived'"):
         factories.feature(state_origin="authored")
 
 
 def test_user_story_with_stub_reason_fails():
+    """A User Story with a stub_reason is rejected; stub_reason is Feature-only."""
     with pytest.raises(ValidationError, match="stub_reason is only valid on a Feature"):
         factories.user_story(stub_reason="surface not yet instrumented")
 
 
 def test_functionality_with_stub_reason_fails():
+    """A Functionality with a stub_reason is rejected; stub_reason is Feature-only."""
     with pytest.raises(ValidationError, match="stub_reason is only valid on a Feature"):
         factories.functionality(stub_reason="surface not yet instrumented")
 
 
 def test_user_story_with_derived_state_origin_fails():
+    """A User Story with state_origin='derived' is rejected; User Stories are always authored."""
     with pytest.raises(ValidationError, match="state_origin must be 'authored'"):
         factories.user_story(state_origin="derived")
 
 
 def test_functionality_with_derived_state_origin_fails():
+    """A Functionality with state_origin='derived' is rejected; Functionalities are always authored."""
     with pytest.raises(ValidationError, match="state_origin must be 'authored'"):
         factories.functionality(state_origin="derived")
 
 
 def test_feature_with_derived_state_origin_and_stub_reason_is_valid():
+    """A Feature with state_origin='derived' and a stub_reason is valid."""
     result = factories.feature(state_origin="derived", stub_reason="surface not yet instrumented")
 
     assert result.state_origin == "derived"
@@ -62,18 +75,21 @@ def test_feature_with_derived_state_origin_and_stub_reason_is_valid():
 
 
 def test_feature_without_stub_reason_is_valid():
+    """A Feature with no stub_reason given defaults it to None."""
     result = factories.feature()
 
     assert result.stub_reason is None
 
 
 def test_github_shaped_entity_validates():
+    """An entity with a GitHub-shaped source_ref validates."""
     result = factories.user_story(source_ref=factories.github_source_ref())
 
     assert result.source_ref.system == "GitHub"
 
 
 def test_azure_devops_shaped_entity_validates():
+    """An entity with an Azure DevOps-shaped source_ref validates, area_path included."""
     result = factories.functionality(source_ref=factories.azure_devops_source_ref())
 
     assert result.source_ref.system == "AzureDevOps"
@@ -81,23 +97,27 @@ def test_azure_devops_shaped_entity_validates():
 
 
 def test_entity_forbids_unknown_field():
+    """An entity rejects an unrecognized field."""
     with pytest.raises(ValidationError):
         factories.user_story(not_a_real_field="nope")
 
 
 def test_acceptance_criterion_id_must_belong_to_its_entity():
+    """An entity rejects an acceptance criterion whose parent id doesn't match its own entity_id."""
     mismatched_ac = factories.acceptance_criterion(parent_id="US-999")
     with pytest.raises(ValidationError, match="does not belong to entity 'US-001'"):
         factories.user_story(entity_id="US-001", acceptance_criteria=[mismatched_ac])
 
 
 def test_acceptance_criterion_id_matching_its_entity_is_valid():
+    """An acceptance criterion whose id is derived from its own entity's id is valid."""
     result = factories.functionality(entity_id="FUNC-042")
 
     assert result.acceptance_criteria[0].id == "FUNC-042-01"
 
 
 def test_feature_purpose_is_separate_from_user_story_narrative():
+    """A Feature carries purpose (no narrative) while a User Story carries narrative (no purpose)."""
     story = factories.user_story()
     surface = factories.feature()
 
@@ -106,6 +126,7 @@ def test_feature_purpose_is_separate_from_user_story_narrative():
 
 
 def test_feature_pages_carries_the_primary_and_cross_reference_page_objects():
+    """A Feature's pages list preserves each PageRef's order, page_object, and functionalities."""
     primary = factories.page_ref(is_primary=True, route="/checkout", page_object="CheckoutPage.ts")
     step = factories.page_ref(
         is_primary=False, route="/checkout/shipping", page_object="CheckoutShippingPage.ts", functionalities=["FUNC-002"]
@@ -117,17 +138,20 @@ def test_feature_pages_carries_the_primary_and_cross_reference_page_objects():
 
 
 def test_page_ref_forbids_unknown_field():
+    """A PageRef rejects an unrecognized field."""
     with pytest.raises(ValidationError):
         PageRef(route="/x", page_object="X.ts", purpose="...", not_a_real_field="nope")
 
 
 def test_feature_with_no_pages_is_valid():
+    """A Feature with an empty pages list is valid."""
     result = factories.feature(pages=[])
 
     assert result.pages == []
 
 
 def test_feature_pages_reject_zero_primary_pages():
+    """A Feature's pages are rejected when none of them is marked primary."""
     non_primary = factories.page_ref(is_primary=False)
 
     with pytest.raises(ValidationError, match="exactly one primary PageRef, found 0"):
@@ -135,6 +159,7 @@ def test_feature_pages_reject_zero_primary_pages():
 
 
 def test_feature_pages_reject_multiple_primary_pages():
+    """A Feature with more than one primary PageRef is rejected, naming the actual count found."""
     first_primary = factories.page_ref(is_primary=True, route="/checkout", page_object="CheckoutPage.ts")
     second_primary = factories.page_ref(is_primary=True, route="/checkout/summary", page_object="SummaryPage.ts")
 
@@ -143,6 +168,7 @@ def test_feature_pages_reject_multiple_primary_pages():
 
 
 def test_entity_type_enum_has_the_three_documentation_types():
+    """The type field's JSON schema enum lists exactly the three documentation entity types."""
     schema = Entity.model_json_schema()
 
     assert schema["properties"]["type"]["enum"] == [
@@ -153,6 +179,7 @@ def test_entity_type_enum_has_the_three_documentation_types():
 
 
 def test_doc_entities_result_uses_entities_array_key():
+    """DocEntitiesResult exposes its array under 'entities', not the generic 'items' key."""
     result = DocEntitiesResult(metadata=factories.metadata(), entities=[factories.user_story()])
 
     assert len(result.entities) == 1
@@ -160,10 +187,12 @@ def test_doc_entities_result_uses_entities_array_key():
 
 
 def test_doc_entities_result_schema_version_is_the_contract_id():
+    """DocEntitiesResult's schema_version defaults to the doc-entities contract id."""
     result = DocEntitiesResult(metadata=factories.metadata())
 
     assert result.schema_version == CONTRACT_ID == "doc-entities-v1.0.0"
 
 
 def test_record_roots_declares_entities():
+    """RECORD_ROOTS maps the 'entities' array key to Entity."""
     assert RECORD_ROOTS == {"entities": Entity}

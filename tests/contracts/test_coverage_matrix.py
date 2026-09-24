@@ -48,6 +48,7 @@ def _result(**overrides: Any) -> CoverageMatrixResult:
 
 
 def test_round_trips_through_json():
+    """A CoverageMatrixResult serializes to JSON and back into an equal model, schema_version intact."""
     result = _result()
 
     payload = json.loads(result.model_dump_json())
@@ -57,28 +58,34 @@ def test_round_trips_through_json():
 
 
 def test_schema_version_is_a_plain_const():
+    """schema_version defaults to the fixed contract id string."""
     assert CoverageMatrixResult.model_fields["schema_version"].default == "coverage-matrix-v1.0.0"
 
 
 def test_metadata_source_inputs_must_be_non_empty():
+    """A CoverageMatrixResult's metadata rejects an empty source_inputs list."""
     # R7: a transform always has at least its documentation input.
     with pytest.raises(ValidationError, match="source_inputs must have at least one entry"):
         _result(metadata=factories.metadata())
 
 
 def test_document_carries_only_the_view():
+    """Document declares exactly one field, view."""
     assert set(Document.model_fields) == {"view"}
 
 
 def test_counted_states_are_exactly_active_and_deprecated():
+    """CountedState's literal values are exactly 'active' and 'deprecated'."""
     assert set(get_args(CountedState)) == {"active", "deprecated"}
 
 
 def test_coverage_status_models_covered_partially_covered_and_not_covered():
+    """CoverageStatus's literal values are exactly covered, partially_covered, and not_covered."""
     assert set(get_args(CoverageStatus)) == {"covered", "partially_covered", "not_covered"}
 
 
 def test_ac_coverage_carries_a_per_aspect_breakdown():
+    """An AcCoverage row preserves its aspects list, in order, alongside its overall status."""
     row = factories.ac_coverage(
         status="partially_covered",
         aspects=[factories.aspect_coverage(aspect="checkout", status="covered"), factories.aspect_coverage(aspect="refund", status="not_covered")],
@@ -89,11 +96,13 @@ def test_ac_coverage_carries_a_per_aspect_breakdown():
 
 
 def test_ac_coverage_rejects_a_state_outside_the_counted_set():
+    """An AcCoverage row with a state outside the counted set is rejected."""
     with pytest.raises(ValidationError):
         factories.ac_coverage(state="planned")
 
 
 def test_ac_coverage_rejects_covered_status_with_a_not_covered_aspect():
+    """An AcCoverage row can't be 'covered' while one of its aspects is 'not_covered'."""
     with pytest.raises(ValidationError, match="status must be 'partially_covered'"):
         factories.ac_coverage(
             status="covered",
@@ -102,22 +111,26 @@ def test_ac_coverage_rejects_covered_status_with_a_not_covered_aspect():
 
 
 def test_ac_coverage_rejects_partially_covered_status_with_no_aspects():
+    """An AcCoverage row can't be 'partially_covered' with an empty aspects list."""
     with pytest.raises(ValidationError, match="cannot be 'partially_covered' when aspects is empty"):
         factories.ac_coverage(status="partially_covered", aspects=[])
 
 
 def test_ac_coverage_rejects_not_covered_status_when_aspects_are_present():
+    """An AcCoverage row can't be 'not_covered' while it still has covered aspects."""
     with pytest.raises(ValidationError, match="status must be 'covered'"):
         factories.ac_coverage(status="not_covered", aspects=[factories.aspect_coverage(status="covered")])
 
 
 def test_ac_coverage_accepts_covered_status_when_every_aspect_is_covered():
+    """An AcCoverage row is 'covered' when every one of its aspects is covered."""
     row = factories.ac_coverage(status="covered", aspects=[factories.aspect_coverage(status="covered")])
 
     assert row.status == "covered"
 
 
 def test_ac_coverage_rejects_a_malformed_ac_id():
+    """An AcCoverage row rejects an ac_id that doesn't match the canonical AC id pattern."""
     # AC_ID_PATTERN, same as common.AcceptanceCriterion.id and ui_tests.AcLink.id - the
     # belongs-to-entity prefix check alone does not catch a malformed suffix.
     with pytest.raises(ValidationError):
@@ -125,26 +138,31 @@ def test_ac_coverage_rejects_a_malformed_ac_id():
 
 
 def test_aspect_coverage_rejects_covered_status_with_no_linked_scenarios():
+    """An AspectCoverage can't be 'covered' with no linked scenario_ids."""
     with pytest.raises(ValidationError, match="status must be 'not_covered'"):
         factories.aspect_coverage(status="covered", scenario_ids=[])
 
 
 def test_aspect_coverage_rejects_not_covered_status_with_linked_scenarios():
+    """An AspectCoverage can't be 'not_covered' while it still has linked scenario_ids."""
     with pytest.raises(ValidationError, match="status must be 'covered'"):
         factories.aspect_coverage(status="not_covered", scenario_ids=["SCN-001"])
 
 
 def test_ac_coverage_without_aspects_rejects_covered_status_with_no_linked_scenarios():
+    """An AcCoverage row with no aspects can't be 'covered' with no linked scenario_ids."""
     with pytest.raises(ValidationError, match="status must be 'not_covered'"):
         factories.ac_coverage(status="covered", aspects=[], scenario_ids=[])
 
 
 def test_ac_coverage_without_aspects_rejects_not_covered_status_with_linked_scenarios():
+    """An AcCoverage row with no aspects can't be 'not_covered' while scenario_ids are linked."""
     with pytest.raises(ValidationError, match="status must be 'covered'"):
         factories.ac_coverage(status="not_covered", aspects=[], scenario_ids=["SCN-001"])
 
 
 def test_planned_summary_models_total_backlog_and_by_target_version():
+    """A valid PlannedSummary preserves its total, backlog and per-target-version counts as given."""
     summary = factories.planned_summary(total=5, backlog=2, by_target_version={"1.5.0": 2, "1.6.0": 1})
 
     assert summary.total == 5
@@ -153,21 +171,25 @@ def test_planned_summary_models_total_backlog_and_by_target_version():
 
 
 def test_planned_summary_rejects_a_total_that_does_not_equal_backlog_plus_targeted():
+    """A PlannedSummary rejects a total that doesn't equal backlog plus the targeted counts."""
     with pytest.raises(ValidationError, match="must equal backlog"):
         factories.planned_summary(total=1, backlog=1, by_target_version={"1.5.0": 2})
 
 
 def test_by_target_version_keys_must_be_a_version_string():
+    """PlannedSummary's by_target_version rejects a key that isn't a valid version string."""
     with pytest.raises(ValidationError):
         factories.planned_summary(by_target_version={"v1.5": 1})
 
 
 def test_by_target_version_values_must_be_nonnegative():
+    """PlannedSummary's by_target_version rejects a negative count value."""
     with pytest.raises(ValidationError):
         factories.planned_summary(by_target_version={"1.5.0": -1})
 
 
 def test_entity_coverage_state_is_the_full_lifecycle_state_not_just_counted_states():
+    """An EntityCoverage's own state can be any lifecycle value, independent of its ACs' counted states."""
     # A User Story can still be `in_review` overall while one of its acceptance criteria is
     # already `active` and must be counted (docs/contracts.md, "Coverage": counting is
     # decided per AC, in both views, never by the parent entity's state).
@@ -178,9 +200,11 @@ def test_entity_coverage_state_is_the_full_lifecycle_state_not_just_counted_stat
 
 
 def test_acceptance_criterion_id_must_belong_to_its_entity():
+    """An EntityCoverage rejects an AcCoverage row whose ac_id doesn't belong to that entity."""
     with pytest.raises(ValidationError, match="does not belong to entity"):
         _result(entities=[factories.entity_coverage(entity_id="US-001", acceptance_criteria=[factories.ac_coverage(parent_id="US-002")])])
 
 
 def test_record_root_is_entities():
+    """RECORD_ROOTS maps the 'entities' array key to EntityCoverage."""
     assert RECORD_ROOTS == {"entities": EntityCoverage}

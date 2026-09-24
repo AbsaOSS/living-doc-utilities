@@ -119,16 +119,19 @@ _IDS = [f"{model.__name__}.{field_name}" for _, model, field_name in ALL_HEADING
 
 @pytest.mark.parametrize("heading, model, field_name", ALL_HEADINGS, ids=_IDS)
 def test_authored_heading_has_a_field_on_the_shared_model(heading, model, field_name):
+    """Every authored heading in the table maps to a real field on its shared pydantic model."""
     assert field_name in model.model_fields, f"heading '{heading}' has no '{field_name}' field on {model.__name__}"
 
 
 def test_every_heading_in_this_table_is_exercised():
+    """The heading table's combined length matches the expected count, so no list silently went empty."""
     # Guards the table itself: if a future edit empties one of the lists above, the
     # parametrized test would just silently stop covering it.
     assert len(ALL_HEADINGS) == 9 + 9 + 11 + 7 + 2 + 5
 
 
 def test_parsed_entity_field_set_equals_entity_minus_provenance_by_construction():
+    """`ParsedEntity`'s field set equals `Entity`'s minus the provenance-only fields, by shared-base construction."""
     # Both derive their authored fields from the one shared EntityContent base, so this
     # holds structurally - not from two hand-kept lists (S-11/Q-04).
     assert set(ParsedEntity.model_fields) == set(Entity.model_fields) - {"source_ref", "tags", "timestamps"}

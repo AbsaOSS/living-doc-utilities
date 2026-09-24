@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+"""PyGithub-dependent fixtures used only by tests/github/."""
+
 import time
 
 import pytest
@@ -31,6 +34,7 @@ def rate_limiter(mocker, mock_rate_limiter):
 
 @pytest.fixture
 def mock_rate_limiter(mocker):
+    """Mock rate-limit state with calls remaining and a reset time an hour in the future."""
     mock_rate = mocker.Mock(spec=Rate)
     mock_rate.timestamp = mocker.Mock(return_value=time.time() + 3600)
     mock_rate.remaining = 10

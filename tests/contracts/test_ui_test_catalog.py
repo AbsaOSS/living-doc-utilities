@@ -47,12 +47,14 @@ def _result(**overrides: Any) -> UiTestCatalogResult:
 
 
 def test_metadata_source_inputs_must_be_non_empty():
+    """An empty `source_inputs` list is rejected; a transform always has at least its documentation input."""
     # R7: a transform always has at least its documentation input.
     with pytest.raises(ValidationError, match="source_inputs must have at least one entry"):
         _result(metadata=factories.metadata())
 
 
 def test_round_trips_through_json():
+    """A UiTestCatalogResult serializes to JSON and back into an equal model, feature_files intact."""
     result = _result()
 
     payload = json.loads(result.model_dump_json())
@@ -63,10 +65,12 @@ def test_round_trips_through_json():
 
 
 def test_document_carries_only_the_view():
+    """`Document` has exactly one field, `view`."""
     assert set(Document.model_fields) == {"view"}
 
 
 def test_scenarios_are_grouped_by_feature_file_and_then_by_link_kind():
+    """A FeatureFileCatalog groups its scenarios by link kind (user story, functionality, unlinked)."""
     catalog = factories.feature_file_catalog()
 
     assert catalog.feature_file == "checkout.feature"
@@ -76,6 +80,7 @@ def test_scenarios_are_grouped_by_feature_file_and_then_by_link_kind():
 
 
 def test_scenario_reuses_the_ui_tests_scenario_model_directly():
+    """`LinkedScenarios.scenarios` is typed as a list of the shared `Scenario` model from `ui_tests`, not a copy."""
     annotation = LinkedScenarios.model_fields["scenarios"].annotation
     (item_type,) = annotation.__args__
 
@@ -83,6 +88,7 @@ def test_scenario_reuses_the_ui_tests_scenario_model_directly():
 
 
 def test_unlinked_scenarios_use_the_shared_scenario_model_too():
+    """`FeatureFileCatalog.unlinked` is typed as a list of the shared `Scenario` model from `ui_tests`, not a copy."""
     annotation = FeatureFileCatalog.model_fields["unlinked"].annotation
     (item_type,) = annotation.__args__
 
@@ -90,4 +96,5 @@ def test_unlinked_scenarios_use_the_shared_scenario_model_too():
 
 
 def test_record_root_is_feature_files():
+    """The contract's only record root is `feature_files`, mapped to `FeatureFileCatalog`."""
     assert RECORD_ROOTS == {"feature_files": FeatureFileCatalog}
