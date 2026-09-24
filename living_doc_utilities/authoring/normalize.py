@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import NamedTuple, Optional
 
+from living_doc_utilities.authoring.identity import _ENTITY_ID_RE
 from living_doc_utilities.contracts.common import DocType
 
 # Rule names (authoring rules 1-7 plus 5b, per AbsaOSS/living-doc's docs/specs/issues/
@@ -71,18 +72,13 @@ class Change(NamedTuple):
     after: str
 
 
-@dataclass(frozen=True)
-class TypeProfile:
-    """Which of an entity type's sections are bullet-list sections. The AC block itself
-    is always bullet-eligible regardless of entity type, so it is not listed here."""
-
-    bullet_sections: frozenset[str]
-
-
-TYPE_PROFILES: dict[DocType, TypeProfile] = {
-    "DocumentedUserStory": TypeProfile(bullet_sections=frozenset({"business_value", "preconditions", "not_in_scope"})),
-    "DocumentedFeature": TypeProfile(bullet_sections=frozenset()),
-    "DocumentedFunctionality": TypeProfile(bullet_sections=frozenset({"rationale", "preconditions", "not_in_scope"})),
+# Which of an entity type's sections are bullet-list sections. The AC block itself is
+# always bullet-eligible regardless of entity type, so it is not listed here. Data only -
+# nothing else in this module branches on entity type.
+TYPE_PROFILES: dict[DocType, frozenset[str]] = {
+    "DocumentedUserStory": frozenset({"business_value", "preconditions", "not_in_scope"}),
+    "DocumentedFeature": frozenset(),
+    "DocumentedFunctionality": frozenset({"rationale", "preconditions", "not_in_scope"}),
 }
 
 
@@ -104,6 +100,10 @@ class NormalizedSource:
 # looks like - they only reshape whatever token a caller hands them, based on where it
 # sits in the line. Validation lives in ac_grammar.py alone.
 
+# A canonical "- " bullet line - shared by ac_grammar (an AC block's own bullets) and
+# issue_body (extract_bullets), so imported by both rather than redefined.
+_BULLET_RE = re.compile(r"^-\s?(?P<text>.*)$")
+
 _BULLET_START_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>[–—*•+])(?P<sp>\s)(?P<rest>.*)$")
 # A dash separates header segments only when whitespace sits on at least one side -
 # otherwise it is indistinguishable from a hyphen inside a state token (e.g. the
@@ -116,41 +116,42 @@ _AC_HEADER_FULL_RE = re.compile(r"^(?P<lead>[#*]{0,3}\s*)AC:(?P<id>\S+)\s*\((?P<
 _AC_TRAIL_DESC_RE = re.compile(r"^\s*[-–—]\s*(?P<desc>.+)$")
 
 
-def _fix_bullet_marker(line: str, m: "re.Match[str]") -> tuple[str, bool]:
-    """`m` is the caller's own `_BULLET_START_RE.match(line)` - callers already need it to
+def _fix_bullet_marker(m: "re.Match[str]") -> str:
+    """`m` is the caller's own `_BULLET_START_RE.match(...)` - callers already need it to
     decide whether to call this at all, so it is passed in rather than matched again here."""
-    new_line = f"{m.group('indent')}-{m.group('sp')}{m.group('rest')}"
-    return new_line, new_line != line
+    return f"{m.group('indent')}-{m.group('sp')}{m.group('rest')}"
 
 
-def _reshape_version_form(token: str) -> tuple[str, bool]:
+def _reshape_version_form(token: str) -> str:
     m = _VERSION_RESHAPE_RE.match(token)
     if not m or m.group(2) is None:
         # No minor part - e.g. bare "v1" or "1": left as-is, no digit to infer a patch
         # from (a malformed-acceptance-criterion error downstream, not normalize's job).
-        return token, False
+        return token
     major, minor, patch = m.group(1), m.group(2), m.group(3) or "0"
-    reshaped = f"v{major}.{minor}.{patch}"
-    return reshaped, reshaped != token
+    return f"v{major}.{minor}.{patch}"
 
 
-def _canonicalize_token_case(token: str) -> tuple[str, bool]:
-    canon = re.sub(r"[\s\-]+", "_", token.strip().lower())
-    return canon, canon != token
+# Shared with ac_grammar._slug_placeholder_name - both fold a token to lowercase
+# snake_case, only the return shape (plain string vs. a (value, changed) pair) differs.
+_WORD_SEP_RE = re.compile(r"[\s\-]+")
+
+
+def _canonicalize_token_case(token: str) -> str:
+    return _WORD_SEP_RE.sub("_", token.strip().lower())
 
 
 _NBSP = chr(0xA0)  # kept out of string literals - formatters fold \u00A0 escapes into a literal, invisible byte
 _INDENT_WS_RE = re.compile("^[ \t" + _NBSP + "]*")
 
 
-def _fix_indentation_whitespace(line: str) -> tuple[str, bool]:
+def _fix_indentation_whitespace(line: str) -> str:
     m = _INDENT_WS_RE.match(line)
     lead = m.group(0) if m else ""
     if not lead or ("\t" not in lead and _NBSP not in lead):
-        return line, False
+        return line
     new_lead = lead.replace("\t", " ").replace(_NBSP, " ")
-    new_line = new_lead + line[len(lead) :]
-    return new_line, True
+    return new_lead + line[len(lead) :]
 
 
 def _rewrite_ac_header_inner(inner: str) -> tuple[str, set[str]]:
@@ -166,8 +167,9 @@ def _rewrite_ac_header_inner(inner: str) -> tuple[str, set[str]]:
             fired.add(RULE_AC_HEADER_SEPARATOR)
 
     if len(segments) == 1:
-        canon, changed = _canonicalize_token_case(segments[0].strip())
-        if changed:
+        seg0 = segments[0].strip()
+        canon = _canonicalize_token_case(seg0)
+        if canon != seg0:
             fired.add(RULE_STATE_CASING)
         return canon, fired
 
@@ -178,8 +180,9 @@ def _rewrite_ac_header_inner(inner: str) -> tuple[str, set[str]]:
         if idx == last_index and idx > 0:
             rp_m = _REMOVAL_PLANNED_CLAUSE_RE.match(seg_stripped)
             if rp_m:
-                rp_version, v_changed = _reshape_version_form(rp_m.group(1))
-                if v_changed:
+                version_raw = rp_m.group(1)
+                rp_version = _reshape_version_form(version_raw)
+                if rp_version != version_raw:
                     fired.add(RULE_VERSION_FORM)
                 keyword_raw = seg_stripped[: rp_m.start(1)].rstrip()
                 if keyword_raw != "removal planned":
@@ -187,13 +190,13 @@ def _rewrite_ac_header_inner(inner: str) -> tuple[str, set[str]]:
                 norm_segments.append(f"removal planned {rp_version}")
                 continue
         if idx == 0:
-            reshaped, v_changed = _reshape_version_form(seg_stripped)
-            if v_changed:
+            reshaped = _reshape_version_form(seg_stripped)
+            if reshaped != seg_stripped:
                 fired.add(RULE_VERSION_FORM)
             norm_segments.append(reshaped)
             continue
-        canon, changed = _canonicalize_token_case(seg_stripped)
-        if changed:
+        canon = _canonicalize_token_case(seg_stripped)
+        if canon != seg_stripped:
             fired.add(RULE_STATE_CASING)
         norm_segments.append(canon)
 
@@ -224,18 +227,43 @@ def _rewrite_ac_header_content(
 
 
 def _slugify_section(text: str) -> str:
+    """Shared with issue_body._split_h2_sections, which slugifies the same way."""
     return re.sub(r"[\s_]+", "_", text.strip().lower())
 
 
-def _emit(out_lines: list[str], changes: list[Change], fired: set, before: str, after: str) -> None:
+def _emit(out_lines: list[str], changes: list[Change], fired: set[str], before: str, after: str) -> None:
     out_lines.append(after)
     for rule in sorted(fired):
         changes.append(Change(len(out_lines), rule, before, after))
 
 
-# --- entity/title rules (5, 5b) -----------------------------------------------------
+def _in_bullet_context(in_ac_block: bool, current_section: Optional[str], profile: frozenset) -> bool:
+    """A bullet-marker line is content precisely inside an AC block or a bullet-list
+    section - the one context check `_normalize_markdown` and `_normalize_feature_header`
+    both make before treating a line as a candidate bullet."""
+    return in_ac_block or (current_section is not None and current_section in profile)
 
-_ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
+
+def _fired_if(changed: bool, rule: str) -> set[str]:
+    """`{rule}` when `changed`, else the empty set - the single-rule `fired` shape most
+    `_emit_if_changed` call sites below build from a plain before/after comparison."""
+    return {rule} if changed else set()
+
+
+def _emit_if_changed(out_lines: list[str], changes: list[Change], fired: set[str], before: str, after: str) -> None:
+    """`_emit`'s `after` when `fired` is non-empty, else `before` unchanged and no
+    `Change` recorded - the "rewrite this line only if some rule actually fired" shape
+    every per-format handler below repeats."""
+    if fired:
+        _emit(out_lines, changes, fired, before, after)
+    else:
+        out_lines.append(before)
+
+
+# --- entity/title rules (5, 5b) -----------------------------------------------------
+# _ENTITY_ID_RE itself lives in identity.py (entity-id derivation is that module's job);
+# imported here rather than redefined, since normalize_title also needs to locate one.
+
 _TITLE_SEP_AFTER_ID_RE = re.compile(r"^\s*([-–—:|·])\s*")
 # An en/em dash is always the structural Feature-name/Functionality-name separator
 # (English compound words use a plain hyphen, never an en/em dash), so it is rewritten
@@ -278,7 +306,25 @@ def _record_title_dash(dm: "re.Match[str]", changes: list[Change]) -> str:
     return " - "
 
 
+def _emit_title_if_present(out_lines: list[str], changes: list[Change], raw: str, prefix: str, content: str) -> bool:
+    """The `feature_header`/`page_object` banner's title line: rewritten (rules 5/5b) and
+    emitted if `content` carries the 'LIVING DOC' marker, in which case this returns
+    `True` so the caller can flip its own `seen_title` flag and move on to the next line.
+    `False` (nothing emitted) otherwise, leaving the line for the caller's own handling."""
+    if "LIVING DOC" not in content:
+        return False
+    new_content, title_changes = normalize_title(content)
+    fired = {c.rule for c in title_changes}
+    _emit_if_changed(out_lines, changes, fired, raw, prefix + new_content)
+    return True
+
+
 # --- per-format handlers -------------------------------------------------------------
+
+# A Gherkin `Feature:` declaration line - shared by feature_header (bounds its header-
+# block banner search) and scenario (resets a pending tag block), so imported by both
+# rather than redefined.
+_FEATURE_LINE_RE = re.compile(r"^Feature:\s*.*$")
 
 _MD_HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.*)$")
 # CommonMark fence syntax (spec, "Fenced code blocks"): up to three literal leading
@@ -322,7 +368,7 @@ def compute_fence_flags(lines: list[str]) -> list[bool]:
     return flags
 
 
-def _normalize_markdown(lines: list[str], profile: TypeProfile, changes: list[Change]) -> list[str]:
+def _normalize_markdown(lines: list[str], profile: frozenset[str], changes: list[Change]) -> list[str]:
     out_lines: list[str] = []
     current_section: Optional[str] = None
     in_ac_block = False
@@ -349,10 +395,7 @@ def _normalize_markdown(lines: list[str], profile: TypeProfile, changes: list[Ch
             lead = header_full_m.group("lead")
             new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=False, bullet_indent="")
             in_ac_block = True
-            if not fired:
-                out_lines.append(raw)
-                continue
-            _emit(out_lines, changes, fired, raw, f"{lead}{new_lines[0]}")
+            _emit_if_changed(out_lines, changes, fired, raw, f"{lead}{new_lines[0]}")
             for extra in new_lines[1:]:
                 _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", extra)
             continue
@@ -365,21 +408,15 @@ def _normalize_markdown(lines: list[str], profile: TypeProfile, changes: list[Ch
             continue
 
         if current_section == "status":
-            canon, changed = _canonicalize_token_case(stripped)
-            if changed:
-                _emit(out_lines, changes, {RULE_STATE_CASING}, raw, canon)
-            else:
-                out_lines.append(raw)
+            canon = _canonicalize_token_case(stripped)
+            _emit_if_changed(out_lines, changes, _fired_if(canon != stripped, RULE_STATE_CASING), raw, canon)
             continue
 
-        if in_ac_block or (current_section is not None and current_section in profile.bullet_sections):
+        if _in_bullet_context(in_ac_block, current_section, profile):
             bullet_m = _BULLET_START_RE.match(raw)
             if bullet_m:
-                new_line, changed = _fix_bullet_marker(raw, bullet_m)
-                if changed:
-                    _emit(out_lines, changes, {RULE_BULLET_MARKER}, raw, new_line)
-                else:
-                    out_lines.append(raw)
+                new_line = _fix_bullet_marker(bullet_m)
+                _emit_if_changed(out_lines, changes, _fired_if(new_line != raw, RULE_BULLET_MARKER), raw, new_line)
                 continue
 
         out_lines.append(raw)
@@ -391,16 +428,21 @@ _FH_KEY_LIST_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):\s*$")
 _FH_KEY_SCALAR_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):(?P<sep>\s+)(?P<val>.*)$")
 
 
+# Shared with feature_header._strip_comment_prefix, which only needs the second half of
+# the split this function returns.
+_COMMENT_PREFIX_RE = re.compile(r"^#\s?")
+
+
 def _split_comment_prefix(raw: str) -> tuple[str, str]:
     """Strips the feature-header comment marker: a leading '#' plus at most one
-    following space. Returns (prefix, content) so callers can reattach the exact
-    prefix that was removed."""
-    if raw.startswith("# "):
-        return raw[:2], raw[2:]
-    return raw[:1], raw[1:]
+    following whitespace character. Returns (prefix, content) so callers can reattach
+    the exact prefix that was removed."""
+    m = _COMMENT_PREFIX_RE.match(raw)
+    prefix = m.group(0) if m else ""
+    return prefix, raw[len(prefix) :]
 
 
-def _normalize_feature_header(lines: list[str], profile: TypeProfile, changes: list[Change]) -> list[str]:
+def _normalize_feature_header(lines: list[str], profile: frozenset[str], changes: list[Change]) -> list[str]:
     out_lines: list[str] = []
     current_section: Optional[str] = None
     in_ac_block = False
@@ -426,24 +468,15 @@ def _normalize_feature_header(lines: list[str], profile: TypeProfile, changes: l
             in_ac_block = False
             continue
 
-        if not seen_title and "LIVING DOC" in content:
+        if not seen_title and _emit_title_if_present(out_lines, changes, raw, prefix, content):
             seen_title = True
-            new_content, title_changes = normalize_title(content)
-            fired = {c.rule for c in title_changes}
-            if fired:
-                _emit(out_lines, changes, fired, raw, prefix + new_content)
-            else:
-                out_lines.append(raw)
             continue
 
         header_full_m = _AC_HEADER_FULL_RE.match(stripped)
         if header_full_m and header_full_m.group("lead").strip() == "":
             new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=False, bullet_indent="  ")
             in_ac_block = True
-            if not fired:
-                out_lines.append(raw)
-                continue
-            _emit(out_lines, changes, fired, raw, f"#   {new_lines[0]}")
+            _emit_if_changed(out_lines, changes, fired, raw, f"#   {new_lines[0]}")
             for extra in new_lines[1:]:
                 # `extra` already carries the "  " `bullet_indent` passed above; prefixing
                 # it with the same "#   " used for the AC header line (not one more "  ")
@@ -464,21 +497,19 @@ def _normalize_feature_header(lines: list[str], profile: TypeProfile, changes: l
             in_ac_block = False
             if scalar_m.group("key") == "status":
                 val = scalar_m.group("val")
-                canon, changed = _canonicalize_token_case(val.strip())
-                if changed:
-                    _emit(out_lines, changes, {RULE_STATE_CASING}, raw, raw.replace(val, canon, 1))
-                    continue
+                canon = _canonicalize_token_case(val.strip())
+                fired = _fired_if(canon != val.strip(), RULE_STATE_CASING)
+                _emit_if_changed(out_lines, changes, fired, raw, raw.replace(val, canon, 1))
+                continue
             out_lines.append(raw)
             continue
 
-        if in_ac_block or (current_section is not None and current_section in profile.bullet_sections):
+        if _in_bullet_context(in_ac_block, current_section, profile):
             bullet_m = _BULLET_START_RE.match(content)
             if bullet_m:
-                new_content, changed = _fix_bullet_marker(content, bullet_m)
-                if changed:
-                    _emit(out_lines, changes, {RULE_BULLET_MARKER}, raw, prefix + new_content)
-                else:
-                    out_lines.append(raw)
+                new_content = _fix_bullet_marker(bullet_m)
+                fired = _fired_if(new_content != content, RULE_BULLET_MARKER)
+                _emit_if_changed(out_lines, changes, fired, raw, prefix + new_content)
                 continue
 
         out_lines.append(raw)
@@ -506,14 +537,14 @@ def _normalize_scenario_file(lines: list[str], changes: list[Change]) -> list[st
             continue
 
         new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=True, bullet_indent="")
-        if not fired:
-            out_lines.append(raw)
-            continue
-        _emit(out_lines, changes, fired, raw, m.group("lead") + new_lines[0])
+        _emit_if_changed(out_lines, changes, fired, raw, m.group("lead") + new_lines[0])
 
     return out_lines
 
 
+# Shared with page_object._content_lines. The optional trailing char is a literal space,
+# not \s: a tab or NBSP there must fall into `content`, where _fix_indentation_whitespace
+# can still rewrite it - absorbing it into `lead` here would let it slip through unfixed.
 _PO_LINE_RE = re.compile(r"^(?P<lead>\s*\*[ ]?)(?P<content>.*)$")
 
 
@@ -532,21 +563,13 @@ def _normalize_page_object(lines: list[str], changes: list[Change]) -> list[str]
         content = m.group("content")
         prefix = m.group("lead")
 
-        if not seen_title and "LIVING DOC" in content:
+        if not seen_title and _emit_title_if_present(out_lines, changes, raw, prefix, content):
             seen_title = True
-            new_content, title_changes = normalize_title(content)
-            fired = {c.rule for c in title_changes}
-            if fired:
-                _emit(out_lines, changes, fired, raw, prefix + new_content)
-            else:
-                out_lines.append(raw)
             continue
 
-        new_content, changed = _fix_indentation_whitespace(content)
-        if changed:
-            _emit(out_lines, changes, {RULE_WHITESPACE}, raw, prefix + new_content)
-        else:
-            out_lines.append(raw)
+        new_content = _fix_indentation_whitespace(content)
+        fired = _fired_if(new_content != content, RULE_WHITESPACE)
+        _emit_if_changed(out_lines, changes, fired, raw, prefix + new_content)
 
     return out_lines
 

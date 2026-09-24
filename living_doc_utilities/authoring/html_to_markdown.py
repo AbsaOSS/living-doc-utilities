@@ -40,6 +40,7 @@ samples are available. This covers the well-formed-HTML case.
 """
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from typing import Optional
@@ -64,18 +65,14 @@ _SUPPORTED_TAGS = (
 _WHITESPACE_RE = re.compile(r"[ \t\r\n]+")
 
 
-def _is_event_handler_attribute(name: str) -> bool:
-    return name.lower().startswith("on")
-
-
 @dataclass
 class _Elem:
     """One kept element of the Markdown-relevant tree: a tag, its (already-sanitised)
     attributes, and its children (nested `_Elem` instances and/or literal text)."""
 
     tag: str
-    attrs: dict
-    children: list = field(default_factory=list)
+    attrs: dict[str, Optional[str]]
+    children: "list[_Elem | str]" = field(default_factory=list)
 
 
 class _DropCountingParser(HTMLParser):
@@ -85,15 +82,15 @@ class _DropCountingParser(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.counts: dict[str, int] = {}
+        self.counts: Counter[str] = Counter()
         self._tag_allowlist = sanitized_tag_allowlist()
 
     def _count(self, key: str) -> None:
-        self.counts[key] = self.counts.get(key, 0) + 1
+        self.counts[key] += 1
 
     def _handle(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
         for name, _value in attrs:
-            if _is_event_handler_attribute(name):
+            if name.lower().startswith("on"):
                 self._count("event_handler_attribute")
         if tag == "script":
             self._count("script_tag")
@@ -128,11 +125,11 @@ class _TreeBuilder(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.root = _Elem(tag="root", attrs={})
         self._stack = [self.root]
-        self.counts: dict[str, int] = {}
+        self.counts: Counter[str] = Counter()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
         if tag not in _SUPPORTED_TAGS:
-            self.counts["unknown_tag"] = self.counts.get("unknown_tag", 0) + 1
+            self.counts["unknown_tag"] += 1
             return
         elem = _Elem(tag=tag, attrs=dict(attrs))
         self._stack[-1].children.append(elem)
@@ -238,7 +235,7 @@ def _walk_block(elem: _Elem, out: list[str]) -> None:
     flush()
 
 
-def _build_warnings(counts: dict[str, int]) -> list[ContractWarning]:
+def _build_warnings(counts: Counter[str]) -> list[ContractWarning]:
     if not counts:
         return []
     summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
@@ -266,15 +263,9 @@ def convert_html_to_markdown(html: str) -> tuple[str, list[ContractWarning]]:
     builder.feed(sanitized)
     builder.close()
 
-    counts = dict(drop_scan.counts)
-    for key, value in builder.counts.items():
-        counts[key] = counts.get(key, 0) + value
+    counts = drop_scan.counts + builder.counts
 
     lines: list[str] = []
     _walk_block(builder.root, lines)
-    while lines and lines[-1] == "":
-        lines.pop()
-    while lines and lines[0] == "":
-        lines.pop(0)
 
-    return "\n".join(lines), _build_warnings(counts)
+    return "\n".join(lines).strip("\n"), _build_warnings(counts)

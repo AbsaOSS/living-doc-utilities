@@ -27,13 +27,13 @@ from dataclasses import dataclass
 from typing import Optional
 
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
-from living_doc_utilities.authoring.issue_body import ParsedEntity
-from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEYS as _ISSUE_BODY_IGNORED_AUTHORED_KEYS
+from living_doc_utilities.authoring.issue_body import ParsedEntity, split_id_list
+from living_doc_utilities.authoring.normalize import _PO_LINE_RE, SourceFormat, normalize
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.doc_entities import PageRef
 from living_doc_utilities.contracts.envelope import ContractWarning
 
-_LINE_RE = re.compile(r"^\s*\*\s?(?P<content>.*)$")
 _BANNER_CONTENT_RE = re.compile(r"^=+\s*(\*/)?\s*$")
 _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*(?P<val>.*)$")
 _COMMENT_OPEN_RE = re.compile(r"^\s*/\*")
@@ -42,10 +42,9 @@ _COMMENT_CLOSE_RE = re.compile(r".*\*/\s*$")
 # A glossary-defined key that maps to no model field, with the reason it is dropped rather
 # than stored (docs/contracts.md, "State and `state_origin`") - a documented drop, not a
 # silent one. Every other PageObject header key maps to a real field instead (see
-# tests/contracts/test_authored_field_set.py).
-IGNORED_AUTHORED_KEYS = {
-    "status": "Feature state is derived; use `stub-reason:` for an uninstrumented surface",
-}
+# tests/contracts/test_authored_field_set.py). The reason text itself is issue_body's -
+# both formats drop the same glossary key for the same reason, so it is declared once.
+IGNORED_AUTHORED_KEYS = {"status": _ISSUE_BODY_IGNORED_AUTHORED_KEYS["Status"]}
 
 # Required + optional keys of a full header, and of a cross-reference header (living-doc's
 # header-types.md tables). `status` is recognised - only to be reported as ignored.
@@ -103,7 +102,7 @@ def _header_comment_lines(lines: list[str]) -> list[str]:
 def _content_lines(lines: list[str]) -> list[str]:
     contents = []
     for raw in _header_comment_lines(lines):
-        line_m = _LINE_RE.match(raw)
+        line_m = _PO_LINE_RE.match(raw)
         if line_m:
             contents.append(line_m.group("content").rstrip())
     return contents
@@ -150,12 +149,6 @@ def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, st
             values[current_key] = f"{values[current_key]} {stripped}".strip()
 
     return values, unrecognised
-
-
-def _split_list(value: Optional[str], sep: str = ",") -> list[str]:
-    if not value or value.strip().lower() == "none":
-        return []
-    return [token.strip() for token in value.split(sep) if token.strip()]
 
 
 def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[ContractWarning]]:
@@ -211,9 +204,9 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
             is_primary=False,
             route=values.get("route", ""),
             page_object=values.get("page-object", ""),
-            owners=_split_list(values.get("owners")),
+            owners=split_id_list(values.get("owners")),
             purpose=values.get("purpose", ""),
-            functionalities=_split_list(values.get("functionalities")),
+            functionalities=split_id_list(values.get("functionalities")),
         )
         return PageObjectResult(page_ref=page_ref, entity=None, parent_feat=values.get("parent-feat")), warnings
 
@@ -221,7 +214,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
         is_primary=True,
         route=values.get("route", ""),
         page_object=values.get("page-object", ""),
-        owners=_split_list(values.get("owners")),
+        owners=split_id_list(values.get("owners")),
         purpose=values.get("purpose", ""),
         functionalities=[],
     )
@@ -231,12 +224,12 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
         title=title,
         purpose=values.get("purpose"),
         surface_type=values.get("surface_type"),
-        owners=_split_list(values.get("owners")),
-        user_stories=_split_list(values.get("user_stories")),
-        functionalities=_split_list(values.get("functionalities")),
-        external_dependencies=_split_list(values.get("external_dependencies")),
+        owners=split_id_list(values.get("owners")),
+        user_stories=split_id_list(values.get("user_stories")),
+        functionalities=split_id_list(values.get("functionalities")),
+        external_dependencies=split_id_list(values.get("external_dependencies")),
         stub_reason=values.get("stub-reason"),
-        wizard_steps=_split_list(values.get("wizard-steps"), sep=" · "),
+        wizard_steps=split_id_list(values.get("wizard-steps"), sep=" · "),
         pages=[page_ref],
     )
     return PageObjectResult(page_ref=page_ref, entity=entity, parent_feat=None), warnings

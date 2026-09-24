@@ -31,6 +31,8 @@ from living_doc_utilities.contracts.envelope import ContractWarning
 # *first* id-shaped run in the title: "GH-US-001" itself is not id-shaped (letters directly
 # followed by "-" then digits fails to match starting at "GH", because what follows "GH-" is
 # "US", not a digit), so the search naturally lands on "US-001".
+# Imported by normalize.normalize_title, which needs the same id shape to find a title's
+# id boundary - defined here, this module's own concern, rather than redefined there.
 _ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
 
 # The `.feature`-banner / PageObject-banner title marker (living-doc's docs/guides/

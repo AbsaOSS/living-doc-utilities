@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, field
 
 from living_doc_utilities.authoring.ac_grammar import is_valid_ac_id
-from living_doc_utilities.authoring.normalize import SourceFormat, normalize
+from living_doc_utilities.authoring.normalize import _FEATURE_LINE_RE, SourceFormat, normalize
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.envelope import ContractWarning
@@ -34,7 +34,6 @@ from living_doc_utilities.contracts.ui_tests import AcLink
 
 _TAG_TOKEN_RE = re.compile(r"@\S+")
 _SCENARIO_RE = re.compile(r"^Scenario(?:\s+Outline)?:\s*(?P<title>.*)$")
-_FEATURE_RE = re.compile(r"^Feature:\s*.*$")
 _BACKGROUND_RE = re.compile(r"^Background:\s*.*$")
 _AC_TAG_RE = re.compile(r"^@AC:(?P<id>[^/\s]*)(?:/aspect:(?P<aspect>\S+))?$")
 
@@ -76,7 +75,7 @@ def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenari
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        if _FEATURE_RE.match(stripped) or _BACKGROUND_RE.match(stripped):
+        if _FEATURE_LINE_RE.match(stripped) or _BACKGROUND_RE.match(stripped):
             pending_tags = []
             continue
         if stripped.startswith("@"):

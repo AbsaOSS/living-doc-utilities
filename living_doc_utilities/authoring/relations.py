@@ -24,6 +24,8 @@ to an entity of the wrong type - e.g. a Functionality's id copy-pasted into a Fe
 `user_stories`.
 """
 
+from typing import Iterator
+
 from living_doc_utilities.authoring.issue_body import ParsedEntity
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.envelope import ContractWarning
@@ -48,57 +50,56 @@ def _type_mismatch(entity: ParsedEntity, field: str, target: ParsedEntity, expec
     )
 
 
+def _relations_of(entity: ParsedEntity) -> Iterator[tuple[str, str, str]]:
+    """Every `(field, target_id, expected_type)` relation `entity` declares, in the order
+    `check_relations` reports them in: a Feature's `user_stories` then `functionalities`,
+    a Functionality's `parent`, then any entity's `superseded_by` last."""
+    if entity.type == "DocumentedFeature":
+        for us_id in entity.user_stories:
+            yield "user_stories", us_id, "DocumentedUserStory"
+        for func_id in entity.functionalities:
+            yield "functionalities", func_id, "DocumentedFunctionality"
+    if entity.type == "DocumentedFunctionality" and entity.parent is not None:
+        yield "parent", entity.parent, "DocumentedFeature"
+    if entity.superseded_by is not None:
+        yield "superseded_by", entity.superseded_by, entity.type
+
+
 def check_relations(entities: list[ParsedEntity]) -> list[ContractWarning]:
     """Checks every declared relation (`Feature.user_stories`, `Feature.functionalities`,
     `Functionality.parent`, any entity's `superseded_by`) against the given entity set: that
     it resolves within it (`UNRESOLVED_RELATION`), and that the resolved target is of the
-    field's expected type (`RELATION_TYPE_MISMATCH`)."""
+    field's expected type (`RELATION_TYPE_MISMATCH`). A resolved, correctly-typed
+    `functionalities`/`parent` link is further checked for a consistent back-reference
+    (`RELATION_MISMATCH`) - the only two fields with a reverse list to check against."""
     warnings: list[ContractWarning] = []
     by_id = {entity.entity_id: entity for entity in entities}
 
     for entity in entities:
-        if entity.type == "DocumentedFeature":
-            for us_id in entity.user_stories:
-                story = by_id.get(us_id)
-                if story is None:
-                    warnings.append(_unresolved(entity, us_id, "user_stories"))
-                elif story.type != "DocumentedUserStory":
-                    warnings.append(_type_mismatch(entity, "user_stories", story, "DocumentedUserStory"))
-            for func_id in entity.functionalities:
-                func = by_id.get(func_id)
-                if func is None:
-                    warnings.append(_unresolved(entity, func_id, "functionalities"))
-                elif func.type != "DocumentedFunctionality":
-                    warnings.append(_type_mismatch(entity, "functionalities", func, "DocumentedFunctionality"))
-                elif func.parent is not None and func.parent != entity.entity_id:
-                    warnings.append(
-                        ContractWarning(
-                            code=Code.RELATION_MISMATCH.name,
-                            message="Feature's declared functionality does not list it back as its own parent.",
-                            context=f"entity_id={entity.entity_id!r} functionality={func_id!r}",
-                        )
-                    )
+        for field, target_id, expected_type in _relations_of(entity):
+            target = by_id.get(target_id)
+            if target is None:
+                warnings.append(_unresolved(entity, target_id, field))
+                continue
+            if target.type != expected_type:
+                warnings.append(_type_mismatch(entity, field, target, expected_type))
+                continue
 
-        if entity.type == "DocumentedFunctionality" and entity.parent is not None:
-            parent = by_id.get(entity.parent)
-            if parent is None:
-                warnings.append(_unresolved(entity, entity.parent, "parent"))
-            elif parent.type != "DocumentedFeature":
-                warnings.append(_type_mismatch(entity, "parent", parent, "DocumentedFeature"))
-            elif parent.functionalities and entity.entity_id not in parent.functionalities:
+            if field == "functionalities" and target.parent is not None and target.parent != entity.entity_id:
+                warnings.append(
+                    ContractWarning(
+                        code=Code.RELATION_MISMATCH.name,
+                        message="Feature's declared functionality does not list it back as its own parent.",
+                        context=f"entity_id={entity.entity_id!r} functionality={target_id!r}",
+                    )
+                )
+            elif field == "parent" and target.functionalities and entity.entity_id not in target.functionalities:
                 warnings.append(
                     ContractWarning(
                         code=Code.RELATION_MISMATCH.name,
                         message="Functionality's declared parent does not list it back in its own " "functionalities.",
-                        context=f"entity_id={entity.entity_id!r} parent={entity.parent!r}",
+                        context=f"entity_id={entity.entity_id!r} parent={target_id!r}",
                     )
                 )
-
-        if entity.superseded_by is not None:
-            target = by_id.get(entity.superseded_by)
-            if target is None:
-                warnings.append(_unresolved(entity, entity.superseded_by, "superseded_by"))
-            elif target.type != entity.type:
-                warnings.append(_type_mismatch(entity, "superseded_by", target, entity.type))
 
     return warnings
