@@ -16,9 +16,12 @@
 
 """The code registry: every code present once with the right kind/emitter, and `ContractError` carrying them."""
 
+import re
+
 import pytest
 
 from living_doc_utilities.contracts.codes import ALL_CODES, Code, CodeKind, ContractError, Emitter
+from tests.docs.pages import read_page, section
 
 # A sample spanning every emitter/kind combination, so a wrong kind/emitter mapping is caught, not just a missing entry.
 _KNOWN_CODES = [
@@ -33,14 +36,22 @@ _KNOWN_CODES = [
     ("URL_FETCH_REFUSED", CodeKind.WARNING, Emitter.GENERATOR),
 ]
 
+# One row of the error page's code table: `| `CODE` | kind | emitter | ...`.
+_CODE_ROW_RE = re.compile(r"^\| `(?P<name>[A-Z][A-Z0-9_]*)` \| (?P<kind>\w+) \| (?P<emitter>\w+) \|")
+
 # The three codes compat.py is the only place that ever raises (R5).
 _COMPAT_RAISED_CODES = ["INVALID_CONTRACT_ID", "CONTRACT_MISMATCH", "SCHEMA_VALIDATION_FAILED"]
 
 
-def test_all_codes_has_exactly_36_entries():
-    """ALL_CODES contains exactly 36 entries, one per code documented in codes.py."""
-    # Canary: a change to this count means a code was added/removed without a matching Code member.
-    assert len(ALL_CODES) == 36
+def test_error_page_lists_exactly_the_registered_codes():
+    """docs/contracts/errors.md lists every ALL_CODES entry once, with its kind and emitter, and nothing else."""
+    lines = section(read_page("docs/contracts/errors.md"), "Codes")
+    rows = [row_m.groups() for line in lines if (row_m := _CODE_ROW_RE.match(line))]
+    names = [name for name, _kind, _emitter in rows]
+    assert len(names) == len(set(names)), "a code is listed twice"
+    assert {name: (kind, emitter) for name, kind, emitter in rows} == {
+        name: (code.kind.value, code.emitter.value) for name, code in ALL_CODES.items()
+    }
 
 
 @pytest.mark.parametrize("name, kind, emitter", _KNOWN_CODES)

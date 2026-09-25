@@ -65,6 +65,11 @@ repo's own risk areas and review expectations; it is not shared with other repos
 - Must not bikeshed formatting that Black or Pylint already enforces.
 - Avoid proposing architectural rewrites unless they are explicitly requested.
 
+## Documentation
+
+- Must review a change to `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` or a page under `docs/` against `DEVELOPER.md`, "Writing documentation" — that section is the only copy of the page rules; Must not restate them here.
+- Must check a sample of ten decision- or fact-list items per changed page against the code their `path::symbol` names, and flag any item the code does not bear out.
+
 ## Repo specifics
 
 - Must treat these as high-risk areas — `contracts/io.py`, `contracts/compat.py` and `contracts/validation.py`, the `authoring/ac_grammar.py` grammar and `authoring/normalize.py`, `github/utils.py`, `github/rate_limiter.py`, `github/decorators.py`, and any `contracts/` model change that lacks a regenerated `contracts/schemas/*.json`.

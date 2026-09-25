@@ -170,7 +170,7 @@
   expected: |
     #   AC:FUNC-001-02 (v1.0.0 - active)
     #     - Returns valid=true when the candidate password satisfies every rule.
-  note: A bare "1.2.0" gains the canonical leading "v".
+  note: A bare "1.0.0" gains the canonical leading "v".
 
 - id: rule4_version_form_capital_v_issue_body
   rule: version_form
@@ -184,7 +184,7 @@
     ### AC:US-001-01 (v1.0.0 - active)
 
     - desc
-  note: "\"V1.2.0\" is lowercased to \"v1.2.0\"."
+  note: "\"V1.0.0\" is lowercased to \"v1.0.0\"."
 
 - id: rule4_version_form_v1_left_as_is
   rule: none
@@ -352,7 +352,7 @@
        - future_release: sprint-52
   note: >
     tests/fixtures/agentic_toolkit_descope.md's AC block (agentic-toolkit@c479c80,
-    skills/living-doc-update/SKILL.md lines 156-160), bare "AC:" line and all - a
+    skills/living-doc-update/SKILL.md's descope example), bare "AC:" line and all - a
     header with no markdown "###" wrapper is still recognised. The prose em-dash inside
     "deferred — too complex" is untouched: it is not a structural position.
 

@@ -30,7 +30,7 @@ from living_doc_utilities.authoring.docs_export import (
 
 
 def test_committed_doc_matches_a_fresh_regeneration():
-    """The committed docs/authoring.md is exactly what `regenerate()` produces from the cases file today."""
+    """The committed docs/authoring/normalisation.md is exactly what `regenerate()` produces from the cases file."""
     committed = _DOC_FILE.read_text(encoding="utf-8")
 
     assert regenerate() == committed
@@ -88,9 +88,9 @@ def test_a_pipe_in_the_note_field_is_escaped_so_it_cannot_split_the_row():
 @pytest.fixture
 def crlf_checkout(tmp_path, mocker):
     """Wire `docs_export` to a CRLF, nested-path copy of the doc and cases file, as autocrlf checkouts leave them."""
-    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "authoring").mkdir(parents=True)
     (tmp_path / "pkg").mkdir()
-    doc, cases = tmp_path / "docs" / "authoring.md", tmp_path / "pkg" / "cases.yaml"
+    doc, cases = tmp_path / "docs" / "authoring" / "normalisation.md", tmp_path / "pkg" / "cases.yaml"
     for target, source in ((doc, _DOC_FILE), (cases, _CASES_FILE)):
         target.write_bytes(source.read_text(encoding="utf-8").encode("utf-8").replace(b"\n", b"\r\n"))
     mocker.patch.object(docs_export, "_REPO_ROOT", tmp_path)
@@ -113,4 +113,4 @@ def test_main_prints_forward_slash_paths_on_every_os(crlf_checkout, capsys):
     """`main()` prints the doc and cases paths with forward slashes, regardless of OS."""
     docs_export.main()
 
-    assert capsys.readouterr().out == "Regenerated docs/authoring.md from pkg/cases.yaml\n"
+    assert capsys.readouterr().out == "Regenerated docs/authoring/normalisation.md from pkg/cases.yaml\n"
