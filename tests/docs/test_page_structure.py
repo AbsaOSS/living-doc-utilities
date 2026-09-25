@@ -158,6 +158,24 @@ def test_a_second_chapter_with_the_same_title_needs_its_own_contents_entry():
     assert check_contents_links("docs/x.md", page) == ["docs/x.md: chapter '## Facts' is missing from 'Contents'"]
 
 
+def test_a_literal_heading_matching_a_generated_suffix_still_gets_its_own_fragment():
+    """A literal `## Facts-1` chapter collides with the suffix GitHub already gave the second `## Facts`, so it
+    becomes `#facts-1-1`, and that fragment - not the already-used `#facts-1` - is what `Contents` must link."""
+    page = (
+        "# Title\n\n## Purpose\n\nText.\n\n## Contents\n\n"
+        "- [Facts](#facts)\n- [Facts](#facts-1)\n- [Facts-1](#facts-1-1)\n\n"
+        "## Facts\n\n- a\n\n## Facts\n\n- b\n\n## Facts-1\n\n- c\n"
+    )
+    assert check_contents_links("docs/x.md", page) == []
+
+
+def test_fragments_are_numbered_in_page_order_including_purpose_and_contents():
+    """`## Purpose` claims `#purpose` before any chapter is numbered, so a later chapter that also slugs to
+    `purpose` is `#purpose-1`, matching GitHub's page-wide numbering, not a fresh `#purpose`."""
+    page = "# Title\n\n## Purpose\n\nText.\n\n## Contents\n\n- [Purpose!](#purpose-1)\n\n## Purpose!\n\nText.\n"
+    assert check_contents_links("docs/x.md", page) == []
+
+
 def test_planted_orphan_page_is_reported_naming_the_page():
     """A depth-3 page linked neither from its hub nor from `README.md` fails."""
     pages = {

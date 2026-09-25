@@ -146,14 +146,18 @@ def slug(heading: str) -> str:
 
 
 def _unique_fragments(titles: list[str]) -> list[tuple[str, str]]:
-    """`(fragment, title)` per title, GitHub's way: a slug repeated by an earlier title gets `-1`, `-2`, ... appended."""
-    seen: dict[str, int] = {}
+    """`(fragment, title)` per title, GitHub's way: a candidate already used - literal or itself generated -
+    gets `-1`, `-2`, ... appended until it is unused."""
+    used: set[str] = set()
     fragments: list[tuple[str, str]] = []
     for title in titles:
         base = slug(title)
-        count = seen.get(base, 0)
-        seen[base] = count + 1
-        fragments.append((base if count == 0 else f"{base}-{count}", title))
+        candidate, suffix = base, 0
+        while candidate in used:
+            suffix += 1
+            candidate = f"{base}-{suffix}"
+        used.add(candidate)
+        fragments.append((candidate, title))
     return fragments
 
 
@@ -181,8 +185,11 @@ def check_purpose_then_contents(page: str, text: str) -> list[str]:
 
 def check_contents_links(page: str, text: str) -> list[str]:
     """`Contents` links to every other `##` chapter of the page, and to nothing else."""
-    titles = [title for title in headings(text, 2) if title not in ("Purpose", "Contents")]
-    chapters = dict(_unique_fragments(titles))
+    chapters = {
+        fragment: title
+        for fragment, title in _unique_fragments(headings(text, 2))
+        if title not in ("Purpose", "Contents")
+    }
     problems: list[str] = []
     linked: set[str] = set()
     for line in section(text, "Contents"):
