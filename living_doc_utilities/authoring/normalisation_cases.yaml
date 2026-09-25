@@ -352,7 +352,7 @@
        - future_release: sprint-52
   note: >
     tests/fixtures/agentic_toolkit_descope.md's AC block (agentic-toolkit@c479c80,
-    skills/living-doc-update/SKILL.md lines 156-160), bare "AC:" line and all - a
+    skills/living-doc-update/SKILL.md's descope example), bare "AC:" line and all - a
     header with no markdown "###" wrapper is still recognised. The prose em-dash inside
     "deferred — too complex" is untouched: it is not a structural position.
 

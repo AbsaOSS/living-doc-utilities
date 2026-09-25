@@ -31,7 +31,7 @@ PACKAGE_DIR = REPO_ROOT / "living_doc_utilities"
 _ANCHOR_RE = re.compile(
     r"`(?P<path>(?:[\w.-]+/)*[\w.-]+\.(?:py|md|yml|yaml|toml|sh|txt|json)|Makefile)::(?P<symbol>[\w.-]+)`"
 )
-_LINE_NUMBER_RE = re.compile(r"\.(?:py|md|yml|yaml|toml|sh)(?::\d+|#L\d+)")
+_LINE_NUMBER_RE = re.compile(r"\.(?:py|md|yml|yaml|toml|sh)(?::\d+|#L\d+|\s+lines?\s+\d+(?:-\d+)?\b)")
 _API_MODULE_RE = re.compile(r"^\| `(?P<module>[a-z_.]+)` \|")
 _LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.) ")
 _ARROW_DESTINATION_RE = re.compile(r"→\s*\S")
@@ -99,7 +99,7 @@ def test_every_anchor_resolves(page):
 
 @pytest.mark.parametrize("page", sorted(APPROVED_PAGES))
 def test_no_anchor_uses_a_line_number(page):
-    """No page points at code by line number (`io.py:42`, `#L42`); line numbers drift."""
+    """No page points at code by line number (`io.py:42`, `#L42`, prose "file.py lines 12-34"); line numbers drift."""
     assert _LINE_NUMBER_RE.findall(read_page(page)) == []
 
 
