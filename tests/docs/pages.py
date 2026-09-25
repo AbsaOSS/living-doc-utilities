@@ -145,6 +145,18 @@ def slug(heading: str) -> str:
     return kept.replace(" ", "-")
 
 
+def _unique_fragments(titles: list[str]) -> list[tuple[str, str]]:
+    """`(fragment, title)` per title, GitHub's way: a slug repeated by an earlier title gets `-1`, `-2`, ... appended."""
+    seen: dict[str, int] = {}
+    fragments: list[tuple[str, str]] = []
+    for title in titles:
+        base = slug(title)
+        count = seen.get(base, 0)
+        seen[base] = count + 1
+        fragments.append((base if count == 0 else f"{base}-{count}", title))
+    return fragments
+
+
 def section(text: str, title: str) -> list[str]:
     """The lines under the `## <title>` heading, up to the next `##` heading."""
     body: list[str] = []
@@ -169,7 +181,8 @@ def check_purpose_then_contents(page: str, text: str) -> list[str]:
 
 def check_contents_links(page: str, text: str) -> list[str]:
     """`Contents` links to every other `##` chapter of the page, and to nothing else."""
-    chapters = {slug(title): title for title in headings(text, 2) if title not in ("Purpose", "Contents")}
+    titles = [title for title in headings(text, 2) if title not in ("Purpose", "Contents")]
+    chapters = dict(_unique_fragments(titles))
     problems: list[str] = []
     linked: set[str] = set()
     for line in section(text, "Contents"):
@@ -191,10 +204,10 @@ def check_contents_links(page: str, text: str) -> list[str]:
 
 def _resolved_links(page: str, text: str) -> set[str]:
     """Every link of the page into the repository, relative or by `REPO_BLOB_URL`, as a repository path without its
-    fragment."""
+    fragment. A link inside a fenced code block does not count - it is an example, not navigation."""
     base = PurePosixPath(page).parent
     resolved: set[str] = set()
-    for link_m in _LINK_TARGET_RE.finditer(text):
+    for link_m in _LINK_TARGET_RE.finditer("\n".join(unfenced_lines(text))):
         target = link_m.group("target").split("#", 1)[0]
         target_base = base
         if target.startswith(REPO_BLOB_URL):

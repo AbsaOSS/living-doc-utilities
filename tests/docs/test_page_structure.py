@@ -152,6 +152,12 @@ def test_planted_contents_line_that_is_not_a_chapter_link_is_reported():
     ]
 
 
+def test_a_second_chapter_with_the_same_title_needs_its_own_contents_entry():
+    """GitHub gives a repeated `## Facts` the fragment `#facts-1`; `Contents` must link that too, not just `#facts`."""
+    page = "# Title\n\n## Purpose\n\nText.\n\n## Contents\n\n- [Facts](#facts)\n\n## Facts\n\n- a\n\n## Facts\n\n- b\n"
+    assert check_contents_links("docs/x.md", page) == ["docs/x.md: chapter '## Facts' is missing from 'Contents'"]
+
+
 def test_planted_orphan_page_is_reported_naming_the_page():
     """A depth-3 page linked neither from its hub nor from `README.md` fails."""
     pages = {
@@ -175,3 +181,9 @@ def test_a_page_linked_only_from_a_sibling_is_still_an_orphan():
         "docs/topic/a.md: orphan page; link it from README.md or docs/topic.md",
         "docs/topic/b.md: orphan page; link it from README.md or docs/topic.md",
     ]
+
+
+def test_a_link_inside_a_fenced_code_block_does_not_count_as_navigation():
+    """A repository-shaped link inside an illustrative code example is not a real link into the tree."""
+    pages = {"README.md": "```text\n[Hub](docs/topic.md)\n```\n", "docs/topic.md": ""}
+    assert check_no_orphans(pages) == ["docs/topic.md: orphan page; link it from README.md"]
