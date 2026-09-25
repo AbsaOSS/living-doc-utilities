@@ -17,6 +17,7 @@
 """`path::symbol` anchors resolve to real code, never a line number (DEVELOPER.md, "Writing documentation", Anchors)."""
 
 import ast
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -37,10 +38,13 @@ _ARROW_DESTINATION_RE = re.compile(r"→\s*\S")
 
 
 def _resolve(path: str) -> Optional[Path]:
-    """An anchor path, relative to the repository root or, with `living_doc_utilities/` left out, to the package."""
+    """An anchor path, relative to the repository root or, with `living_doc_utilities/` left out, to the package;
+    never a `..`-laden path that escapes the repository, however it resolves on disk."""
+    repo_root = REPO_ROOT.resolve()
     for candidate in (REPO_ROOT / path, PACKAGE_DIR / path):
-        if candidate.is_file():
-            return candidate
+        resolved = candidate.resolve()
+        if resolved.is_file() and resolved.is_relative_to(repo_root):
+            return resolved
     return None
 
 
@@ -114,11 +118,18 @@ def test_anchor_resolution_rejects_a_missing_file_and_a_missing_symbol():
 
 
 def test_anchor_resolution_rejects_a_member_that_belongs_to_a_different_class():
-    """`Class.member` only resolves when `member` is nested in `Class`; a sibling class's same-named
-    member, or a member of an unrelated class in the same file, does not satisfy the anchor."""
+    """`Class.member` only resolves when `member` is nested in `Class`, not merely present elsewhere in the file."""
     assert _anchor_problem("contracts/doc_entities.py", "PageRef._check_state_origin") == (
         "'contracts/doc_entities.py' defines no '_check_state_origin'"
     )
+
+
+def test_anchor_resolution_rejects_a_path_that_escapes_the_repository(tmp_path):
+    """A `..`-laden path that exists on disk is still rejected when it resolves outside the repository."""
+    outside = tmp_path / "escaped.py"
+    outside.write_text("ESCAPED = 1\n", encoding="utf-8")
+    escaping = os.path.relpath(outside, REPO_ROOT)
+    assert _anchor_problem(escaping, "ESCAPED") == f"no file '{escaping}'"
 
 
 def unplaced_list_items(page: str, text: str) -> list[str]:

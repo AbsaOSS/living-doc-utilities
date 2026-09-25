@@ -104,15 +104,21 @@ Reading and writing a file: [Artifact rules](contracts/artifact-rules.md#reading
 ```python
 import os
 
+from living_doc_utilities.github.utils import get_action_input
+
+os.environ["INPUT_GITHUB_TOKEN"] = "ghp_example"  # a real Action's runtime sets this; never hardcode a real token
+assert get_action_input("github-token") == "ghp_example"  # hyphens become underscores
+```
+
+```python
 from github import Auth, Github  # needs the github extra
 
 from living_doc_utilities.github.decorators import safe_call_decorator
 from living_doc_utilities.github.rate_limiter import GithubRateLimiter
 from living_doc_utilities.github.utils import get_action_input
 
-os.environ["INPUT_GITHUB_TOKEN"] = "ghp_example"
-token = get_action_input("github-token")  # reads INPUT_GITHUB_TOKEN: hyphens become underscores
-assert token == "ghp_example"
+token = get_action_input("github-token")  # sourced from the environment set for this run
+assert token  # non-empty: the client below authenticates with it
 
 
 @safe_call_decorator(GithubRateLimiter(Github(auth=Auth.Token(token))))

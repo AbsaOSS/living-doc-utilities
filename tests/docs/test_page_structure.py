@@ -108,8 +108,7 @@ def test_an_absolute_repository_link_counts_as_a_link_into_the_tree():
 
 
 def test_a_backtick_in_a_backtick_fence_info_string_does_not_open_a_fence():
-    """CommonMark: a backtick fence's info string may not itself hold a backtick, so this line stays plain text
-    and the heading right after it is still found, not hidden inside a bogus code block."""
+    """A backtick in a backtick-fence info string leaves the following heading visible to the parser."""
     page = "# Title\n\n```bad`info\n## Actually A Heading\n```\n"
     assert headings(page, 2) == ["Actually A Heading"]
 

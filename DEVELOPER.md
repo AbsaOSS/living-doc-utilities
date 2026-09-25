@@ -95,7 +95,7 @@ Two files are generated and committed; CI regenerates each and fails on any diff
 
 - Run the command after changing its source, and commit the result in the same change.
 - A model change without a regenerated schema is a bug, not a style choice → [Schema rules](docs/contracts/schema-rules.md#generated-schemas)
-- Both write LF line endings on every OS → `authoring/docs_export.py::main`
+- Both write LF line endings on every OS → `authoring/docs_export.py::main` and `contracts/schema_export.py::write_schemas`
 
 ## Release
 

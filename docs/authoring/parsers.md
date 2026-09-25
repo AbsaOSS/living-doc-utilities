@@ -161,7 +161,7 @@ An authored state contradicts its criteria when → `authoring/status.py::_is_mi
 - A target outside the set is `UNRESOLVED_RELATION` → `authoring/relations.py::check_relations`
 - A target of another type is `RELATION_TYPE_MISMATCH`; context names the entity, field, target, actual and expected type → `authoring/relations.py::_type_mismatch`
 - A Feature's functionality whose `parent` names another Feature is `RELATION_MISMATCH` → `authoring/relations.py::check_relations`
-- A Functionality whose parent's `functionalities` list omits it is `RELATION_MISMATCH` → `authoring/relations.py::check_relations`
+- A Functionality missing from its parent's non-empty `functionalities` list is `RELATION_MISMATCH`; an empty or absent list means nothing was declared → `authoring/relations.py::check_relations`
 
 ## Golden fixtures
 
