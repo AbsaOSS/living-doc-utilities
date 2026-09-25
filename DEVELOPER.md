@@ -136,8 +136,7 @@ Depth is where a page sits in the folder tree. Deeper means more detail.
 2. `## Purpose`: 1 to 3 sentences, who reads the page and what they get; then `Read before:` and `Next:` links where the page sits on a reading path.
 3. `## Contents`: links to every other `##` chapter of the page, and nothing else.
 4. Only the parts the page needs.
-
-A one-line redirect stub is exempt.
+5. A one-line redirect stub is exempt from 1-4.
 
 ### Parts
 

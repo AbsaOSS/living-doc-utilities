@@ -23,7 +23,7 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 ## Common behaviour
 
 - Each parser accepts one layout, the canon of `AbsaOSS/living-doc`'s [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md) and [header types](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-header-types.md).
-- Each parser returns `(parsed_or_none, warnings)` and never raises on malformed input; every information-losing skip is a coded warning → `tests/authoring/test_warning_coverage.py::test_information_losing_skip_produces_a_coded_warning_and_no_log_record`
+- Each parser returns `(parsed, warnings)` and never raises on malformed input; every information-losing skip is a coded warning → `tests/authoring/test_warning_coverage.py::test_information_losing_skip_produces_a_coded_warning_and_no_log_record`
   - Why: a caller always has a structured way to see what was lost.
 - No authoring module uses `logging` → `tests/authoring/test_warning_coverage.py::test_no_authoring_module_uses_the_logging_module`
 - `None` with `MISSING_ENTITY_ID` means the title or banner had no id; nothing else is inspected then → `authoring/identity.py::derive_entity_id`

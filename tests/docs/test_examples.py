@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-"""Every example in the documentation pages runs: each `python` block executes, each `json` block parses, and a
-`json` block marked `<!-- example: path::Model -->` validates as that model (DEVELOPER.md, "Writing documentation")."""
+"""Every documentation example runs: `python` executes, `json` parses and validates its marked model."""
 
 import importlib
 import json

@@ -59,7 +59,7 @@ Each block line fills one field of the criterion → `contracts/common.py::Accep
 | `- <name>: value, value` | `placeholder_values[<name>]`; the name is lowercased with spaces and hyphens as `_` |
 | a `preconditions:` line, then bullets | `preconditions` |
 | a `not_in_scope:` line, then bullets | `not_in_scope` |
-| a line with no bullet marker | appended to the field the previous line filled |
+| a line with no bullet marker, right after a description, rationale, `preconditions:` or `not_in_scope:` line | appended to that field |
 | any other line | nothing: `UNPARSED_AC_LINE` |
 
 - After a `preconditions:` or `not_in_scope:` line, every later bullet of the block joins that list → `authoring/ac_grammar.py::_parse_extensions`

@@ -41,6 +41,12 @@ pip install "living-doc-utilities[html]==0.5.0"    # adds the HTML sanitiser
 
 ```python
 from living_doc_utilities.contracts.io import read_artifact, write_artifact
+from living_doc_utilities.contracts.testing import full_sample
+
+write_artifact(full_sample("doc-entities-v1.0.0"), "doc-entities.json")
+result = read_artifact("doc-entities.json", expected="doc-entities")
+
+assert result.schema_version == "doc-entities-v1.0.0"
 ```
 
 Which module needs which extra: [Extras](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#extras). Pinning rules: [Versioning](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#versioning).

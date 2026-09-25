@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-"""The page rules' structure (DEVELOPER.md, "Writing documentation"): the approved page list, `Purpose` then
-`Contents`, `Contents` links, and no orphan page - checked on the real pages and on planted violations."""
+"""The page-structure rules: `Purpose` then `Contents`, `Contents` links, no orphan page (DEVELOPER.md)."""
 
 import re
 
@@ -28,6 +27,7 @@ from tests.docs.pages import (
     check_contents_links,
     check_no_orphans,
     check_purpose_then_contents,
+    headings,
     page_depth,
     read_page,
 )
@@ -105,6 +105,13 @@ def test_an_absolute_repository_link_counts_as_a_link_into_the_tree():
     """A README link by `REPO_BLOB_URL` puts a hub into the tree, exactly as a relative link does."""
     pages = {"README.md": f"[Hub]({REPO_BLOB_URL}docs/topic.md#principle)", "docs/topic.md": ""}
     assert check_no_orphans(pages) == []
+
+
+def test_a_backtick_in_a_backtick_fence_info_string_does_not_open_a_fence():
+    """CommonMark: a backtick fence's info string may not itself hold a backtick, so this line stays plain text
+    and the heading right after it is still found, not hidden inside a bogus code block."""
+    page = "# Title\n\n```bad`info\n## Actually A Heading\n```\n"
+    assert headings(page, 2) == ["Actually A Heading"]
 
 
 def test_a_well_formed_page_passes_every_check():

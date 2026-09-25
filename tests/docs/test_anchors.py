@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-"""`path::symbol` anchors in the documentation pages point at code that exists, never at a line number, and
-`docs/api.md` lists every module (DEVELOPER.md, "Writing documentation", Anchors)."""
+"""`path::symbol` anchors resolve to real code, never a line number (DEVELOPER.md, "Writing documentation", Anchors)."""
 
+import ast
 import re
 from pathlib import Path
 from typing import Optional
@@ -33,6 +33,7 @@ _ANCHOR_RE = re.compile(
 _LINE_NUMBER_RE = re.compile(r"\.(?:py|md|yml|yaml|toml|sh)(?::\d+|#L\d+)")
 _API_MODULE_RE = re.compile(r"^\| `(?P<module>[a-z_.]+)` \|")
 _LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.) ")
+_ARROW_DESTINATION_RE = re.compile(r"→\s*\S")
 
 
 def _resolve(path: str) -> Optional[Path]:
@@ -43,10 +44,26 @@ def _resolve(path: str) -> Optional[Path]:
     return None
 
 
-def _defines(source: str, name: str) -> bool:
-    """Whether Python `source` defines `name`: a class, a function, or an assignment at any indentation."""
-    pattern = rf"^\s*(?:(?:async\s+)?def|class)\s+{re.escape(name)}\b|^\s*{re.escape(name)}\s*[:=]"
-    return re.search(pattern, source, re.MULTILINE) is not None
+def _bound_name(node: ast.stmt) -> Optional[str]:
+    """The single name `node` binds at its own nesting level, or `None` when it binds none."""
+    if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+        return node.name
+    if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+        return node.targets[0].id
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return node.target.id
+    return None
+
+
+def _first_undefined_part(body: list[ast.stmt], parts: list[str]) -> Optional[str]:
+    """The first dotted `parts` segment with no definition nested at its position in `body`, so `Class.member`
+    only resolves when `member` is defined inside `Class` - not merely present anywhere in the file."""
+    for index, part in enumerate(parts):
+        node = next((candidate for candidate in body if _bound_name(candidate) == part), None)
+        if node is None:
+            return ".".join(parts[index:])
+        body = getattr(node, "body", [])
+    return None
 
 
 def _anchor_problem(path: str, symbol: str) -> Optional[str]:
@@ -56,8 +73,8 @@ def _anchor_problem(path: str, symbol: str) -> Optional[str]:
         return f"no file '{path}'"
     text = resolved.read_text(encoding="utf-8")
     if resolved.suffix == ".py":
-        missing = [part for part in symbol.split(".") if not _defines(text, part)]
-        return f"'{path}' defines no {'.'.join(missing)!r}" if missing else None
+        missing = _first_undefined_part(ast.parse(text).body, symbol.split("."))
+        return f"'{path}' defines no {missing!r}" if missing else None
     return None if symbol in text else f"'{path}' does not contain {symbol!r}"
 
 
@@ -96,6 +113,14 @@ def test_anchor_resolution_rejects_a_missing_file_and_a_missing_symbol():
     assert _anchor_problem("Makefile", "no-such-target") == "'Makefile' does not contain 'no-such-target'"
 
 
+def test_anchor_resolution_rejects_a_member_that_belongs_to_a_different_class():
+    """`Class.member` only resolves when `member` is nested in `Class`; a sibling class's same-named
+    member, or a member of an unrelated class in the same file, does not satisfy the anchor."""
+    assert _anchor_problem("contracts/doc_entities.py", "PageRef._check_state_origin") == (
+        "'contracts/doc_entities.py' defines no '_check_state_origin'"
+    )
+
+
 def unplaced_list_items(page: str, text: str) -> list[str]:
     """Top-level list items that say nowhere where they are realised: no `→` (an anchor, a component or a link), no
     anchor, no link, and no lead-in line that carries an anchor. `Contents` and `Pages` are routing, not facts."""
@@ -119,7 +144,12 @@ def unplaced_list_items(page: str, text: str) -> list[str]:
         previous = "item"
         if chapter in ("Contents", "Pages"):
             continue
-        if "→" in stripped or "](" in stripped or _ANCHOR_RE.search(stripped) or "→" in lead_in:
+        if (
+            _ARROW_DESTINATION_RE.search(stripped)
+            or "](" in stripped
+            or _ANCHOR_RE.search(stripped)
+            or _ARROW_DESTINATION_RE.search(lead_in)
+        ):
             continue
         problems.append(f"{page}: '{stripped[:80]}' names no anchor, component or link, and its lead-in none either")
     return problems
@@ -127,17 +157,21 @@ def unplaced_list_items(page: str, text: str) -> list[str]:
 
 @pytest.mark.parametrize("page", sorted(page for page, depth in APPROVED_PAGES.items() if depth > 1))
 def test_every_list_item_says_where_it_is_realised(page):
-    """Each fact or decision on a depth-2 or depth-3 page ends in `→` and an anchor, a component, or a link;
-    an item under a lead-in that carries an anchor inherits it."""
+    """Each depth-2/3 list item ends in `→` and a destination; a lead-in's `→` destination covers its items."""
     assert unplaced_list_items(page, read_page(page)) == []
 
 
 def test_an_unplaced_list_item_is_reported_and_a_lead_in_anchor_covers_its_items():
-    """A bare fact fails; the same fact under an anchored lead-in passes."""
+    """A bare fact fails, as does a trailing arrow with no destination; an anchored lead-in covers its items."""
     bare = "## Facts\n\n- a fact with no home\n"
+    dangling_arrow = "## Facts\n\n- a fact with a dangling arrow →\n"
     covered = "## Facts\n\nThe cases → `contracts/io.py::read_artifact`:\n\n- a fact with no home\n"
     assert unplaced_list_items("docs/x.md", bare) == [
         "docs/x.md: '- a fact with no home' names no anchor, component or link, and its lead-in none either"
+    ]
+    assert unplaced_list_items("docs/x.md", dangling_arrow) == [
+        "docs/x.md: '- a fact with a dangling arrow →' names no anchor, component or link, and its lead-in none "
+        "either"
     ]
     assert unplaced_list_items("docs/x.md", covered) == []
 

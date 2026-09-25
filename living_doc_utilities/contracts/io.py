@@ -69,7 +69,7 @@ def write_artifact(result: ContractResult, path: Union[str, Path]) -> None:
     @param result: a contract result model - its own schema_version selects the contract.
     @param path: the destination file path.
     @raises ContractError: INVALID_CONTRACT_ID for an unknown schema_version, or
-        SCHEMA_VALIDATION_FAILED - either way no file is left on disk.
+        SCHEMA_VALIDATION_FAILED - either way the destination is never created or modified.
     """
     contract_id = result.schema_version
     if contract_id not in registry.CONTRACTS:

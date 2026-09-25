@@ -178,7 +178,7 @@ A collector output's `metadata`:
 - `read_artifact(path, expected)` loads the file, runs R5 and returns the typed model, never a `dict` → `contracts/io.py::read_artifact`
 - `write_artifact(result, path)` fills `metadata.stats` and `producer.utilities_version`, then validates in memory → `contracts/io.py::write_artifact`
 - It writes to a temporary file in the destination directory, then renames it atomically, with LF line endings → `contracts/io.py::write_artifact`
-- A failed validation leaves no file on disk → `contracts/io.py::write_artifact`
+- A failed validation never creates or modifies the destination: overwriting an existing artifact leaves it untouched → `contracts/io.py::write_artifact`
   - Why: a later step can never pick up a half-written or invalid artifact from a failed run.
 - These two are the only sanctioned read and write paths (R12) → [Component checks](component-checks.md#check-2-one-read-path-and-one-write-path)
 

@@ -72,7 +72,7 @@ Where each part is defined: [contracts](contracts.md) and [authoring](authoring.
 
 - The extras are declared in `pyproject.toml` → `pyproject.toml::optional-dependencies`
 - Extras combine: `pip install "living-doc-utilities[github,html]==0.5.0"` → `pyproject.toml::optional-dependencies`
-- Importing a module never needs the `html` extra; only calling the sanitiser does → `tests/authoring/test_isolation.py::test_nh3_is_imported_only_inside_a_function_that_needs_it`
+- Importing a module never needs the `html` extra; calling `convert_html_to_markdown()` or `sanitize_html_fragment()` does → `tests/authoring/test_isolation.py::test_nh3_is_imported_only_inside_a_function_that_needs_it`
 - A clean install of the wheel with each extra proves which module imports where → `Makefile::import-matrix`
 
 ## Contract models
@@ -102,13 +102,17 @@ Reading and writing a file: [Artifact rules](contracts/artifact-rules.md#reading
 - In 0.5.0 the decorators moved from `living_doc_utilities.decorators`, which no longer exists → `github/decorators.py::safe_call_decorator`
 
 ```python
+import os
+
 from github import Auth, Github  # needs the github extra
 
 from living_doc_utilities.github.decorators import safe_call_decorator
 from living_doc_utilities.github.rate_limiter import GithubRateLimiter
 from living_doc_utilities.github.utils import get_action_input
 
-token = get_action_input("github-token")  # reads INPUT_GITHUB_TOKEN
+os.environ["INPUT_GITHUB_TOKEN"] = "ghp_example"
+token = get_action_input("github-token")  # reads INPUT_GITHUB_TOKEN: hyphens become underscores
+assert token == "ghp_example"
 
 
 @safe_call_decorator(GithubRateLimiter(Github(auth=Auth.Token(token))))

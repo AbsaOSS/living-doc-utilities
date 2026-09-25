@@ -53,6 +53,17 @@ APPROVED_PAGES: dict[str, int] = {
 
 _FENCE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 _FENCE_CLOSE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})\s*$")
+
+
+def _fence_open(line: str) -> re.Match[str] | None:
+    """The opening-fence match for `line`, or `None` when it is not one: CommonMark forbids a backtick in a
+    backtick fence's info string (a tilde fence's info string is unrestricted)."""
+    match = _FENCE_RE.match(line)
+    if match and match.group("fence")[0] == "`" and "`" in match.group("info"):
+        return None
+    return match
+
+
 _HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.*?)\s*#*\s*$")
 _LIST_LINK_RE = re.compile(r"^[-*]\s+\[[^\]]*\]\((?P<target>[^)\s]*)\)\s*$")
 _LINK_TARGET_RE = re.compile(r"\]\((?P<target>[^)\s]+)\)")
@@ -82,7 +93,7 @@ def unfenced_lines(text: str) -> list[str]:
     lines: list[str] = []
     fence: str | None = None
     for line in text.splitlines():
-        fence_m = _FENCE_RE.match(line)
+        fence_m = _fence_open(line)
         if fence is None and fence_m:
             fence = fence_m.group("fence")
             continue
@@ -100,7 +111,7 @@ def code_blocks(text: str) -> list[CodeBlock]:
     lines = text.splitlines()
     index = 0
     while index < len(lines):
-        fence_m = _FENCE_RE.match(lines[index])
+        fence_m = _fence_open(lines[index])
         if fence_m is None:
             index += 1
             continue
