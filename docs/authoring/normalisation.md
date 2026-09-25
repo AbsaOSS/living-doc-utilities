@@ -20,7 +20,8 @@ Read before: [Authoring](../authoring.md) · Next: [Acceptance-criterion grammar
 - It rewrites only structural positions: a heading value, a bullet marker, a criterion header's segments, an entity title → `authoring/normalize.py::normalize`
 - It never touches fenced code, Gherkin step text, TypeScript or free prose → `tests/authoring/test_normalize_cases.py::test_normalisation_case`
 - It never validates a value's meaning; the grammar does that → [Acceptance-criterion grammar](ac-grammar.md)
-- It returns the text plus one `Change` per rewritten line: `line`, `rule`, `before`, `after` → `authoring/normalize.py::Change`
+- It returns the text plus one `Change` per rule fired: `line`, `rule`, `before`, `after` → `authoring/normalize.py::Change`
+  - A single rewritten line can produce several entries, one per rule that fired on it (for example separator, casing and version together in one AC header).
 - An entity title goes through the same rules 5 and 5b on its own → `authoring/normalize.py::normalize_title`
 - One helper marks the lines inside a fenced code block, for both `normalize` and the grammar → `authoring/normalize.py::compute_fence_flags`
   - Why: the two modules can never disagree about where a fence starts or ends.
@@ -81,7 +82,7 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 - Also folds the fixed phrase `Removal Planned` to `removal planned`.
 - Never touches: any other word, including prose that mentions a state word ("the Active tab").
 - Why: the vocabulary is lowercase with underscores, checked in one place; a capitalised status must not fail it.
-- Breaks if removed: a header is rejected, or a status is kept as a string status derivation cannot read.
+- Breaks if removed: a header is rejected, or an unnormalised status fails `ParsedEntity` validation, is dropped, and is reported as `MALFORMED_STATUS`; status derivation then treats it as missing.
 
 ### Rule 4: version form
 

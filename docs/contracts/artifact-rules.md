@@ -143,7 +143,7 @@ The retirement has no alias window:
 - A transform output copies `source` from its one documentation input, plus the test input's systems.
 - `source.systems` values are `GitHub` and `AzureDevOps`; `extraction_mode` is `markdown`, `field-map` or `null` → `contracts/envelope.py::Source`
 - `organizations[]` lists every configured `organization-name` once; an organisation may have no repository → `contracts/envelope.py::Source`
-- `repositories[]` entries are `org/repo` (GitHub) or `org/project` (Azure DevOps), and each `org` is in `organizations[]` → `contracts/envelope.py::Source._check_repositories_reference_known_organizations`
+- `repositories[]` entries are meant to be `org/repo` (GitHub) or `org/project` (Azure DevOps); the only check enforced is that the segment before the first `/` is in `organizations[]` — the rest of the entry, and its shape, is not validated → `contracts/envelope.py::Source._check_repositories_reference_known_organizations`
 - `document` exists only on `generator-ready`, `coverage-matrix` and `ui-test-catalog`, and holds `document.view` → `contracts/common.py::ViewDocument`
 - `generator-ready`'s `document` adds `title`, `version` and `selection_summary` → `contracts/generator_ready.py::Document`
 - In `selection_summary`, `total_entities` equals `included_entities` plus `excluded_entities` → `contracts/generator_ready.py::SelectionSummary`

@@ -57,7 +57,8 @@ Coverage is computed per aspect → `contracts/coverage_matrix.py::AcCoverage._c
 | `not_covered` | without aspects: no linked scenario |
 
 - An aspect's own status is `covered` or `not_covered` → `contracts/coverage_matrix.py::AspectCoverage`
-- `covered` is evidence-backed: `covered` if and only if `scenario_ids` has an entry → `contracts/coverage_matrix.py::_check_status_evidence`
+- `covered` is evidence-backed by `scenario_ids` for an `AspectCoverage` and for an `AcCoverage` with no aspects: `covered` if and only if `scenario_ids` has an entry → `contracts/coverage_matrix.py::_check_status_evidence`
+  - When an `AcCoverage` has aspects, its `status` is derived from the aspects instead (see table above), and its own top-level `scenario_ids` is not checked — it can be empty on a `covered` row → `contracts/testing.py::_coverage_matrix_sample`
 - Counted criteria are `active` and `deprecated`, in both views → `contracts/coverage_matrix.py::CountedState`
 - A coverage matrix's `document.view` changes presentation only, never which criteria are counted.
 - `in_review` criteria are not counted; a linked scenario is the warning `IN_REVIEW_AC_HAS_TESTS`, and the link is kept → `contracts/codes.py::Code`
