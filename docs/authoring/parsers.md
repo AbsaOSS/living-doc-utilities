@@ -26,7 +26,7 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 - Each parser returns `(parsed, warnings)` and never raises on malformed input; every information-losing skip is a coded warning → `tests/authoring/test_warning_coverage.py::test_information_losing_skip_produces_a_coded_warning_and_no_log_record`
   - Why: a caller always has a structured way to see what was lost.
 - No authoring module uses `logging` → `tests/authoring/test_warning_coverage.py::test_no_authoring_module_uses_the_logging_module`
-- `None` with `MISSING_ENTITY_ID` means the title or banner had no id; nothing else is inspected then → `authoring/identity.py::derive_entity_id`
+- `None` with `MISSING_ENTITY_ID` means the title or banner had no id; the rest of the document's fields are never extracted, though feature-header and PageObject input is already normalised by then → `authoring/identity.py::derive_entity_id`
 - A parsed entity has every entity field except `source_ref`, `tags` and `timestamps`; the collector fills those → `authoring/issue_body.py::ParsedEntity`
   - Why: a parser only ever sees document text.
 - `state` and `state_origin` stay empty until [status derivation](#status-derivation) runs → `authoring/issue_body.py::ParsedEntity`
