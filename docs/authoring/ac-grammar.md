@@ -77,7 +77,7 @@ A criterion is skipped with a `MALFORMED_AC` warning when → `authoring/ac_gram
 - a version is missing on a state other than `planned`;
 - `removal planned` is missing on `deprecated`, or present on another state;
 - the block has no description bullet;
-- in a scenario file, an `@AC:` tag is malformed ([Parsers, scenarios](parsers.md#scenarios)).
+- in a scenario file, an `@AC:` tag has an invalid criterion id, an empty segment, a segment that is not `<param>:<value>`, or `aspect` given twice ([Parsers, scenarios](parsers.md#scenarios)).
 
 ## Legacy descoped criteria
 

@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
-"""Scenario parsing: `@AC:<id>[/aspect:<value>]` tags link scenarios to acceptance criteria."""
+"""Scenario parsing: `@AC:<id>[/<param>:<value>...]` tags link scenarios to acceptance criteria."""
+
+import pytest
 
 from living_doc_utilities.authoring.scenario import parse_scenarios
 from living_doc_utilities.contracts.codes import Code
@@ -70,6 +72,44 @@ def test_malformed_ac_tag_produces_a_warning_and_no_link():
     """A `@AC:` tag with an unparseable id produces a `MALFORMED_AC` warning and links the scenario to nothing."""
     body = "Feature: Sample\n\n  @AC:not-a-valid-id\n  Scenario: Something\n    Given a step\n"
     scenarios, warnings = parse_scenarios(body, "DocumentedUserStory")
+
+    assert scenarios[0].acceptance_criteria == []
+    assert [w.code for w in warnings] == [Code.MALFORMED_AC.name]
+
+
+def _parse_single_tag(tag: str):
+    return parse_scenarios(f"Feature: x\n  {tag}\n  Scenario: s\n", "DocumentedUserStory")
+
+
+@pytest.mark.parametrize(
+    ("tag", "aspect"),
+    [
+        ("@AC:US-1-01/aspect:username-input", "username-input"),
+        ("@AC:US-1-01/aspect:a/priority:high", "a"),
+        ("@AC:US-1-01/priority:high", None),
+    ],
+    ids=["aspect", "aspect_then_other_param", "unknown_param_only"],
+)
+def test_ac_tag_param_segments_link_the_criterion(tag, aspect):
+    """Any `/<param>:<value>` segments are accepted; `aspect` stops at the next `/`, other parameters are not stored."""
+    scenarios, warnings = _parse_single_tag(tag)
+
+    assert warnings == []
+    assert [(link.id, link.aspect) for link in scenarios[0].acceptance_criteria] == [("US-1-01", aspect)]
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "@AC:US-1-01//aspect:a",
+        "@AC:US-1-01/priority",
+        "@AC:US-1-01/aspect:a/aspect:b",
+    ],
+    ids=["empty_segment", "segment_without_colon", "aspect_twice"],
+)
+def test_malformed_ac_tag_params_produce_a_warning_and_no_link(tag):
+    """An empty segment, a segment without `:`, or a repeated `aspect` makes the whole tag `MALFORMED_AC`."""
+    scenarios, warnings = _parse_single_tag(tag)
 
     assert scenarios[0].acceptance_criteria == []
     assert [w.code for w in warnings] == [Code.MALFORMED_AC.name]
