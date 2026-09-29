@@ -114,9 +114,12 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 
 ## Finding the entity id
 
-- `derive_entity_id(title)` takes the first run of uppercase letters, a hyphen and digits → `authoring/identity.py::derive_entity_id`
-- A historical prefix is skipped: in `GH-US-001`, `GH-` is not followed by a digit, so the match is `US-001` → `tests/authoring/test_identity.py::test_valid_title_prefixes_extract_us_001`
-- No such run returns `(None, [MISSING_ENTITY_ID])`; the collector adds location context and counts `entities_skipped` → `authoring/identity.py::derive_entity_id`
+- An entity id is `US-<nnn>`, `FEAT-<nnn>` or `FUNC-<nnn>`, the canon's three prefixes → `tests/authoring/test_identity.py::test_each_canon_prefix_is_an_entity_id`
+- `derive_entity_id(title)` takes the first such run as a whole word, so another tracker key before it is passed over (`BUG-7 fix for US-001` gives `US-001`) → `tests/authoring/test_identity.py::test_other_tracker_keys_are_not_entity_ids`
+- A run glued to other letters, digits or `_` (`XUS-001`, `US-001abc`, `GH_US-001`) is not an id → `tests/authoring/test_identity.py::test_an_id_run_glued_to_other_word_characters_is_not_an_entity_id`
+- A historical prefix is skipped: in `GH-US-001`, the match is `US-001` → `tests/authoring/test_identity.py::test_valid_title_prefixes_extract_us_001`
+- No such run returns `(None, [MISSING_ENTITY_ID])`, even when the title names another key such as `JIRA-12`; the collector adds location context and counts `entities_skipped` → `authoring/identity.py::derive_entity_id`
+- Normalisation rules 5 and 5b find the id with the same pattern, so the ` · ` separator lands after the real id → `authoring/normalize.py::normalize_title`
 - The same function serves an issue title, a `.feature` banner and a PageObject banner → `authoring/identity.py::derive_entity_id`
 - One helper finds the `LIVING DOC — ` title line in both banner formats → `authoring/identity.py::extract_living_doc_title`
 
