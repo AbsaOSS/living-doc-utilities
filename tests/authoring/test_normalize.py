@@ -112,6 +112,13 @@ def test_normalize_title_preserves_text_before_the_id():
     assert title.startswith("LIVING DOC — US-001")
 
 
+def test_normalize_title_places_the_separator_after_the_real_id_not_a_tracker_key():
+    """A tracker key before the entity id is left alone; the canonical separator lands after the real id."""
+    title, _ = normalize_title("BUG-7 fix for US-001 - Customer Login")
+
+    assert title == "BUG-7 fix for US-001 · Customer Login"
+
+
 def test_fence_flags_backtick_info_string_with_a_backtick_does_not_open_a_fence():
     """A backtick fence whose info string itself contains a backtick is not a fence, so content below it stays live."""
     lines = ["```lang`with`backtick", "AC:US-001-01 (v1.0.0 - active)", "```"]

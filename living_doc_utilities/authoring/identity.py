@@ -26,8 +26,9 @@ from typing import Optional
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.envelope import ContractWarning
 
-# A historical "GH-" prefix is skipped by taking the first id-shaped run; also used by `normalize.py::normalize_title`.
-_ENTITY_ID_RE = re.compile(r"[A-Z]+-\d+")
+# Only the canon's three prefixes form an id, so another tracker key ("JIRA-12") is never taken for one; a historical
+# "GH-" prefix is skipped because `\b` still holds after its hyphen. Also used by `normalize.py::normalize_title`.
+_ENTITY_ID_RE = re.compile(r"\b(?:US|FEAT|FUNC)-\d+\b")
 
 # The .feature-banner / PageObject-banner title marker; the one place both formats' title lines are recognised.
 _LIVING_DOC_TITLE_RE = re.compile(r"LIVING DOC\s*—\s*(?P<title>.+?)\s*$")

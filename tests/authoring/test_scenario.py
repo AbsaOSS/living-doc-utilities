@@ -115,12 +115,13 @@ def test_ac_tag_param_segments_link_the_criterion(tag, aspect):
         "@AC:US-1-01/priority",
         "@AC:US-1-01/aspect:a/aspect:b",
         "@AC:US-1-01/aspect:a:b",
+        "@AC:FEAT-001-01",
     ],
-    ids=["empty_segment", "segment_without_colon", "aspect_twice", "colon_in_aspect_value"],
+    ids=["empty_segment", "segment_without_colon", "aspect_twice", "colon_in_aspect_value", "feature_owns_no_ac"],
 )
 def test_malformed_ac_tag_params_produce_a_warning_and_no_link(tag):
-    """An empty segment, a segment without `:`, a repeated `aspect`, or an `aspect` value containing `:` makes the
-    whole tag `MALFORMED_AC`."""
+    """An empty segment, a segment without `:`, a repeated `aspect`, an `aspect` value containing `:`, or a Feature
+    id (a Feature owns no criteria) makes the whole tag `MALFORMED_AC`."""
     scenarios, warnings = _parse_single_tag(tag)
 
     assert scenarios[0].acceptance_criteria == []

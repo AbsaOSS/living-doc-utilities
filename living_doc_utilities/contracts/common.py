@@ -28,7 +28,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
 
 # AC id = parent id + sequence, conventionally zero-padded (e.g. "US-001-01"); the digit width is not enforced.
-AC_ID_PATTERN = r"^[A-Z]+-\d+-\d+$"
+# Only a User Story or a Functionality owns criteria, so a Feature (FEAT-) or foreign prefix is never an AC parent.
+AC_ID_PATTERN = r"^(?:US|FUNC)-\d+-\d+$"
 
 # A placeholder name from the AC-block grammar's placeholder_values, e.g. "<user_role>".
 PLACEHOLDER_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*$"

@@ -72,7 +72,20 @@ def test_acceptance_criterion_forbids_unknown_field():
 
 @pytest.mark.parametrize("bad_id", ["AC1", "US-001", "us-001-01", "US-001-1a"])
 def test_acceptance_criterion_id_rejects_non_canonical_form(bad_id):
-    """An id that isn't upper-case letters, then two runs of digits joined by hyphens, is rejected."""
+    """An id that isn't an owner prefix, then two runs of digits joined by hyphens, is rejected."""
+    with pytest.raises(ValidationError):
+        factories.acceptance_criterion(id=bad_id)
+
+
+@pytest.mark.parametrize("good_id", ["US-001-01", "FUNC-001-01"])
+def test_acceptance_criterion_id_accepts_each_owner_prefix(good_id):
+    """A User Story or a Functionality, the two entity kinds that own criteria, can prefix an AC id."""
+    assert factories.acceptance_criterion(id=good_id).id == good_id
+
+
+@pytest.mark.parametrize("bad_id", ["FEAT-001-01", "JIRA-12-01"])
+def test_acceptance_criterion_id_rejects_a_prefix_that_owns_no_criteria(bad_id):
+    """A Feature owns no criteria and a foreign tracker key is no entity, so neither prefixes an AC id."""
     with pytest.raises(ValidationError):
         factories.acceptance_criterion(id=bad_id)
 

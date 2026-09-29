@@ -31,6 +31,7 @@ It accepts only the canonical form that [normalisation](normalisation.md) produc
 | `AC:<id> (v<x.y.z> - deprecated - removal planned v<x.y.z>)` | `deprecated` | `x.y.z` / `x.y.z` |
 
 - `<id>` is the entity id, a hyphen and a sequence number, e.g. `US-001-01` → `contracts/common.py::AC_ID_PATTERN`
+- Only a User Story or a Functionality owns criteria, so `<id>` starts `US-` or `FUNC-`; `FEAT-001-01` is rejected → `tests/contracts/test_common.py::test_acceptance_criterion_id_rejects_a_prefix_that_owns_no_criteria`
 - Other modules check an id with one helper, never their own pattern → `authoring/ac_grammar.py::is_valid_ac_id`
 - A version is required unless the state is `planned` → `contracts/common.py::AcceptanceCriterion._check_version_required_unless_planned`
 - `removal planned` is required on `deprecated` and allowed nowhere else → `contracts/common.py::AcceptanceCriterion._check_removal_planned_only_when_deprecated`

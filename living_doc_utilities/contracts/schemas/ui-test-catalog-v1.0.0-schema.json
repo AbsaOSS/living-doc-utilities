@@ -7,7 +7,7 @@
       "description": "One `@AC:<id>[/<param>:<value>...]` scenario tag (living-doc's AC_TAG_RE): a scenario may\ncarry several, each pairing a specific acceptance criterion with the specific aspect of\nit this scenario covers - or no aspect at all. Only `aspect` is stored; other parameters\nare accepted by the parser and dropped.",
       "properties": {
         "id": {
-          "pattern": "^[A-Z]+-\\d+-\\d+$",
+          "pattern": "^(?:US|FUNC)-\\d+-\\d+$",
           "title": "Id",
           "type": "string"
         },

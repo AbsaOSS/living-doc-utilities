@@ -7,7 +7,7 @@
       "description": "One acceptance criterion's resolved coverage row.",
       "properties": {
         "ac_id": {
-          "pattern": "^[A-Z]+-\\d+-\\d+$",
+          "pattern": "^(?:US|FUNC)-\\d+-\\d+$",
           "title": "Ac Id",
           "type": "string"
         },
