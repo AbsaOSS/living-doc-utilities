@@ -102,14 +102,14 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 
 - Each `Scenario:` or `Scenario Outline:` takes the `@AC:<id>[/<param>:<value>...]` tags right before it → `authoring/scenario.py::_tags_to_ac_links`
 - The tag format is open: any number of `/<param>:<value>` segments may follow the id → `authoring/scenario.py::_parse_ac_tag`
-  - `aspect` fills the link's `aspect`; its value stops at the next `/`.
+  - `aspect` fills the link's `aspect`; its value stops at the next `/` and must not contain `:`.
   - Any other parameter is accepted without a warning and not stored.
     - Why: the canon defines no other parameter yet, and `AcLink` has no field for one.
 - A `# AC:` comment above a scenario is documentation only; only the `@AC:` tag links a scenario.
 - Any other line between a tag block and the next scenario (`Rule:`, a step, `Examples:`) drops the pending tags → `authoring/scenario.py::parse_scenarios`
   - Why: a tag block links only the very next scenario, never one further down.
 - A `Feature:` or `Background:` line also drops pending tags → `authoring/scenario.py::parse_scenarios`
-- An `@AC:` tag is `MALFORMED_AC` when its criterion id is invalid, a segment is empty or not `<param>:<value>`, or `aspect` is given twice → `authoring/scenario.py::_parse_ac_tag`
+- An `@AC:` tag is `MALFORMED_AC` when its criterion id is invalid, a segment is empty or not `<param>:<value>`, `aspect` is given twice, or the `aspect` value contains `:` → `authoring/scenario.py::_parse_ac_tag`
 - The collector fills each scenario's `scenario_id` and `source_ref` → `authoring/scenario.py::ParsedScenario`
 
 ## Finding the entity id

@@ -58,7 +58,7 @@ def _parse_ac_tag(tag: str) -> AcLink | None:
         if not sep or not param or not value:
             return None
         if param == _ASPECT_PARAM:
-            if aspect is not None:
+            if aspect is not None or ":" in value:
                 return None
             aspect = value
     return AcLink(id=ac_id, aspect=aspect)

@@ -87,8 +87,18 @@ def _parse_single_tag(tag: str):
         ("@AC:US-1-01/aspect:username-input", "username-input"),
         ("@AC:US-1-01/aspect:a/priority:high", "a"),
         ("@AC:US-1-01/priority:high", None),
+        ("@AC:US-1-01/priority:high/aspect:a", "a"),
+        ("@AC:US-1-01/owner:team-a/env:staging/aspect:a/ticket:JIRA-42", "a"),
+        ("@AC:US-1-01/note:a:b", None),
     ],
-    ids=["aspect", "aspect_then_other_param", "unknown_param_only"],
+    ids=[
+        "aspect",
+        "aspect_then_other_param",
+        "unknown_param_only",
+        "other_param_then_aspect",
+        "several_unknown_params",
+        "unknown_param_value_with_colon",
+    ],
 )
 def test_ac_tag_param_segments_link_the_criterion(tag, aspect):
     """Any `/<param>:<value>` segments are accepted; `aspect` stops at the next `/`, other parameters are not stored."""
@@ -104,11 +114,13 @@ def test_ac_tag_param_segments_link_the_criterion(tag, aspect):
         "@AC:US-1-01//aspect:a",
         "@AC:US-1-01/priority",
         "@AC:US-1-01/aspect:a/aspect:b",
+        "@AC:US-1-01/aspect:a:b",
     ],
-    ids=["empty_segment", "segment_without_colon", "aspect_twice"],
+    ids=["empty_segment", "segment_without_colon", "aspect_twice", "colon_in_aspect_value"],
 )
 def test_malformed_ac_tag_params_produce_a_warning_and_no_link(tag):
-    """An empty segment, a segment without `:`, or a repeated `aspect` makes the whole tag `MALFORMED_AC`."""
+    """An empty segment, a segment without `:`, a repeated `aspect`, or an `aspect` value containing `:` makes the
+    whole tag `MALFORMED_AC`."""
     scenarios, warnings = _parse_single_tag(tag)
 
     assert scenarios[0].acceptance_criteria == []
