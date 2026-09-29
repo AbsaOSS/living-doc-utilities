@@ -104,7 +104,7 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 - The tag format is open: any number of `/<param>:<value>` segments may follow the id → `authoring/scenario.py::_parse_ac_tag`
   - `aspect` fills the link's `aspect`; its value stops at the next `/` and must not contain `:`.
   - Any other parameter is accepted without a warning and not stored.
-    - Why: the canon defines no other parameter yet, and `AcLink` has no field for one.
+    - Why: `AcLink` has no field for one; the canon's AC custom keyword (`@AC:<id>/<placeholder-name>:<value>`) is defined only in its header templates, so its value is not stored yet.
 - A `# AC:` comment above a scenario is documentation only; only the `@AC:` tag links a scenario.
 - Any other line between a tag block and the next scenario (`Rule:`, a step, `Examples:`) drops the pending tags → `authoring/scenario.py::parse_scenarios`
   - Why: a tag block links only the very next scenario, never one further down.
