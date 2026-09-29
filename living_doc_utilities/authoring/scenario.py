@@ -15,7 +15,7 @@
 #
 
 """
-Gherkin scenario parsing: a scenario's title and its `@AC:<id>[/aspect:<value>]` tags. The
+Gherkin scenario parsing: a scenario's title and its `@AC:<id>[/<param>:<value>...]` tags. The
 human-readable `# AC:` comment above a scenario is documentation only; only the
 machine-readable `@AC:` Cucumber tag links a scenario to an acceptance criterion.
 """
@@ -33,7 +33,8 @@ from living_doc_utilities.contracts.ui_tests import AcLink
 _TAG_TOKEN_RE = re.compile(r"@\S+")
 _SCENARIO_RE = re.compile(r"^Scenario(?:\s+Outline)?:\s*(?P<title>.*)$")
 _BACKGROUND_RE = re.compile(r"^Background:\s*.*$")
-_AC_TAG_RE = re.compile(r"^@AC:(?P<id>[^/\s]*)(?:/aspect:(?P<aspect>\S+))?$")
+_AC_TAG_PREFIX = "@AC:"
+_ASPECT_PARAM = "aspect"
 
 
 @dataclass
@@ -45,20 +46,37 @@ class ParsedScenario:
     acceptance_criteria: list[AcLink] = field(default_factory=list)
 
 
+def _parse_ac_tag(tag: str) -> AcLink | None:
+    """Parses `@AC:<id>[/<param>:<value>...]`; `None` when malformed. Only `aspect` is stored; the canon
+    keeps the format open, and other parameters are accepted but have no field on `AcLink`."""
+    ac_id, *segments = tag[len(_AC_TAG_PREFIX) :].split("/")
+    if not is_valid_ac_id(ac_id):
+        return None
+    aspect: str | None = None
+    for segment in segments:
+        param, sep, value = segment.partition(":")
+        if not sep or not param or not value:
+            return None
+        if param == _ASPECT_PARAM:
+            if aspect is not None or ":" in value:
+                return None
+            aspect = value
+    return AcLink(id=ac_id, aspect=aspect)
+
+
 def _tags_to_ac_links(tags: list[str]) -> tuple[list[AcLink], list[ContractWarning]]:
     links: list[AcLink] = []
     warnings: list[ContractWarning] = []
     for tag in tags:
-        if not tag.startswith("@AC:"):
+        if not tag.startswith(_AC_TAG_PREFIX):
             continue
-        tag_m = _AC_TAG_RE.match(tag)
-        ac_id = tag_m.group("id") if tag_m else ""
-        if tag_m is None or not is_valid_ac_id(ac_id):
+        link = _parse_ac_tag(tag)
+        if link is None:
             warnings.append(
                 ContractWarning(code=Code.MALFORMED_AC.name, message="'@AC:' tag is malformed.", context=f"tag={tag!r}")
             )
             continue
-        links.append(AcLink(id=ac_id, aspect=tag_m.group("aspect")))
+        links.append(link)
     return links, warnings
 
 
