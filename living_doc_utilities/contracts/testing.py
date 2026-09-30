@@ -170,6 +170,7 @@ def _entities() -> list[Entity]:
         user_stories=["US-001"],
         functionalities=["FUNC-001"],
         external_dependencies=["payments-api"],
+        feature_dependencies=["FEAT-002"],
         stub_reason="surface not yet instrumented: awaiting UI test coverage",
         wizard_steps=["cart-review", "payment", "confirmation"],
         pages=[

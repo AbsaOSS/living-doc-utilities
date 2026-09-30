@@ -70,6 +70,8 @@ class EntityContent(ContractModel):
     user_stories: list[str] = Field(default_factory=list)
     functionalities: list[str] = Field(default_factory=list)
     external_dependencies: list[str] = Field(default_factory=list)
+    # The `FEAT-` ids of the `API` Features this Feature calls; authored on the caller only, never derived.
+    feature_dependencies: list[str] = Field(default_factory=list)
     stub_reason: Optional[str] = None
     wizard_steps: list[str] = Field(default_factory=list)
     pages: list[PageRef] = Field(default_factory=list)

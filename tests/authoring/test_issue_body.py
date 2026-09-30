@@ -16,6 +16,8 @@
 
 """`parse_issue_body`: every canonical heading lands on its field; unknown headings and a Feature `## Status` warn."""
 
+import pytest
+
 from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.contracts.codes import Code
 
@@ -87,6 +89,10 @@ FUNC-001
 ## External Dependencies
 
 dep-api
+
+## Feature Dependencies
+
+FEAT-003, FEAT-004
 
 ## Deprecated At
 
@@ -179,6 +185,7 @@ def test_every_feature_heading_lands_on_its_field_and_status_is_ignored():
     assert entity.user_stories == ["US-001"]
     assert entity.functionalities == ["FUNC-001"]
     assert entity.external_dependencies == ["dep-api"]
+    assert entity.feature_dependencies == ["FEAT-003", "FEAT-004"]
     assert entity.deprecated_at == "2026-01-01"
     assert entity.deprecation_reason == "Reason text."
     assert entity.superseded_by == "FEAT-002"
@@ -269,3 +276,36 @@ def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
     assert [w.code for w in warnings] == [Code.MALFORMED_STATUS.name]
     assert "done" in warnings[0].message
     assert entity.business_value == ["v"]
+
+
+def test_feature_dependencies_on_an_api_feature_is_a_comma_separated_id_list():
+    """An `API` Feature may call another `API` Feature: `## Feature Dependencies` parses like `## User Stories`."""
+    body = "## Surface Type\n\nAPI\n\n## Feature Dependencies\n\nFEAT-002,FEAT-005 ,  FEAT-007\n"
+    entity, warnings = parse_issue_body(body, "FEAT-001 · Sample", "DocumentedFeature")
+
+    assert warnings == []
+    assert entity.surface_type == "API"
+    assert entity.feature_dependencies == ["FEAT-002", "FEAT-005", "FEAT-007"]
+
+
+def test_feature_dependencies_defaults_to_empty_when_the_section_is_absent():
+    """A Feature with no `## Feature Dependencies` heading has an empty `feature_dependencies`."""
+    entity, warnings = parse_issue_body("## Surface Type\n\nUI\n", "FEAT-001 · Sample", "DocumentedFeature")
+
+    assert warnings == []
+    assert entity.feature_dependencies == []
+
+
+@pytest.mark.parametrize(
+    "title, entity_type",
+    [("FUNC-001 · Sample", "DocumentedFunctionality"), ("US-001 · Sample", "DocumentedUserStory")],
+)
+def test_feature_dependencies_on_a_non_feature_is_an_unknown_section(title, entity_type):
+    """`## Feature Dependencies` is a Feature field only: elsewhere it is `UNKNOWN_SECTION` and never reaches the entity."""
+    body = "## Description\n\nSome text.\n\n## Feature Dependencies\n\nFEAT-002\n"
+    entity, warnings = parse_issue_body(body, title, entity_type)
+
+    assert entity is not None
+    assert entity.feature_dependencies == []
+    assert [w.code for w in warnings] == [Code.UNKNOWN_SECTION.name]
+    assert "Feature Dependencies" in warnings[0].message

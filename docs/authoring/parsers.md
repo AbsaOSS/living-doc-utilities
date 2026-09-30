@@ -52,6 +52,7 @@ Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a f
 | `## User Stories` | | `user_stories` (id list) | |
 | `## Functionalities` | | `functionalities` (id list) | |
 | `## External Dependencies` | | `external_dependencies` (id list) | |
+| `## Feature Dependencies` | | `feature_dependencies` (id list) | |
 | `## Parent Feature` | | | `parent` |
 | `## Func Type` | | | `func_type` |
 | `## Rationale` | | | `rationale` (one bullet) |
@@ -88,12 +89,13 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 
 | Shape | When | Known keys | Result |
 |---|---|---|---|
-| full header | no `parent-feat:` | `surface_type`, `route`, `owners`, `purpose`, `user_stories`, `functionalities`, `external_dependencies`, `page-object`, `wizard-steps`, `stub-reason`, `status` | a Feature plus its primary page |
+| full header | no `parent-feat:` | `surface_type`, `route`, `owners`, `purpose`, `user_stories`, `functionalities`, `external_dependencies`, `feature_dependencies`, `page-object`, `wizard-steps`, `stub-reason`, `status` | a Feature plus its primary page |
 | cross-reference header | `parent-feat:` present | `parent-feat`, `route`, `owners`, `purpose`, `page-object`, `functionalities`, `status` | one page for an already-described Feature |
 
 - The key sets are `authoring/page_object.py::_FULL_HEADER_KEYS` and `authoring/page_object.py::_CROSS_REFERENCE_KEYS`
 - A cross-reference result names `parent_feat`; the collector appends its page to that Feature's `pages` → `authoring/page_object.py::PageObjectResult`
 - `status:` is recognised only to be dropped as `IGNORED_AUTHORED_KEY` → `authoring/page_object.py::IGNORED_AUTHORED_KEYS`
+- A full-header-only key (`surface_type`, `user_stories`, `external_dependencies`, `feature_dependencies`) on a cross-reference header is an unknown key, `IGNORED_AUTHORED_KEY` → `tests/authoring/test_page_object.py::test_full_header_only_key_on_a_cross_reference_header_is_an_unrecognised_key`
 - `wizard-steps` is split on ` · ` → `authoring/page_object.py::parse_page_object`
 
 ## Scenarios
@@ -162,6 +164,7 @@ An authored state contradicts its criteria when → `authoring/status.py::_is_mi
 |---|---|---|
 | Feature | `user_stories` | `DocumentedUserStory` |
 | Feature | `functionalities` | `DocumentedFunctionality` |
+| Feature | `feature_dependencies` | `DocumentedFeature` with `surface_type` `API` |
 | Functionality | `parent` | `DocumentedFeature` |
 | any entity | `superseded_by` | the declaring entity's own type |
 
@@ -169,6 +172,10 @@ An authored state contradicts its criteria when → `authoring/status.py::_is_mi
 - A target of another type is `RELATION_TYPE_MISMATCH`; context names the entity, field, target, actual and expected type → `authoring/relations.py::_type_mismatch`
 - A Feature's functionality whose `parent` names another Feature is `RELATION_MISMATCH` → `authoring/relations.py::check_relations`
 - A Functionality missing from its parent's non-empty `functionalities` list is `RELATION_MISMATCH`; an empty or absent list means nothing was declared → `authoring/relations.py::check_relations`
+- A `feature_dependencies` target that is a Feature with no `API` surface is `RELATION_TYPE_MISMATCH`; the expected type is `API DocumentedFeature` → `authoring/relations.py::_feature_dependency_warning`
+- A Feature naming itself in `feature_dependencies` is `RELATION_MISMATCH` → `authoring/relations.py::_feature_dependency_warning`
+- A Feature's `feature_dependencies` is exactly what is authored on it; nothing is derived from its Functionalities, and the reverse direction is not computed → `tests/authoring/test_relations.py::test_a_feature_keeps_exactly_its_authored_feature_dependencies`
+- In a source-code run, a `UI` Feature's `feature_dependencies` target is `UNRESOLVED_RELATION`, and that is expected: an `API` Feature has no source-code form until the API endpoint header exists (roadmap "Post-v1") → `tests/authoring/golden/test_golden_source_code_chain.py::test_a_ui_feature_dependency_is_unresolved_in_a_source_code_run_and_nothing_else`
 
 ## Golden fixtures
 

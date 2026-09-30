@@ -16,6 +16,8 @@
 
 """PageObject header parsing: full and cross-reference headers, an unrecognised key, `normalize` before the grammar."""
 
+import pytest
+
 from living_doc_utilities.authoring.page_object import parse_page_object
 from living_doc_utilities.contracts.codes import Code
 
@@ -31,6 +33,7 @@ _FULL_HEADER = """\
  * user_stories:          US-10, US-12
  * functionalities:       FUNC-005, FUNC-006
  * external_dependencies: accounts-api
+ * feature_dependencies:  FEAT-051, FEAT-052
  * page-object:           AccountSetupWizardPage.ts
  * ============================================================================= */
 """
@@ -81,6 +84,7 @@ def test_full_header_populates_the_feature_entity_and_its_page_ref():
     assert result.entity.user_stories == ["US-10", "US-12"]
     assert result.entity.functionalities == ["FUNC-005", "FUNC-006"]
     assert result.entity.external_dependencies == ["accounts-api"]
+    assert result.entity.feature_dependencies == ["FEAT-051", "FEAT-052"]
     assert result.entity.wizard_steps == ["Profile", "Preferences", "Review", "Confirm"]
     assert result.page_ref.is_primary is True
     assert result.page_ref.route == "/app/accounts/setup"
@@ -163,3 +167,54 @@ def test_en_dash_input_is_normalized_before_extraction():
     assert result.entity is not None
     assert result.entity.entity_id == "FEAT-044"
     assert result.entity.title == "FEAT-044 · Dash Page"
+
+
+def _header(surface_type: str, extra: str = "") -> str:
+    return (
+        "/* =============================================================================\n"
+        " * LIVING DOC — FEAT-003 · Registration Page\n"
+        " * =============================================================================\n"
+        f" * surface_type:          {surface_type}\n"
+        " * route:                 /register\n"
+        " * owners:                Identity Team\n"
+        " * purpose:               A sample page.\n"
+        " * user_stories:          none\n"
+        " * functionalities:       none\n"
+        " * external_dependencies: none\n"
+        f"{extra}"
+        " * page-object:           RegistrationPage.ts\n"
+        " * ============================================================================= */\n"
+    )
+
+
+@pytest.mark.parametrize("surface_type", ["UI", "API"])
+def test_full_header_feature_dependencies_is_a_comma_separated_id_list(surface_type):
+    """`feature_dependencies:` on a full header parses like `user_stories:`, on a `UI` and an `API` Feature alike."""
+    result, warnings = parse_page_object(_header(surface_type, " * feature_dependencies:  FEAT-002,FEAT-005\n"))
+
+    assert warnings == []
+    assert result.entity.surface_type == surface_type
+    assert result.entity.feature_dependencies == ["FEAT-002", "FEAT-005"]
+
+
+def test_full_header_without_feature_dependencies_leaves_it_empty():
+    """The key is optional: a full header that omits it yields an empty `feature_dependencies`."""
+    result, warnings = parse_page_object(_header("UI"))
+
+    assert warnings == []
+    assert result.entity.feature_dependencies == []
+
+
+@pytest.mark.parametrize("key", ["feature_dependencies", "surface_type"])
+def test_full_header_only_key_on_a_cross_reference_header_is_an_unrecognised_key(key):
+    """A cross-reference header carries no `feature_dependencies:`, the same as any other full-header-only key."""
+    text = _CROSS_REFERENCE_HEADER.replace(
+        " * page-object:     AccountSetupWizardProfilePage.ts\n",
+        f" * page-object:     AccountSetupWizardProfilePage.ts\n * {key}: FEAT-002\n",
+    )
+    result, warnings = parse_page_object(text)
+
+    assert result.entity is None
+    assert [(w.code, w.message) for w in warnings] == [
+        (Code.IGNORED_AUTHORED_KEY.name, f"'{key}:' is not a field this contract carries.")
+    ]

@@ -16,6 +16,8 @@
 
 """`check_relations`: `UNRESOLVED_RELATION`, `RELATION_MISMATCH` and `RELATION_TYPE_MISMATCH`."""
 
+import pytest
+
 from living_doc_utilities.authoring.issue_body import ParsedEntity, parse_issue_body
 from living_doc_utilities.authoring.relations import check_relations
 from living_doc_utilities.authoring.status import derive_statuses
@@ -244,3 +246,188 @@ def test_no_relation_warnings_for_the_golden_entity_fixtures():
     warnings = check_relations(derived)
 
     assert warnings == []
+
+
+# --- feature_dependencies -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("surface_type", ["UI", "API"])
+def test_no_warning_for_a_feature_dependency_on_an_api_feature(surface_type):
+    """A `UI` or an `API` Feature naming an `API` Feature in `feature_dependencies` raises nothing."""
+    caller = _feature(surface_type=surface_type, feature_dependencies=["FEAT-002"])
+    api = _feature(entity_id="FEAT-002", surface_type="API")
+
+    assert check_relations([caller, api]) == []
+
+
+def test_unresolved_relation_for_a_feature_dependency_outside_the_run():
+    """A `feature_dependencies` target outside the collected set is `UNRESOLVED_RELATION`."""
+    caller = _feature(surface_type="UI", feature_dependencies=["FEAT-999"])
+
+    warnings = check_relations([caller])
+
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.UNRESOLVED_RELATION.name, "entity_id='FEAT-001' target='FEAT-999'")
+    ]
+
+
+def test_none_in_feature_dependencies_is_no_target():
+    """The field has no `none` value; the shared id-list parser reads it as an empty list, so nothing is checked."""
+    entity, warnings = parse_issue_body("## Feature Dependencies\n\nnone\n", "FEAT-001 · Sample", "DocumentedFeature")
+
+    assert warnings == []
+    assert entity.feature_dependencies == []
+    assert check_relations([entity]) == []
+
+
+@pytest.mark.parametrize("surface_type", ["UI", None])
+def test_relation_type_mismatch_when_a_feature_dependency_is_not_an_api_feature(surface_type):
+    """A `feature_dependencies` target that is a Feature without an `API` surface is `RELATION_TYPE_MISMATCH`."""
+    caller = _feature(surface_type="UI", feature_dependencies=["FEAT-002"])
+    target = _feature(entity_id="FEAT-002", surface_type=surface_type)
+
+    warnings = check_relations([caller, target])
+
+    actual = f"DocumentedFeature with surface_type={surface_type!r}"
+    assert [(w.code, w.context) for w in warnings] == [
+        (
+            Code.RELATION_TYPE_MISMATCH.name,
+            f"entity_id='FEAT-001' field='feature_dependencies' target='FEAT-002' "
+            f"actual_type={actual!r} expected_type='API DocumentedFeature'",
+        )
+    ]
+
+
+def test_relation_type_mismatch_when_a_feature_dependency_is_not_a_feature():
+    """A `feature_dependencies` target that is a Functionality is `RELATION_TYPE_MISMATCH` on the entity type."""
+    caller = _feature(feature_dependencies=["FUNC-001"])
+
+    warnings = check_relations([caller, _func()])
+
+    assert [(w.code, w.context) for w in warnings] == [
+        (
+            Code.RELATION_TYPE_MISMATCH.name,
+            "entity_id='FEAT-001' field='feature_dependencies' target='FUNC-001' "
+            "actual_type='DocumentedFunctionality' expected_type='DocumentedFeature'",
+        )
+    ]
+
+
+@pytest.mark.parametrize("surface_type", ["UI", "API"])
+def test_relation_mismatch_when_a_feature_depends_on_itself(surface_type):
+    """A Feature naming itself in `feature_dependencies` is `RELATION_MISMATCH`, even an `API` one."""
+    caller = _feature(surface_type=surface_type, feature_dependencies=["FEAT-001"])
+
+    warnings = check_relations([caller])
+
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.RELATION_MISMATCH.name, "entity_id='FEAT-001' target='FEAT-001'")
+    ]
+
+
+def test_feature_dependencies_is_checked_after_functionalities_and_before_superseded_by():
+    """A Feature's `feature_dependencies` is reported between its `functionalities` and its `superseded_by`."""
+    caller = _feature(functionalities=["FUNC-999"], feature_dependencies=["FEAT-998"], superseded_by="FEAT-997")
+
+    warnings = check_relations([caller])
+
+    assert [w.context for w in warnings] == [
+        "entity_id='FEAT-001' target='FUNC-999'",
+        "entity_id='FEAT-001' target='FEAT-998'",
+        "entity_id='FEAT-001' target='FEAT-997'",
+    ]
+
+
+def test_a_feature_keeps_exactly_its_authored_feature_dependencies():
+    """Nothing is derived upward: a Feature's value is what is written on it, whatever its Functionalities carry."""
+    feature, feature_warnings = parse_issue_body(
+        "## Surface Type\n\nUI\n\n## Functionalities\n\nFUNC-001\n\n## Feature Dependencies\n\nFEAT-002\n",
+        "FEAT-001 · Sample",
+        "DocumentedFeature",
+    )
+    bare_feature, _bare_warnings = parse_issue_body(
+        "## Surface Type\n\nUI\n\n## Functionalities\n\nFUNC-002\n", "FEAT-003 · Bare", "DocumentedFeature"
+    )
+    api = _feature(entity_id="FEAT-002", surface_type="API")
+    # Even a Functionality built with the field directly (no parser puts it there) contributes nothing upward.
+    funcs = [
+        _func(parent="FEAT-001", feature_dependencies=["FEAT-005"]),
+        _func(entity_id="FUNC-002", parent="FEAT-003", feature_dependencies=["FEAT-002"]),
+    ]
+
+    derived, _derive_warnings = derive_statuses([feature, bare_feature, api, *funcs])
+    by_id = {entity.entity_id: entity for entity in derived}
+
+    assert feature_warnings == []
+    assert by_id["FEAT-001"].feature_dependencies == ["FEAT-002"]
+    assert by_id["FEAT-003"].feature_dependencies == []
+    # A Functionality is not a declaring entity for this relation, so its stray value is never traversed.
+    assert check_relations(derived) == []
+
+
+# Verbatim bodies of AbsaOSS/living-doc's docs/examples/gh-issues/feat-00{2,3}-*.md at commit
+# b00ca8c653dc09b58523d0fee9715657ae214905 (P35-LD12), provenance comments left out.
+_CANON_FEAT_002 = """\
+## Description
+
+The service contract a client calls to ask whether a candidate password appears in the breached-password
+corpus.
+
+## Surface Type
+
+API
+
+## Owners
+
+Identity Team
+
+## User Stories
+
+US-001
+
+## Functionalities
+
+none
+"""
+
+_CANON_FEAT_003 = """\
+## Description
+
+The screen where a new customer creates an account by entering an email and choosing a password.
+
+## Surface Type
+
+UI
+
+## Owners
+
+Identity Team
+
+## User Stories
+
+none
+
+## Functionalities
+
+none
+
+## Feature Dependencies
+
+FEAT-002
+"""
+
+
+def test_canon_feat_003_to_feat_002_round_trips_through_the_issue_body_parser():
+    """The canon's `feature_dependencies` pair parses with no warning and FEAT-003 → FEAT-002 resolves cleanly."""
+    us_001, us_warnings = parse_issue_body(
+        read_fixture("gh-issues", "us-001-customer-login.md"), "US-001 · Customer Login", "DocumentedUserStory"
+    )
+    feat_002, feat_002_warnings = parse_issue_body(
+        _CANON_FEAT_002, "FEAT-002 · Breached Password Check", "DocumentedFeature"
+    )
+    feat_003, feat_003_warnings = parse_issue_body(_CANON_FEAT_003, "FEAT-003 · Registration Page", "DocumentedFeature")
+
+    assert us_warnings + feat_002_warnings + feat_003_warnings == []
+    assert feat_003.feature_dependencies == ["FEAT-002"]
+    assert feat_002.feature_dependencies == []
+    assert check_relations([us_001, feat_002, feat_003]) == []
