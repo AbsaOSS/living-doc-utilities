@@ -34,7 +34,9 @@ AUTHORING_DIR = Path(__file__).resolve().parents[2] / "living_doc_utilities" / "
 
 def test_no_authoring_module_uses_the_logging_module():
     """No module under `living_doc_utilities/authoring` imports the `logging` module; warnings carry state instead."""
-    offenders = [path.name for path in AUTHORING_DIR.glob("*.py") if "import logging" in path.read_text(encoding="utf-8")]
+    offenders = [
+        path.name for path in AUTHORING_DIR.glob("*.py") if "import logging" in path.read_text(encoding="utf-8")
+    ]
     assert offenders == []
 
 
@@ -49,7 +51,15 @@ def _skip_cases():
     )[1]
     yield "feature_header_missing_id", lambda: parse_feature_header("# not a header\n", "DocumentedUserStory")[1]
     yield "feature_header_unparsed_bullet_line", lambda: parse_feature_header(
-        "# ===\n# LIVING DOC — US-001 · S\n# ===\n# preconditions: text\n# ===\n\nFeature: S\n", "DocumentedUserStory"
+        "# ===\n# LIVING DOC — US-001 · S\n# ===\n# preconditions: text\n# ===\n\nFeature: S\n",
+        "DocumentedUserStory",
+    )[1]
+    yield "feature_header_misindented_line", lambda: parse_feature_header(
+        "# ===\n# LIVING DOC — US-001 · S\n# ===\n# preconditions:\n#   - one\n#  - two\n# ===\n\nFeature: S\n",
+        "DocumentedUserStory",
+    )[1]
+    yield "ac_grammar_misindented_line", lambda: parse_acceptance_criteria(
+        "AC:US-001-01 (v1.0.0 - active)\n  - desc\n - misindented\n"
     )[1]
     yield "page_object_missing_id", lambda: parse_page_object("/* no title */\n")[1]
     yield "ac_grammar_malformed", lambda: parse_acceptance_criteria("AC: (v1.0.0 - active)\n- desc\n")[1]

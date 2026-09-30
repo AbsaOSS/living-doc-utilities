@@ -44,6 +44,9 @@ It accepts only the canonical form that [normalisation](normalisation.md) produc
 A criterion's block is the lines after its header → `authoring/ac_grammar.py::parse_acceptance_criteria`.
 
 - It ends at the next `AC:` line, a `===` banner line, or a Markdown `##` to `######` heading.
+  - An `AC:` line deeper than the open bullet item's `- ` is that item's wrapped text and ends nothing → `tests/authoring/test_ac_grammar.py::test_a_line_wrapped_deeper_than_a_criterion_item_is_never_an_ac_header`
+- Each line keeps its indent: only the comment leader (`#`, `###`, `*`) and one following space are removed → `authoring/ac_grammar.py::parse_acceptance_criteria`
+  - Why: what a block line belongs to is read from its indent ([Extensions](#extensions)).
 - Blank lines are skipped, not treated as an end.
   - Why: an issue-body criterion heading gets one blank line before its bullets.
 - Lines inside a fenced code block are skipped → `authoring/normalize.py::compute_fence_flags`
@@ -61,9 +64,40 @@ Each block line fills one field of the criterion → `contracts/common.py::Accep
 | a `preconditions:` line, then bullets | `preconditions` |
 | a `not_in_scope:` line, then bullets | `not_in_scope` |
 | a line with no bullet marker, right after a description, rationale, `preconditions:` or `not_in_scope:` line | appended to that field |
+| a line deeper than a description, rationale, `preconditions` or `not_in_scope` item's `- ` | that item's text: wrapped text is joined with a space; a nested `- ` item is kept as extracted, as in a [bullet-list field](parsers.md#common-behaviour) |
+| a line deeper than an `Aspect:` or placeholder item's `- ` | nothing: `UNPARSED_AC_LINE` |
+| any other bare `<key>:` line with a deeper line right under it, e.g. `notes:` | nothing: `UNPARSED_AC_LINE`, for it and each line deeper than it |
+| a line whose indent fits no level (see below) | nothing: `MISINDENTED_LINE`, for it and each line deeper than it |
 | any other line | nothing: `UNPARSED_AC_LINE` |
 
-- After a `preconditions:` or `not_in_scope:` line, every later bullet of the block joins that list → `authoring/ac_grammar.py::_parse_extensions`
+The block's content level is the indent of its first bullet → `authoring/ac_grammar.py::_ExtensionReader`.
+A line fits no level when it is shallower than the content level, or sits between a nested sub-list's key and its
+items (`- Aspect:` at 5 under `preconditions:` at 4 with items at 6) → `tests/authoring/test_ac_grammar.py::test_a_bullet_between_a_sub_key_and_its_items_is_misindented_and_dropped`
+
+The first item of a sub-list decides how far the list reaches → `authoring/ac_grammar.py::_SubList`:
+
+| Sub-list items | Layout | The list ends at |
+|---|---|---|
+| deeper than `preconditions:` / `not_in_scope:` | nested, the `.feature` canon | the first line at or above the key's indent; that line is read as a criterion line |
+| at the key's own indent | flat, every issue body | the next sub-list key, or the end of the block: every later bullet joins the list, in line order |
+
+```gherkin
+#   AC:US-001-01 (v1.0.0 - active)
+#     - Valid credentials land on the dashboard.
+#     preconditions:
+#       - An account exists.
+#     - Aspect: security
+```
+
+This gives `preconditions = ["An account exists."]` and `aspect = ["security"]`, with no warning → `tests/authoring/test_ac_grammar.py::test_a_bullet_back_at_criterion_level_closes_an_indented_sub_list`
+
+- The same block written flat, with `- An account exists.` at the key's indent, puts `Aspect: security` into `preconditions` → `tests/authoring/test_ac_grammar.py::test_flat_sub_list_keeps_every_later_bullet_in_line_order`
+- A line deeper than an item's `- ` is that item's text: a sub-key or `<key>:` there is not read as a key → `authoring/ac_grammar.py::_ExtensionReader`
+- A nested precondition stays in its parent's entry: `["An account exists.\n  - It is not locked."]` → `tests/authoring/test_ac_grammar.py::test_a_nested_precondition_item_is_kept_in_its_parents_string`
+- An unknown bare key is reported with exactly the lines deeper than it; none of them fills a field, and the next line at or above its indent is read normally → `tests/authoring/test_ac_grammar.py::test_unknown_sub_key_is_reported_with_exactly_the_lines_deeper_than_it`
+  - Why: the canon allows `notes:` at entity level only; a nested note reading `Owner: x` would otherwise become a placeholder value.
+- A bare `<key>:` with no deeper line right under it is a wrapped line, not a key: `- The dashboard shows the` then `following:` is one description → `tests/authoring/test_ac_grammar.py::test_a_bare_key_with_nothing_deeper_under_it_is_wrapped_text`
+  - Why: without an indent the two cannot be told apart, so the line is read as it always was; a flat `notes:` is read the same way, its bullets as criterion lines → `tests/authoring/test_ac_grammar.py::test_a_flat_unknown_key_is_read_as_wrapped_text_and_its_bullets_as_criterion_lines`
 - A placeholder name must match `^[A-Za-z_][A-Za-z0-9_]*$` after that rewrite → `contracts/common.py::PLACEHOLDER_NAME_PATTERN`
 
 ## Dropped criteria

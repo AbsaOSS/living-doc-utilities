@@ -218,3 +218,13 @@ def test_full_header_only_key_on_a_cross_reference_header_is_an_unrecognised_key
     assert [(w.code, w.message) for w in warnings] == [
         (Code.IGNORED_AUTHORED_KEY.name, f"'{key}:' is not a field this contract carries.")
     ]
+
+
+def test_an_indented_key_outside_a_bullet_item_is_still_a_key():
+    """A key indented deeper than its neighbours opens no item, so it is read as a key, not as the last value's text."""
+    header = _FULL_HEADER.replace(" * owners:                Platform Team", " *   owners:              Platform Team")
+    result, warnings = parse_page_object(header)
+
+    assert warnings == []
+    assert result.entity.owners == ["Platform Team"]
+    assert result.page_ref.route == "/app/accounts/setup"

@@ -297,3 +297,164 @@ def test_prose_on_a_rationale_keys_own_line_is_dropped_with_unparsed_bullet_line
         (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale'")
     ]
     assert "'Keeps the audit trail intact.'" in warnings[0].message
+
+
+# --- indentation: a line's level decides what it belongs to (DEC-44) ---------------------------
+
+
+def test_a_wrapped_bullet_line_reading_like_a_key_is_that_items_text():
+    """A `business_value` item's wrapped line `status: deprecated ...`, deeper than its `- `, opens no `status` key."""
+    text = _us_header(
+        "# business_value:\n"
+        "#   - Migrated accounts keep working; they carry\n"
+        "#     status: deprecated until the owner re-verifies them.\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.state == "active"
+    assert entity.business_value == [
+        "Migrated accounts keep working; they carry status: deprecated until the owner re-verifies them."
+    ]
+
+
+def test_an_indented_key_after_the_bullet_item_has_closed_is_still_a_key():
+    """A key indented to the item's own `- ` column is not deeper than it, so the item closes and the key is read."""
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — US-001 · Sample\n"
+        "# =============================================================================\n"
+        "# business_value:\n"
+        "#   - Fewer support calls.\n"
+        "#   status: deprecated\n"
+        "# =============================================================================\n"
+        "\nFeature: Sample\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.state == "deprecated"
+    assert entity.business_value == ["Fewer support calls."]
+
+
+def test_a_wrapped_bullet_line_reading_like_an_ac_header_is_not_a_criterion():
+    """A `business_value` item's wrapped `AC:<id> (...)` line is item text; the grammar never sees a criterion there."""
+    text = _us_header("# business_value:\n#   - Mirrors the rule of\n#     AC:US-001-09 (v1.0.0 - active)\n")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.acceptance_criteria == []
+    assert entity.business_value == ["Mirrors the rule of AC:US-001-09 (v1.0.0 - active)"]
+
+
+def test_a_tab_indented_header_is_read_at_its_normalised_indent():
+    """Rule 6 turns a tab indent into spaces before the parser reads levels: the criterion and its sub-list parse."""
+    text = _us_header(
+        "# acceptance_criteria:\n"
+        "#\tAC:US-001-01 (v1.0.0 - active)\n"
+        "#\t\t- desc\n"
+        "#\t\tpreconditions:\n"
+        "#\t\t\t- An account exists.\n"
+        "#\t\t- Aspect: security\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.acceptance_criteria[0].preconditions == ["An account exists."]
+    assert entity.acceptance_criteria[0].aspect == ["security"]
+
+
+def test_a_nested_business_value_item_is_kept_in_its_parents_string_as_extracted():
+    """The same nested list as in an issue body gives the same value: the child on its own line, under its parent."""
+    text = _us_header(
+        "# business_value:\n"
+        "#   - Registered customers can reach their account area.\n"
+        "#     - Returning users convert without friction.\n"
+        "#   - Support calls about lost sessions drop.\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.business_value == [
+        "Registered customers can reach their account area.\n  - Returning users convert without friction.",
+        "Support calls about lost sessions drop.",
+    ]
+
+
+def test_a_nested_item_returning_between_two_levels_is_misindented_with_its_wrapped_line():
+    """Back from a child at 6 to indent 4, with the item at 2, fits no level: that line and its wrap are dropped."""
+    text = _us_header(
+        "# business_value:\n"
+        "#   - Registered customers can reach their account area.\n"
+        "#       - Returning users convert without friction.\n"
+        "#     - Support calls about lost\n"
+        "#       sessions drop.\n"
+        "#   - Fewer password resets.\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity.business_value == [
+        "Registered customers can reach their account area.\n    - Returning users convert without friction.",
+        "Fewer password resets.",
+    ]
+    assert [w.code for w in warnings] == [Code.MISINDENTED_LINE.name] * 2
+    assert [w.context.split(" line=")[1] for w in warnings] == ["'- Support calls about lost'", "'sessions drop.'"]
+
+
+def test_a_flush_header_keeps_every_criterion_when_a_rule_rewrites_its_headers():
+    """Headers and bullets at the same indent stay there when rule 3 lowercases `Active`: both criteria parse."""
+    text = _us_header(
+        "# acceptance_criteria:\n"
+        "# AC:US-001-01 (v1.0.0 - Active)\n"
+        "# - Valid credentials land on the dashboard.\n"
+        "# - Aspect: security\n"
+        "# AC:US-001-02 (v1.0.0 - Active)\n"
+        "# - Three wrong passwords lock the account.\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert [(ac.id, ac.state, ac.description) for ac in entity.acceptance_criteria] == [
+        ("US-001-01", "active", "Valid credentials land on the dashboard."),
+        ("US-001-02", "active", "Three wrong passwords lock the account."),
+    ]
+    assert entity.acceptance_criteria[0].aspect == ["security"]
+
+
+def test_a_header_deeper_than_the_previous_criterions_items_is_their_text_with_a_warning():
+    """Items shallower than their own header break the canon: the next header, deeper than them, is their text.
+
+    Nothing is lost silently: the swallowed criterion's own bullet is reported."""
+    text = _us_header(
+        "# acceptance_criteria:\n"
+        "#  AC:US-001-01 (v1.0.0 - active)\n"
+        "# - Valid credentials land on the dashboard.\n"
+        "#  AC:US-001-02 (v1.0.0 - active)\n"
+        "# - Three wrong passwords lock the account.\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
+    assert [(w.code, w.context.split(" line=")[1]) for w in warnings] == [
+        (Code.UNPARSED_AC_LINE.name, "'- Three wrong passwords lock the account.'")
+    ]
+
+
+def test_a_blank_line_closes_a_bullet_item_so_a_deeper_key_is_read():
+    """A blank comment line ends the open item: a `status:` below it, even one deeper than the `- `, is a key."""
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — US-001 · Sample\n"
+        "# =============================================================================\n"
+        "# business_value:\n"
+        "#   - Fewer support calls.\n"
+        "#\n"
+        "#     status: deprecated\n"
+        "# =============================================================================\n"
+        "\nFeature: Sample\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.business_value == ["Fewer support calls."]
+    assert entity.state == "deprecated"

@@ -257,7 +257,10 @@ def test_missing_entity_id_short_circuits_before_any_section_parsing():
 
 def test_en_dash_input_is_normalized_before_ac_grammar_runs():
     """An en-dash in an AC header's version separator is normalized first, so the header still parses correctly."""
-    body = "## Description\n\ndesc\n\n## Status\n\nactive\n\n## Business Value\n\n- v\n\n" "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 – active)\n\n- desc\n"
+    body = (
+        "## Description\n\ndesc\n\n## Status\n\nactive\n\n## Business Value\n\n- v\n\n"
+        "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 – active)\n\n- desc\n"
+    )
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 
     assert warnings == []
@@ -301,7 +304,7 @@ def test_feature_dependencies_defaults_to_empty_when_the_section_is_absent():
     [("FUNC-001 · Sample", "DocumentedFunctionality"), ("US-001 · Sample", "DocumentedUserStory")],
 )
 def test_feature_dependencies_on_a_non_feature_is_an_unknown_section(title, entity_type):
-    """`## Feature Dependencies` is a Feature field only: elsewhere it is `UNKNOWN_SECTION` and never reaches the entity."""
+    """`## Feature Dependencies` is a Feature field only: elsewhere it is `UNKNOWN_SECTION`, never an entity field."""
     body = "## Description\n\nSome text.\n\n## Feature Dependencies\n\nFEAT-002\n"
     entity, warnings = parse_issue_body(body, title, entity_type)
 
@@ -356,3 +359,91 @@ def test_an_id_list_section_never_raises_unparsed_bullet_line():
     assert warnings == []
     assert entity.user_stories == ["US-001", "US-002"]
     assert entity.feature_dependencies == ["FEAT-002"]
+
+
+# --- indentation: a nested item stays part of its parent (DEC-44) ------------------------------
+
+
+def test_a_nested_business_value_item_is_kept_in_its_parents_string_as_extracted():
+    """A `- ` deeper than its item's `- ` stays in that item on its own line; one at its level is a sibling."""
+    body = (
+        "## Business Value\n\n"
+        "- Registered customers can reach their account area.\n"
+        "  - Returning users convert without friction.\n"
+        "- Support calls about lost sessions drop.\n"
+    )
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.business_value == [
+        "Registered customers can reach their account area.\n  - Returning users convert without friction.",
+        "Support calls about lost sessions drop.",
+    ]
+
+
+def test_a_line_shallower_than_its_lists_item_level_is_misindented_and_dropped():
+    """With the first `- ` at indent 2, a `- ` at indent 1 fits no level: `MISINDENTED_LINE`, the line is dropped."""
+    body = "## Preconditions\n\n  - An account exists.\n - The login screen is reachable.\n"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert entity.preconditions == ["An account exists."]
+    assert [(w.code, w.context) for w in warnings] == [
+        (
+            Code.MISINDENTED_LINE.name,
+            "entity_id='US-001' field='preconditions' line='- The login screen is reachable.'",
+        )
+    ]
+
+
+def test_a_nested_item_returning_between_two_levels_is_misindented_and_dropped():
+    """Back from a child at 4 to indent 2, with the item at 0, fits no level; the next top-level item is read."""
+    body = "## Business Value\n\n- A.\n    - B.\n  - C.\n- D.\n"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert entity.business_value == ["A.\n    - B.", "D."]
+    assert [(w.code, w.context.split(" line=")[1]) for w in warnings] == [(Code.MISINDENTED_LINE.name, "'- C.'")]
+
+
+def test_three_nested_levels_stay_in_the_top_items_string():
+    """A grandchild and a later child both stay in the top-level item, each at its indent relative to the top `- `."""
+    body = "## Business Value\n\n- A.\n  - B.\n    - C.\n  - D.\n- E.\n"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.business_value == ["A.\n  - B.\n    - C.\n  - D.", "E."]
+
+
+def test_a_nested_items_wrapped_line_and_later_parent_text_are_kept_as_extracted():
+    """After a nested item, wrapped lines keep their own lines and indent; only text before it joins with a space."""
+    body = "## Business Value\n\n- A,\n  still A.\n  - B,\n    still B.\n  back to A.\n- Z.\n"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.business_value == ["A, still A.\n  - B,\n    still B.\n  back to A.", "Z."]
+
+
+def test_a_tab_indented_nested_item_is_the_sibling_github_shows():
+    """Rule 6 moves an issue-body tab to GitHub's tab stop of 4: a tab-indented item sits beside a 4-space one."""
+    body = "## Business Value\n\n- Login works on every supported browser.\n    - Chrome and Firefox.\n\t- Safari.\n"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.business_value == [
+        "Login works on every supported browser.\n    - Chrome and Firefox.\n    - Safari."
+    ]
+
+
+def test_a_wrapped_description_line_ending_in_a_colon_is_joined_not_reported():
+    """An unindented wrapped line reading `following:` ends the description; it is not an unknown sub-key."""
+    body = (
+        "## Acceptance Criteria\n\n"
+        "### AC:US-001-01 (v1.0.0 - active)\n\n"
+        "- After login the dashboard shows the\n"
+        "following:\n"
+        "- Aspect: usability\n"
+    )
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.acceptance_criteria[0].description == "After login the dashboard shows the following:"
+    assert entity.acceptance_criteria[0].aspect == ["usability"]

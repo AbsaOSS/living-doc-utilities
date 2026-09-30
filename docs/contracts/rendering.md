@@ -17,6 +17,7 @@ Read before: [Component checks](component-checks.md) · Next: [Errors and warnin
 ## Records and presentation
 
 - Every authored field is carried at its authored level in `generator-ready`; nothing is expanded, inherited or flattened → `contracts/generator_ready.py::Content`
+- A bullet-list entry may hold a nested item as extracted, on its own line and indented under its parent (`"Parent.\n  - Child."`); a generator decides how to render it ([Parsers, common behaviour](../authoring/parsers.md#common-behaviour))
 - The view filter that builds a `generator-ready` document selects records only → transforms
 - The release view drops `planned` and `in_review` entities and acceptance criteria, and a Feature by its derived state → transforms
 - A generator decides presentation from the document's declared view, `inner` or `release` → `contracts/common.py::View`

@@ -132,6 +132,18 @@
     - desc
   note: The AC header's own state token is lowercased the same way.
 
+- id: rule3_state_casing_ac_header_feature_header_keeps_indent
+  rule: state_casing
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: |
+    # AC:US-001-01 (v1.0.0 - Active)
+    # - Valid credentials land on the dashboard.
+  expected: |
+    # AC:US-001-01 (v1.0.0 - active)
+    # - Valid credentials land on the dashboard.
+  note: A rewritten header keeps its author's indent, so its bullets stay where they belong.
+
 - id: rule3_state_casing_removal_planned_keyword
   rule: state_casing
   format: issue_body
@@ -267,6 +279,46 @@
   input: "/* =============================================================================\n *\tsurface_type:          UI\n * ============================================================================= */\n"
   expected: "/* =============================================================================\n * surface_type:          UI\n * ============================================================================= */\n"
   note: A tab used to indent a field's value becomes a plain space; the value itself is untouched.
+
+- id: rule6_whitespace_tab_indentation_feature_header
+  rule: whitespace
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: "# business_value:\n#\t- Fewer support calls.\n#\t\tA wrapped line.\n"
+  expected: "# business_value:\n# - Fewer support calls.\n#  A wrapped line.\n"
+  note: Each tab or no-break space in a header line's indent becomes one space, so the relative levels stay.
+
+- id: rule6_whitespace_nbsp_indentation_feature_header
+  rule: whitespace
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: "# business_value:\n#   - Fewer support calls.\n"
+  expected: "# business_value:\n#   - Fewer support calls.\n"
+  note: A no-break space in a header line's indent becomes one space.
+
+- id: rule6_whitespace_tab_indentation_issue_body
+  rule: whitespace
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: "## Business Value\n\n- Login works on every supported browser.\n    - Chrome and Firefox.\n\t- Safari.\n"
+  expected: "## Business Value\n\n- Login works on every supported browser.\n    - Chrome and Firefox.\n    - Safari.\n"
+  note: An issue-body tab moves to GitHub's next tab stop of 4, so a tab-indented item is the sibling a reader sees.
+
+- id: rule6_whitespace_tab_after_spaces_issue_body
+  rule: whitespace
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: "## Business Value\n\n- Login works on every supported browser.\n  \t- Safari.\n"
+  expected: "## Business Value\n\n- Login works on every supported browser.\n    - Safari.\n"
+  note: A tab moves to the next stop, it does not add 4 - two spaces and a tab are 4 columns, not 6.
+
+- id: rule6_whitespace_nbsp_indentation_issue_body
+  rule: whitespace
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: "## Business Value\n\n- Login works on every supported browser.\n  - Safari.\n"
+  expected: "## Business Value\n\n- Login works on every supported browser.\n  - Safari.\n"
+  note: A no-break space in an issue-body indent becomes one space.
 
 - id: rule7_inline_ac_description_issue_body_split
   rule: inline_ac_description
@@ -434,6 +486,14 @@
     {"status": "active", "items": ["a", "b"]}
     ```
   note: A fenced code block is never touched, even though it contains the word "active".
+
+- id: never_touched_tab_in_fenced_code_block_issue_body
+  rule: none
+  format: issue_body
+  entity_type: DocumentedUserStory
+  input: "## Description\n\n```\n\tindented_with_a_tab()\n```\n"
+  expected: "## Description\n\n```\n\tindented_with_a_tab()\n```\n"
+  note: Rule 6 never touches a fenced code block; its tabs are the code's own.
 
 - id: never_touched_tilde_fenced_code_block_issue_body
   rule: none

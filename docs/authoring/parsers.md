@@ -31,8 +31,30 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
   - Why: a parser only ever sees document text.
 - `state` and `state_origin` stay empty until [status derivation](#status-derivation) runs → `authoring/issue_body.py::ParsedEntity`
 - An authored value that fails its field's validation is dropped with a warning (`MALFORMED_STATUS` for a status) → `authoring/issue_body.py::_build_parsed_entity`
-- A bullet list joins a following line with no marker onto the previous item → `authoring/issue_body.py::extract_bullets`
+- Every parser reads a line's indent before deciding what the line belongs to; one line model serves them all → `authoring/normalize.py::indented`
+  - Why: indentation is significant in every authored input (the canon's [Indentation](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-header-types.md#indentation) rule); a stripped line has lost its level.
+  - The indent is counted after the comment marker and at most one space (`# `, ` * `); [rule 6](normalisation.md#rule-6-whitespace) has already turned a tab or non-breaking space into spaces: one per tab in a header, to GitHub's tab stop of 4 in an issue body.
+- In a `.feature` or PageObject header, a line deeper than an open bullet item's `- ` is that item's text: never a key and never an `AC:` header, whatever it reads like → `authoring/normalize.py::BulletItemTracker`
+  - Example: `#   - Migrated accounts carry` then `#     status: deprecated until re-verified.` is one `business_value` item; no `status` key is read.
+  - A line at or above the item's `- ` closes the item, so an indented key outside a bullet item is still a key → `tests/authoring/test_feature_header.py::test_an_indented_key_after_the_bullet_item_has_closed_is_still_a_key`
+  - The `.feature` header normaliser uses the same rule, so it never rewrites such a line as a key or a criterion header → `authoring/normalize.py::_normalize_feature_header`
+  - A PageObject header has no bullet-list key yet, so there the rule has nothing to guard → `authoring/page_object.py::_BULLET_KEYS`
+- A bullet-list field holds one string per top-level item. Its first `- ` sets the item level; each line is read by its indent → `authoring/issue_body.py::_read_bullets`
+
+  | Line | Read as |
+  |---|---|
+  | `- ` at the item level | the next item |
+  | no marker, at the item level | joined onto the open item with a space (the flat layout) |
+  | no marker, deeper than the item's `- `, before any nested item | the item's wrapped text, joined with a space |
+  | `- ` deeper than the item's `- `, and every line after it in that item | kept in the item's string as extracted: on its own line, indented relative to the item's `- ` |
+  | shallower than the item level, or a nested `- ` back between two open levels | nothing: `MISINDENTED_LINE`, for it and every line deeper than it |
+
+  - Example: `- Parent.` then `  - Child.` gives the one entry `"Parent.\n  - Child."`, in an issue body and a `.feature` header alike → `tests/authoring/test_feature_header.py::test_a_nested_business_value_item_is_kept_in_its_parents_string_as_extracted`
+  - Why: the contract has no field for a nested item, and nothing between the collector and a generator rewrites the string, so it stays as authored and the generator decides how to render it ([Rendering](../contracts/rendering.md#records-and-presentation)).
+  - An id-list field never nests; it is read as comma-separated text → `authoring/issue_body.py::split_id_list`
+- The same rule reads a criterion's `preconditions` and `not_in_scope` items ([grammar](ac-grammar.md#extensions)) → `authoring/normalize.py::ItemText`
 - Text before a bullet-list field's first `- ` bullet is dropped with `UNPARSED_BULLET_LINE` → `authoring/issue_body.py::unparsed_bullet_warning`
+- Both bullet-field warnings are built in one place → `authoring/issue_body.py::bullet_field_warnings`
 - A header key's own-line text counts as before the first bullet → `authoring/feature_header.py::_parse_keys`
 - The `UNPARSED_BULLET_LINE` context names the contract field, not the authored key or heading → `authoring/issue_body.py::unparsed_bullet_warning`
 - An id list is comma-separated; blank or `none` means empty → `authoring/issue_body.py::split_id_list`
