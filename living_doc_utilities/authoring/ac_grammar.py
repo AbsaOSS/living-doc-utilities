@@ -219,7 +219,9 @@ class _ExtensionReader:
             return
         # A bare key with nothing deeper under it may be the end of a wrapped line ("…shows the" / "following:").
         if _UNKNOWN_SUBLIST_KEY_RE.match(line.text) and following is not None and following.indent > line.indent:
-            self._sublist = None
+            # An open sub-list stays open: a key deeper than its items is already the open item's text, and one
+            # shallower was closed by `closed_by` or dropped by `misplaces`, so a key reaching here sits at the
+            # items' own level and the list goes on after the reported lines.
             self._skip_deeper_than(line, Code.UNPARSED_AC_LINE)
             return
 

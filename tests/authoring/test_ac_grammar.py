@@ -331,6 +331,65 @@ def test_unknown_sub_key_is_reported_with_exactly_the_lines_deeper_than_it():
     assert acs[0].aspect == ["security"]
 
 
+def test_an_unknown_sub_key_inside_a_nested_sub_list_does_not_end_that_list():
+    """A `notes:` at a nested list's item level is reported with its own deeper lines only: the list stays open."""
+    text = _feature_block(
+        "- desc",
+        "preconditions:",
+        "  - An account exists.",
+        "  notes:",
+        "    - Owner: wallet team.",
+        "  - The account is verified.",
+        "- Aspect: security",
+    )
+    acs, warnings = _parse_one(text)
+
+    # `notes:` sits at the items' indent, so `docs/authoring/ac-grammar.md` reads the next line at that indent
+    # normally; closing the list here dropped every later item.
+    assert acs[0].preconditions == ["An account exists.", "The account is verified."]
+    assert acs[0].aspect == ["security"]
+    assert [w.code for w in warnings] == [Code.UNPARSED_AC_LINE.name] * 2
+    assert [w.context.split(" line=")[1] for w in warnings] == ["'notes:'", "'- Owner: wallet team.'"]
+
+
+def test_a_line_deeper_than_an_aspect_item_is_reported_not_appended():
+    """`Aspect:` takes no wrapped text, so a line deeper than its `- ` fills nothing and is `UNPARSED_AC_LINE`."""
+    text = _feature_block("- desc", "- Aspect: security", "  also mobile")
+    acs, warnings = _parse_one(text)
+
+    assert acs[0].aspect == ["security"]
+    assert [w.code for w in warnings] == [Code.UNPARSED_AC_LINE.name]
+    assert [w.context.split(" line=")[1] for w in warnings] == ["'also mobile'"]
+
+
+def test_a_block_opening_with_a_non_bullet_line_reports_it_and_the_criterion_is_malformed():
+    """A block whose only line carries no `- ` has nothing to continue: the line is reported, the criterion dropped."""
+    acs, warnings = _parse_one("AC:US-001-01 (v1.0.0 - active)\n  prose with no bullet\n")
+
+    # No bullet means no description, so the criterion cannot be built at all — both halves are reported.
+    assert acs == []
+    assert [w.code for w in warnings] == [Code.UNPARSED_AC_LINE.name, Code.MALFORMED_AC.name]
+    assert "line='prose with no bullet'" in warnings[0].context
+
+
+def test_a_nested_item_between_two_open_levels_is_dropped_then_the_list_resumes():
+    """A nested `- ` matching no open level is `MISINDENTED_LINE`; a later item back at an open level is kept."""
+    text = _feature_block(
+        "- Parent.",
+        "  - B.",
+        "    - C.",
+        "   - D.",
+        "  - E.",
+    )
+    acs, warnings = _parse_one(text)
+
+    # `- D.` at indent 3 backs out of `- C.` without reaching `- B.`'s level, so it and nothing else is dropped;
+    # `- E.` returns to an open level and is kept (`normalize.py::ItemText.fragment` clears the drop).
+    assert acs[0].description == "Parent.\n  - B.\n    - C.\n  - E."
+    assert [w.code for w in warnings] == [Code.MISINDENTED_LINE.name]
+    assert [w.context.split(" line=")[1] for w in warnings] == ["'- D.'"]
+
+
 def test_a_line_wrapped_deeper_than_a_criterion_item_is_never_an_ac_header():
     """A description's wrapped line reading `AC:<id> (...)` is its text, not a second criterion."""
     text = _feature_block("- Mirrors the rule of", "  AC:US-001-02 (v1.0.0 - active)")
