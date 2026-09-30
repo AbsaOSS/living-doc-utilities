@@ -108,6 +108,7 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
         "user_stories": _SectionSpec("user_stories", _SectionKind.ID_LIST),
         "functionalities": _SectionSpec("functionalities", _SectionKind.ID_LIST),
         "external_dependencies": _SectionSpec("external_dependencies", _SectionKind.ID_LIST),
+        "feature_dependencies": _SectionSpec("feature_dependencies", _SectionKind.ID_LIST),
         **_DEPRECATION_SECTIONS,
     },
     "DocumentedFunctionality": {

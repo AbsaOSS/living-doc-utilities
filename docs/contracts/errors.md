@@ -55,9 +55,9 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 | `MISSING_STATUS` | warning | collector | a User Story or Functionality with no authored status | status derived |
 | `STATUS_AC_MISMATCH` | warning | collector | the authored status contradicts the entity's own criteria | authored value wins |
 | `ORPHAN_FEATURE` | warning | collector | a Feature with no Functionality and no User Story in the run | state set to `active` |
-| `RELATION_MISMATCH` | warning | collector | a Functionality's declared parent and its Feature's declared children disagree | reported |
+| `RELATION_MISMATCH` | warning | collector | a Functionality's declared parent and its Feature's declared children disagree, or a Feature names itself in `feature_dependencies` | reported |
 | `UNRESOLVED_RELATION` | warning | collector | a relation points outside the collected set | reported |
-| `RELATION_TYPE_MISMATCH` | warning | collector | a relation resolves to an entity of the wrong type ([expected types](../authoring/parsers.md#relations)) | context names entity, field, target, actual and expected type |
+| `RELATION_TYPE_MISMATCH` | warning | collector | a relation resolves to an entity of the wrong type, or a `feature_dependencies` target is not an `API` Feature ([expected types](../authoring/parsers.md#relations)) | context names entity, field, target, actual and expected type |
 | `NO_SOURCE_URL` | warning | collector | a source file outside a git checkout, so no URL can be derived | reported |
 | `HTML_CONTENT_DROPPED` | warning | collector | Azure DevOps HTML conversion dropped content ([kinds](../authoring/urls-and-html.md#html-to-markdown-conversion)) | one warning per call, with counts |
 | `DUPLICATE_AC_SOURCE` | warning | collector | Azure DevOps: a criterion in both the description and a dedicated field | reported |

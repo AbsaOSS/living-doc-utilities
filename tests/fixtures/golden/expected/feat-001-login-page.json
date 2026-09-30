@@ -21,6 +21,7 @@
   "user_stories": ["US-001"],
   "functionalities": ["FUNC-001"],
   "external_dependencies": ["auth-api"],
+  "feature_dependencies": [],
   "stub_reason": null,
   "wizard_steps": [],
   "pages": [],

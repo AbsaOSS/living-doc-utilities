@@ -16,6 +16,8 @@
 
 """`.feature`-header parsing: recognised keys land on their fields, unrecognised keys warn."""
 
+import pytest
+
 from living_doc_utilities.authoring.feature_header import parse_feature_header
 from living_doc_utilities.contracts.codes import Code
 
@@ -204,3 +206,31 @@ def test_status_not_one_of_the_four_lifecycle_states_is_a_warning_not_a_crash():
     assert entity.state is None
     assert [w.code for w in warnings] == [Code.MALFORMED_STATUS.name]
     assert "shipped" in warnings[0].message
+
+
+@pytest.mark.parametrize(
+    "entity_id, entity_type, extra_key",
+    [
+        ("FUNC-001", "DocumentedFunctionality", "# parent:       FEAT-001\n"),
+        ("US-001", "DocumentedUserStory", ""),
+    ],
+)
+def test_feature_dependencies_key_on_a_non_feature_is_an_unrecognised_key(entity_id, entity_type, extra_key):
+    """`feature_dependencies:` is a Feature field only: on a `.feature` header it is the generic unrecognised key."""
+    text = (
+        "# =============================================================================\n"
+        f"# LIVING DOC — {entity_id} · Sample\n"
+        "# =============================================================================\n"
+        "# status:       active\n"
+        f"{extra_key}"
+        "# feature_dependencies: FEAT-002\n"
+        "# =============================================================================\n"
+        "\nFeature: Sample\n"
+    )
+    entity, warnings = parse_feature_header(text, entity_type)
+
+    assert entity is not None
+    assert entity.feature_dependencies == []
+    assert [(w.code, w.message) for w in warnings] == [
+        (Code.IGNORED_AUTHORED_KEY.name, "'feature_dependencies:' is not a field this contract carries.")
+    ]

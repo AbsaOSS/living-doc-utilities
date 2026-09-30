@@ -475,6 +475,13 @@
           "title": "External Dependencies",
           "type": "array"
         },
+        "feature_dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Feature Dependencies",
+          "type": "array"
+        },
         "stub_reason": {
           "anyOf": [
             {
@@ -1007,6 +1014,7 @@
               "entities[].deprecation_reason",
               "entities[].entity_id",
               "entities[].external_dependencies[]",
+              "entities[].feature_dependencies[]",
               "entities[].func_type",
               "entities[].functionalities[]",
               "entities[].narrative",

@@ -475,6 +475,13 @@
           "title": "External Dependencies",
           "type": "array"
         },
+        "feature_dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Feature Dependencies",
+          "type": "array"
+        },
         "stub_reason": {
           "anyOf": [
             {
@@ -1007,6 +1014,7 @@
               "features[].deprecation_reason",
               "features[].entity_id",
               "features[].external_dependencies[]",
+              "features[].feature_dependencies[]",
               "features[].func_type",
               "features[].functionalities[]",
               "features[].narrative",
@@ -1058,6 +1066,7 @@
               "functionalities[].deprecation_reason",
               "functionalities[].entity_id",
               "functionalities[].external_dependencies[]",
+              "functionalities[].feature_dependencies[]",
               "functionalities[].func_type",
               "functionalities[].functionalities[]",
               "functionalities[].narrative",
@@ -1109,6 +1118,7 @@
               "user_stories[].deprecation_reason",
               "user_stories[].entity_id",
               "user_stories[].external_dependencies[]",
+              "user_stories[].feature_dependencies[]",
               "user_stories[].func_type",
               "user_stories[].functionalities[]",
               "user_stories[].narrative",
