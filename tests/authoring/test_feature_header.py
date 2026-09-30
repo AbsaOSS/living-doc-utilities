@@ -402,7 +402,7 @@ def test_a_nested_item_returning_between_two_levels_is_misindented_with_its_wrap
 
 
 def test_a_flush_header_keeps_every_criterion_when_a_rule_rewrites_its_headers():
-    """Headers and bullets written at the same indent stay there when rule 3 lowercases `Active`: both criteria parse."""
+    """Headers and bullets at the same indent stay there when rule 3 lowercases `Active`: both criteria parse."""
     text = _us_header(
         "# acceptance_criteria:\n"
         "# AC:US-001-01 (v1.0.0 - Active)\n"

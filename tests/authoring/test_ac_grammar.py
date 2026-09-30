@@ -396,7 +396,7 @@ def test_a_bare_key_with_nothing_deeper_under_it_is_wrapped_text(after):
 
 
 def test_a_flat_unknown_key_is_read_as_wrapped_text_and_its_bullets_as_criterion_lines():
-    """A `notes:` whose bullet sits at its own indent cannot be told from wrapped text, so it is read as it always was."""
+    """A `notes:` whose bullet sits at its own indent reads as wrapped text, exactly as it always did."""
     text = _feature_block("- desc", "notes:", "- Owner: wallet team.")
     acs, warnings = _parse_one(text)
 

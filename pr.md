@@ -13,7 +13,7 @@ became a sibling, a wrapped line reading `key: value` opened a key, and a criter
   indented key outside a bullet item is still a key. A PageObject header has no bullet-list key yet, so
   there the tracker has nothing to guard until `notes:` (#168). A wrapped line at the item's own indent
   (no indent) is joined onto the item as before, with no warning.
-- **Nested items**, owner's decision on the issue: a nested item is kept in its parent's string as
+- **Nested items**, owner's decision: a nested item is kept in its parent's string as
   extracted, on its own line and indented relative to the parent's `- ` (`"Parent.\n  - Child."`).
   Nothing between the collector and a generator rewrites the string, so the toolkit and the generators decide
   how to render it. Wrapped text before any nested item is still joined with a space.

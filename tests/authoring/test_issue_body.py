@@ -257,7 +257,10 @@ def test_missing_entity_id_short_circuits_before_any_section_parsing():
 
 def test_en_dash_input_is_normalized_before_ac_grammar_runs():
     """An en-dash in an AC header's version separator is normalized first, so the header still parses correctly."""
-    body = "## Description\n\ndesc\n\n## Status\n\nactive\n\n## Business Value\n\n- v\n\n" "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 – active)\n\n- desc\n"
+    body = (
+        "## Description\n\ndesc\n\n## Status\n\nactive\n\n## Business Value\n\n- v\n\n"
+        "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 – active)\n\n- desc\n"
+    )
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 
     assert warnings == []
@@ -301,7 +304,7 @@ def test_feature_dependencies_defaults_to_empty_when_the_section_is_absent():
     [("FUNC-001 · Sample", "DocumentedFunctionality"), ("US-001 · Sample", "DocumentedUserStory")],
 )
 def test_feature_dependencies_on_a_non_feature_is_an_unknown_section(title, entity_type):
-    """`## Feature Dependencies` is a Feature field only: elsewhere it is `UNKNOWN_SECTION` and never reaches the entity."""
+    """`## Feature Dependencies` is a Feature field only: elsewhere it is `UNKNOWN_SECTION`, never an entity field."""
     body = "## Description\n\nSome text.\n\n## Feature Dependencies\n\nFEAT-002\n"
     entity, warnings = parse_issue_body(body, title, entity_type)
 
@@ -362,7 +365,7 @@ def test_an_id_list_section_never_raises_unparsed_bullet_line():
 
 
 def test_a_nested_business_value_item_is_kept_in_its_parents_string_as_extracted():
-    """A `- ` deeper than its item's `- ` stays inside that item on its own line; one at the item's level is a sibling."""
+    """A `- ` deeper than its item's `- ` stays in that item on its own line; one at its level is a sibling."""
     body = (
         "## Business Value\n\n"
         "- Registered customers can reach their account area.\n"
@@ -411,7 +414,7 @@ def test_three_nested_levels_stay_in_the_top_items_string():
 
 
 def test_a_nested_items_wrapped_line_and_later_parent_text_are_kept_as_extracted():
-    """After a nested item, wrapped lines stay on their own lines at their indent; only text before it joins with a space."""
+    """After a nested item, wrapped lines keep their own lines and indent; only text before it joins with a space."""
     body = "## Business Value\n\n- A,\n  still A.\n  - B,\n    still B.\n  back to A.\n- Z.\n"
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 
@@ -425,7 +428,9 @@ def test_a_tab_indented_nested_item_is_the_sibling_github_shows():
     entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
 
     assert warnings == []
-    assert entity.business_value == ["Login works on every supported browser.\n    - Chrome and Firefox.\n    - Safari."]
+    assert entity.business_value == [
+        "Login works on every supported browser.\n    - Chrome and Firefox.\n    - Safari."
+    ]
 
 
 def test_a_wrapped_description_line_ending_in_a_colon_is_joined_not_reported():
