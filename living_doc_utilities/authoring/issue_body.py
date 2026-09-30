@@ -166,6 +166,34 @@ def extract_bullets(lines: list[str]) -> list[str]:
     return items
 
 
+def unparsed_bullet_warning(entity_id: str, field_name: str, lines: list[str]) -> list[ContractWarning]:
+    """`[UNPARSED_BULLET_LINE]` when a bullet-list field's already-normalised `lines` hold text
+    before its first `- ` bullet, else `[]`: `extract_bullets` has no item to join that text onto,
+    so it drops it. Shared by every parser with a bullet field - the one place this warning is built.
+    `field_name` is the contract field, never the authored key or heading."""
+    dropped: list[str] = []
+    for raw in lines:
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        if _BULLET_RE.match(stripped):
+            break
+        dropped.append(stripped)
+    if not dropped:
+        return []
+    return [
+        ContractWarning(
+            code=Code.UNPARSED_BULLET_LINE.name,
+            message=f"'{field_name}' text outside a '- ' bullet was dropped: {' '.join(dropped)!r}.",
+            context=f"entity_id={entity_id!r} field={field_name!r}",
+        )
+    ]
+
+
+# Both bullet kinds are read by `extract_bullets`, so both can drop text before the first bullet.
+BULLET_KINDS = frozenset({_SectionKind.BULLETS, _SectionKind.PROSE_BULLET})
+
+
 def _extract_prose(lines: list[str]) -> Optional[str]:
     parts = [ln.strip() for ln in lines if ln.strip()]
     return " ".join(parts) if parts else None
@@ -271,6 +299,8 @@ def parse_issue_body(
             continue
         assert spec.field_name is not None  # every other kind carries a field
         fields[spec.field_name] = _EXTRACTORS[spec.kind](content)
+        if spec.kind in BULLET_KINDS:
+            warnings.extend(unparsed_bullet_warning(entity_id, spec.field_name, content))
 
     acceptance_criteria, ac_warnings = parse_acceptance_criteria(normalized.text, entity_id)
     warnings.extend(ac_warnings)

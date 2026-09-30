@@ -234,3 +234,66 @@ def test_feature_dependencies_key_on_a_non_feature_is_an_unrecognised_key(entity
     assert [(w.code, w.message) for w in warnings] == [
         (Code.IGNORED_AUTHORED_KEY.name, "'feature_dependencies:' is not a field this contract carries.")
     ]
+
+
+def _us_header(keys: str) -> str:
+    return (
+        "# =============================================================================\n"
+        "# LIVING DOC — US-001 · Sample\n"
+        "# =============================================================================\n"
+        "# status:       active\n"
+        f"{keys}"
+        "# =============================================================================\n"
+        "\nFeature: Sample\n"
+    )
+
+
+def test_text_on_a_bullet_keys_own_line_is_dropped_with_unparsed_bullet_line():
+    """`# preconditions: <text>` has no bullet to join the text onto: it warns, and the bullets below are kept."""
+    text = _us_header("# preconditions: The customer is signed in.\n#   - account is active\n#   - MFA is enrolled\n")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity.preconditions == ["account is active", "MFA is enrolled"]
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.UNPARSED_BULLET_LINE.name, "entity_id='US-001' field='preconditions'")
+    ]
+    assert "'The customer is signed in.'" in warnings[0].message
+
+
+def test_prose_before_the_first_business_value_bullet_warns_once():
+    """A `business_value:` with a prose line before its bullets warns once for that line."""
+    text = _us_header("# business_value:\n#   Why this matters:\n#   - fewer support calls\n")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity.business_value == ["fewer support calls"]
+    assert [w.code for w in warnings] == [Code.UNPARSED_BULLET_LINE.name]
+    assert "'Why this matters:'" in warnings[0].message
+
+
+def test_a_bullet_with_a_continuation_line_raises_no_unparsed_bullet_line():
+    """A bullet followed by an unmarked line is joined onto that bullet, not dropped."""
+    text = _us_header("# business_value:\n#   - fewer support\n#     calls\n")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.business_value == ["fewer support calls"]
+
+
+def test_prose_on_a_rationale_keys_own_line_is_dropped_with_unparsed_bullet_line():
+    """`# rationale: <text>` with no `- ` bullet keeps nothing: `rationale` is `None` and the text is reported."""
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — FUNC-001 · Sample\n"
+        "# =============================================================================\n"
+        "# status:       active\n"
+        "# rationale:    Keeps the audit trail intact.\n"
+        "# =============================================================================\n"
+        "\nFeature: Sample\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedFunctionality")
+
+    assert entity.rationale is None
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale'")
+    ]
+    assert "'Keeps the audit trail intact.'" in warnings[0].message

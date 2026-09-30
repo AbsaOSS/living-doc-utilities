@@ -44,7 +44,13 @@ def _skip_cases():
         "## Description\n\nd\n\n## Nonsense\n\nv\n", "US-001 · S", "DocumentedUserStory"
     )[1]
     yield "issue_body_missing_id", lambda: parse_issue_body("## Description\n\nd\n", "No id", "DocumentedUserStory")[1]
+    yield "issue_body_unparsed_bullet_line", lambda: parse_issue_body(
+        "## Rationale\n\nProse with no bullet.\n", "FUNC-001 · F", "DocumentedFunctionality"
+    )[1]
     yield "feature_header_missing_id", lambda: parse_feature_header("# not a header\n", "DocumentedUserStory")[1]
+    yield "feature_header_unparsed_bullet_line", lambda: parse_feature_header(
+        "# ===\n# LIVING DOC — US-001 · S\n# ===\n# preconditions: text\n# ===\n\nFeature: S\n", "DocumentedUserStory"
+    )[1]
     yield "page_object_missing_id", lambda: parse_page_object("/* no title */\n")[1]
     yield "ac_grammar_malformed", lambda: parse_acceptance_criteria("AC: (v1.0.0 - active)\n- desc\n")[1]
     yield "scenario_malformed_tag", lambda: parse_scenarios(
