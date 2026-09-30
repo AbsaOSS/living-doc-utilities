@@ -27,7 +27,13 @@ from typing import Optional
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEYS as _ISSUE_BODY_IGNORED_AUTHORED_KEYS
 from living_doc_utilities.authoring.issue_body import ParsedEntity, split_id_list
-from living_doc_utilities.authoring.normalize import _PO_LINE_RE, SourceFormat, normalize
+from living_doc_utilities.authoring.normalize import (
+    _PO_LINE_RE,
+    BulletItemTracker,
+    SourceFormat,
+    indented,
+    normalize,
+)
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.doc_entities import PageRef
 from living_doc_utilities.contracts.envelope import ContractWarning
@@ -64,6 +70,9 @@ _CROSS_REFERENCE_KEYS = {
     "functionalities",
     "status",
 }
+# The keys whose value is a bullet list, whose items' wrapped lines are never read as a key. The
+# canon's first is `notes:` (#168); every key on this list today is a scalar or an id list.
+_BULLET_KEYS: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -115,27 +124,33 @@ def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, st
     values: dict[str, str] = {}
     current_key: Optional[str] = None
     unrecognised: list[str] = []
+    items = BulletItemTracker()
 
     for content in contents:
-        stripped = content.strip()
-        if stripped == "" or _BANNER_CONTENT_RE.match(stripped) or "LIVING DOC" in content:
+        line = indented(content)
+        # Every line passes the tracker first, so a line that ends the key's section also closes its item.
+        if items.continues_item(line) and current_key is not None:
+            values[current_key] = f"{values[current_key]} {line.text}".strip()
+            continue
+        if line.text == "" or _BANNER_CONTENT_RE.match(line.text) or "LIVING DOC" in content:
             current_key = None
             continue
 
-        key_m = key_re.match(stripped)
+        key_m = key_re.match(line.text)
         if key_m:
             current_key = key_m.group("key")
             values[current_key] = key_m.group("val").strip()
             continue
 
-        generic_m = _GENERIC_KEY_RE.match(stripped)
+        generic_m = _GENERIC_KEY_RE.match(line.text)
         if generic_m and generic_m.group("key") not in known_keys:
             unrecognised.append(generic_m.group("key"))
             current_key = None
             continue
 
         if current_key is not None:
-            values[current_key] = f"{values[current_key]} {stripped}".strip()
+            values[current_key] = f"{values[current_key]} {line.text}".strip()
+            items.read(line, current_key in _BULLET_KEYS)
 
     return values, unrecognised
 
@@ -163,7 +178,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
 
     is_cross_reference = False
     for content in contents:
-        generic_m = _GENERIC_KEY_RE.match(content.strip())
+        generic_m = _GENERIC_KEY_RE.match(indented(content).text)
         if generic_m and generic_m.group("key") == "parent-feat":
             is_cross_reference = True
             break

@@ -26,7 +26,14 @@ from typing import Optional
 
 from pydantic import ValidationError
 
-from living_doc_utilities.authoring.normalize import _BULLET_RE, _WORD_SEP_RE, compute_fence_flags
+from living_doc_utilities.authoring.normalize import (
+    _BULLET_RE,
+    _WORD_SEP_RE,
+    IndentedLine,
+    ItemText,
+    compute_fence_flags,
+    indented,
+)
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import (
     AC_ID_PATTERN,
@@ -43,8 +50,9 @@ _VERSION_RE = re.compile(VERSION_PATTERN)
 _AC_ID_RE = re.compile(AC_ID_PATTERN)
 _PLACEHOLDER_NAME_RE = re.compile(PLACEHOLDER_NAME_PATTERN)
 
-# Strips a comment-block leader (feature-header "#", issue-body "###", PageObject "*"); mechanical unwrap only.
-_COMMENT_LEADER_RE = re.compile(r"^[#*]+\s*")
+# Strips a comment-block leader (feature-header "#", issue-body "###", PageObject "*") and one following space;
+# the rest of the indent is kept, since a block line's level is read from it.
+_COMMENT_LEADER_RE = re.compile(r"^[#*]+ ?")
 
 _AC_HEADER_RE = re.compile(r"^AC:(?P<id>\S*)\s*\((?P<inner>.*)\)\s*$")
 _AC_PREFIX_RE = re.compile(r"^AC:")
@@ -57,6 +65,8 @@ _MD_SECTION_HEADING_RE = re.compile(r"^ {0,3}#{2,6}\s+\S")
 
 _REMOVAL_PLANNED_RE = re.compile(r"^removal planned (?P<version>\S+)$")
 _SUBLIST_KEY_RE = re.compile(r"^(?P<key>preconditions|not_in_scope):\s*$")
+# Any other bare list key, e.g. `notes:`, which the canon allows at entity level only, never on a criterion.
+_UNKNOWN_SUBLIST_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*:\s*$")
 _ASPECT_RE = re.compile(r"^Aspect:\s*(?P<values>.+)$")
 _RATIONALE_RE = re.compile(r"^Rationale:\s*(?P<text>.+)$")
 _PLACEHOLDER_BULLET_RE = re.compile(r"^(?P<name>.+?):\s*(?P<values>.+)$")
@@ -111,96 +121,186 @@ class _Extensions:
     placeholder_values: dict[str, list[str]] = field(default_factory=dict)
 
 
-def _parse_extensions(
-    block_lines: list[str], is_legacy_descoped: bool, context: str
-) -> tuple[_Extensions, list[ContractWarning]]:
-    result = _Extensions()
-    warnings: list[ContractWarning] = []
-    pending_sublist_key: Optional[str] = None
-    seen_description = False
-    # Field a wrapped non-bullet continuation line is appended to; only the first physical line carries "-".
-    continuation: Optional[str] = None
+@dataclass
+class _SubList:
+    """An open `preconditions:` / `not_in_scope:` list. Its first item sets `item_level`: items
+    deeper than the key end the list where the indent returns to the key's, and items at the
+    key's own indent (the flat layout) keep it open for every later bullet, in line order."""
 
-    def _unparsed(raw_line: str) -> None:
-        warnings.append(
-            ContractWarning(
-                code=Code.UNPARSED_AC_LINE.name,
-                message="Acceptance-criterion block line could not be assigned to any known field.",
-                context=f"{context} line={raw_line.strip()!r}",
-            )
+    key: str
+    key_indent: int
+    item_level: Optional[int] = None
+
+    def is_nested(self) -> bool:
+        return self.item_level is not None and self.item_level > self.key_indent
+
+    def closed_by(self, line: IndentedLine) -> bool:
+        return self.is_nested() and line.indent <= self.key_indent
+
+    def misplaces(self, line: IndentedLine) -> bool:
+        """True when `line` sits between the key and its items' level: it fits no level."""
+        return self.item_level is not None and self.key_indent < line.indent < self.item_level
+
+
+class _ExtensionReader:
+    """Reads one criterion block's lines into `_Extensions` by indent. The block's content level is
+    its first bullet's indent. A line deeper than the open item's `- ` is that item's text (`ItemText`);
+    any other line is read at its level, and a line that fits no level is `MISINDENTED_LINE`."""
+
+    def __init__(self, is_legacy_descoped: bool, context: str) -> None:
+        self.result = _Extensions()
+        self.warnings: list[ContractWarning] = []
+        self._is_legacy_descoped = is_legacy_descoped
+        self._context = context
+        self._content_level: Optional[int] = None
+        self._sublist: Optional[_SubList] = None
+        # Indent of an unknown bare key (e.g. `notes:`) or of a dropped misindented line, with the code
+        # that every line deeper than it is reported with.
+        self._skip: Optional[tuple[int, Code]] = None
+        # The open bullet item: its marker's indent, and its text when it fills a text field.
+        self._item_indent: Optional[int] = None
+        self._item_text: Optional[ItemText] = None
+        # Field a wrapped line is appended to; only the first physical line carries "-".
+        self._continuation: Optional[str] = None
+
+    def _warn(self, code: Code, line: IndentedLine) -> None:
+        if code == Code.MISINDENTED_LINE:
+            message = f"Acceptance-criterion block line at indent {line.indent} fits no level and was dropped."
+        else:
+            message = "Acceptance-criterion block line could not be assigned to any known field."
+        self.warnings.append(
+            ContractWarning(code=code.name, message=message, context=f"{self._context} line={line.text!r}")
         )
 
-    for raw_line in block_lines:
-        stripped = raw_line.strip()
-        if stripped == "":
-            continue
+    def _skip_deeper_than(self, line: IndentedLine, code: Code) -> None:
+        """Reports `line` with `code`, and every later line deeper than it with the same code."""
+        self._warn(code, line)
+        self._skip = (line.indent, code)
+        self._open_item(None, None)
 
-        sublist_m = _SUBLIST_KEY_RE.match(stripped)
+    def _open_item(self, continuation: Optional[str], item: Optional[IndentedLine]) -> None:
+        """Ends the open item; `item`, when given, opens the next one, whose text fills `continuation`."""
+        self._continuation = continuation
+        self._item_indent = item.indent if item is not None else None
+        self._item_text = ItemText(item.indent) if item is not None and continuation is not None else None
+
+    def _append(self, fragment: str) -> None:
+        assert self._continuation is not None
+        current = getattr(self.result, self._continuation)
+        if isinstance(current, list):
+            current[-1] = f"{current[-1]}{fragment}".strip()
+        else:
+            setattr(self.result, self._continuation, f"{current}{fragment}".strip())
+
+    def read(self, line: IndentedLine, following: Optional[IndentedLine]) -> None:
+        """Reads one non-blank block line; `following` is the next non-blank one, if any."""
+        if self._skip is not None:
+            if line.indent > self._skip[0]:
+                self._warn(self._skip[1], line)
+                return
+            self._skip = None
+
+        if self._item_indent is not None and line.indent > self._item_indent:
+            self._read_item_text(line)
+            return
+
+        if self._sublist is not None and self._sublist.closed_by(line):
+            self._sublist = None
+            self._open_item(None, None)
+        below_content = self._content_level is not None and line.indent < self._content_level
+        if below_content or (self._sublist is not None and self._sublist.misplaces(line)):
+            self._skip_deeper_than(line, Code.MISINDENTED_LINE)
+            return
+
+        sublist_m = _SUBLIST_KEY_RE.match(line.text)
         if sublist_m:
-            pending_sublist_key = sublist_m.group("key")
-            continuation = None
-            continue
+            self._sublist = _SubList(sublist_m.group("key"), line.indent)
+            self._open_item(None, None)
+            return
+        # A bare key with nothing deeper under it may be the end of a wrapped line ("…shows the" / "following:").
+        if _UNKNOWN_SUBLIST_KEY_RE.match(line.text) and following is not None and following.indent > line.indent:
+            self._sublist = None
+            self._skip_deeper_than(line, Code.UNPARSED_AC_LINE)
+            return
 
-        bullet_m = _BULLET_RE.match(stripped)
-        if not bullet_m:
-            if continuation is None:
-                _unparsed(raw_line)
-            else:
-                current = getattr(result, continuation)
-                if isinstance(current, list):
-                    current[-1] = f"{current[-1]} {stripped}".strip()
-                else:
-                    setattr(result, continuation, f"{current} {stripped}".strip())
-            continue
+        bullet_m = _BULLET_RE.match(line.text)
+        if bullet_m:
+            self._read_bullet(line, bullet_m.group("text").strip())
+        elif self._continuation is None:
+            self._warn(Code.UNPARSED_AC_LINE, line)
+        else:
+            self._append(f" {line.text}")
 
-        text = bullet_m.group("text").strip()
+    def _read_item_text(self, line: IndentedLine) -> None:
+        """A line deeper than the open item's `- `: wrapped text, or a nested item kept as extracted."""
+        if self._item_text is None:
+            self._warn(Code.UNPARSED_AC_LINE, line)
+            return
+        fragment = self._item_text.fragment(line)
+        if fragment is None:
+            self._warn(Code.MISINDENTED_LINE, line)
+        else:
+            self._append(fragment)
 
-        if pending_sublist_key is not None:
-            getattr(result, pending_sublist_key).append(text)
-            continuation = pending_sublist_key
-            continue
+    def _read_bullet(self, line: IndentedLine, text: str) -> None:
+        if self._content_level is None:
+            self._content_level = line.indent
 
-        if not seen_description:
-            result.description = text
-            seen_description = True
-            continuation = "description"
-            continue
+        if self._sublist is not None:
+            if self._sublist.item_level is None:
+                self._sublist.item_level = line.indent
+            getattr(self.result, self._sublist.key).append(text)
+            self._open_item(self._sublist.key, line)
+            return
 
-        if is_legacy_descoped:
+        if self.result.description is None:
+            self.result.description = text
+            self._open_item("description", line)
+            return
+
+        self._open_item(self._read_criterion_field(line, text), line)
+
+    def _read_criterion_field(self, line: IndentedLine, text: str) -> Optional[str]:
+        """Fills the field a criterion-level bullet names; returns the field its wrapped text continues."""
+        result = self.result
+        if self._is_legacy_descoped:
             legacy_reason_m = _LEGACY_DESCOPED_REASON_RE.match(text)
             if legacy_reason_m:
                 result.rationale = legacy_reason_m.group("text").strip()
-                continuation = "rationale"
-                continue
+                return "rationale"
             if _LEGACY_DISCARD_RE.match(text):
                 # descoped_at / future_release have no home in the model; silently dropped (legacy conversion only).
-                continuation = None
-                continue
+                return None
 
         aspect_m = _ASPECT_RE.match(text)
         if aspect_m:
             result.aspect = [v.strip() for v in aspect_m.group("values").split(",")]
-            continuation = None
-            continue
+            return None
 
         rationale_m = _RATIONALE_RE.match(text)
         if rationale_m:
             result.rationale = rationale_m.group("text").strip()
-            continuation = "rationale"
-            continue
+            return "rationale"
 
         placeholder_m = _PLACEHOLDER_BULLET_RE.match(text)
         if placeholder_m:
             name = _slug_placeholder_name(placeholder_m.group("name"))
             if _PLACEHOLDER_NAME_RE.match(name):
                 result.placeholder_values[name] = [v.strip() for v in placeholder_m.group("values").split(",")]
-                continuation = None
-                continue
+                return None
 
-        _unparsed(raw_line)
-        continuation = None
+        self._warn(Code.UNPARSED_AC_LINE, line)
+        return None
 
-    return result, warnings
+
+def _parse_extensions(
+    block_lines: list[str], is_legacy_descoped: bool, context: str
+) -> tuple[_Extensions, list[ContractWarning]]:
+    reader = _ExtensionReader(is_legacy_descoped, context)
+    lines = [line for line in map(indented, block_lines) if line.text]
+    for line, following in zip(lines, [*lines[1:], None], strict=True):
+        reader.read(line, following)
+    return reader.result, reader.warnings
 
 
 def _build_ac(
@@ -322,18 +422,23 @@ def parse_acceptance_criteria(
 
         # A blank line is skipped, not a terminator (issue-body AC headings get one blank line before bullets).
         block: list[str] = []
+        # Marker indent of the block's open bullet item: a deeper line is its text, even one reading "AC:...".
+        item_indent: Optional[int] = None
         cursor = index + 1
         while cursor < line_count:
             if fence_flags[cursor]:
                 cursor += 1
                 continue
-            candidate = cleaned_lines[cursor].strip()
-            if _AC_PREFIX_RE.match(candidate) or _SECTION_BANNER_RE.match(candidate):
+            candidate = indented(cleaned_lines[cursor])
+            is_item_text = item_indent is not None and candidate.indent > item_indent
+            if not is_item_text and (_AC_PREFIX_RE.match(candidate.text) or _SECTION_BANNER_RE.match(candidate.text)):
                 break
             if _MD_SECTION_HEADING_RE.match(raw_lines[cursor]):
                 break
-            if candidate != "":
+            if candidate.text != "":
                 block.append(cleaned_lines[cursor])
+                if _BULLET_RE.match(candidate.text):
+                    item_indent = candidate.indent
             cursor += 1
 
         acceptance_criterion, ac_warnings = _build_ac(

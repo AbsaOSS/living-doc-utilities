@@ -31,9 +31,12 @@ from living_doc_utilities.authoring.identity import derive_entity_id
 from living_doc_utilities.authoring.normalize import (
     _BULLET_RE,
     _MD_HEADING_RE,
+    IndentedLine,
+    ItemText,
     SourceFormat,
     _slugify_section,
     compute_fence_flags,
+    indented,
     normalize,
     normalize_title,
 )
@@ -149,21 +152,59 @@ def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
 # --- content extraction per section kind -----------------------------------------------
 
 
-def extract_bullets(lines: list[str]) -> list[str]:
-    """Extracts a `- ...` list's items from already-normalised `lines`, joining a following
-    non-bullet line onto the previous item as its continuation. Shared by every parser with
-    a bullet section - the one place this join rule lives."""
-    items: list[str] = []
-    for raw in lines:
-        stripped = raw.strip()
-        if not stripped:
+@dataclass
+class _BulletList:
+    items: list[str]
+    # Lines whose indent fits no level of the list, dropped (the lines deeper than such a line with it).
+    misindented: list[IndentedLine]
+
+
+def _read_bullets(lines: list[str]) -> _BulletList:
+    """The one reading of a bullet list's already-normalised `lines`, by indent. The first `- `
+    sets the item level. At that level a `- ` opens the next item and an unmarked line is joined
+    onto the open item (the flat layout). A deeper line is the open item's own text (`ItemText`).
+    A line shallower than the item level fits no level. Text before the first `- ` is skipped
+    here; `unparsed_bullet_warning` reports it."""
+    result = _BulletList([], [])
+    item_level: Optional[int] = None
+    item_text: Optional[ItemText] = None
+    dropped: Optional[int] = None
+    for line in map(indented, lines):
+        if not line.text:
             continue
-        bullet_m = _BULLET_RE.match(stripped)
-        if bullet_m:
-            items.append(bullet_m.group("text").strip())
-        elif items:
-            items[-1] = f"{items[-1]} {stripped}".strip()
-    return items
+        if dropped is not None and line.indent > dropped:
+            result.misindented.append(line)
+            continue
+        dropped = None
+        bullet_m = _BULLET_RE.match(line.text)
+        if item_level is None or item_text is None:
+            if bullet_m:
+                item_level = line.indent
+                item_text = ItemText(line.indent)
+                result.items.append(bullet_m.group("text").strip())
+            continue
+        if line.indent > item_level:
+            fragment = item_text.fragment(line)
+            if fragment is None:
+                result.misindented.append(line)
+            else:
+                result.items[-1] = f"{result.items[-1]}{fragment}".strip()
+        elif line.indent < item_level:
+            result.misindented.append(line)
+            dropped = line.indent
+        elif bullet_m:
+            item_text = ItemText(line.indent)
+            result.items.append(bullet_m.group("text").strip())
+        else:
+            result.items[-1] = f"{result.items[-1]} {line.text}".strip()
+    return result
+
+
+def extract_bullets(lines: list[str]) -> list[str]:
+    """Extracts a `- ...` list's items from already-normalised `lines`, one string per top-level
+    item: a wrapped line is joined on, a nested item is kept inside its parent's string as
+    extracted. Shared by every parser with a bullet section - the one place this rule lives."""
+    return _read_bullets(lines).items
 
 
 def unparsed_bullet_warning(entity_id: str, field_name: str, lines: list[str]) -> list[ContractWarning]:
@@ -188,6 +229,22 @@ def unparsed_bullet_warning(entity_id: str, field_name: str, lines: list[str]) -
             context=f"entity_id={entity_id!r} field={field_name!r}",
         )
     ]
+
+
+def bullet_field_warnings(entity_id: str, field_name: str, lines: list[str]) -> list[ContractWarning]:
+    """Every warning for text a bullet-list field's `lines` lose: `UNPARSED_BULLET_LINE` for text
+    before the first bullet, then one `MISINDENTED_LINE` per line whose indent fits no level.
+    Shared by every parser with a bullet field; `field_name` is the contract field."""
+    warnings = unparsed_bullet_warning(entity_id, field_name, lines)
+    for line in _read_bullets(lines).misindented:
+        warnings.append(
+            ContractWarning(
+                code=Code.MISINDENTED_LINE.name,
+                message=f"'{field_name}' line at indent {line.indent} fits no level of its list and was dropped.",
+                context=f"entity_id={entity_id!r} field={field_name!r} line={line.text!r}",
+            )
+        )
+    return warnings
 
 
 # Both bullet kinds are read by `extract_bullets`, so both can drop text before the first bullet.
@@ -300,7 +357,7 @@ def parse_issue_body(
         assert spec.field_name is not None  # every other kind carries a field
         fields[spec.field_name] = _EXTRACTORS[spec.kind](content)
         if spec.kind in BULLET_KINDS:
-            warnings.extend(unparsed_bullet_warning(entity_id, spec.field_name, content))
+            warnings.extend(bullet_field_warnings(entity_id, spec.field_name, content))
 
     acceptance_criteria, ac_warnings = parse_acceptance_criteria(normalized.text, entity_id)
     warnings.extend(ac_warnings)

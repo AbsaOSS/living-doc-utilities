@@ -138,3 +138,65 @@ def test_fence_flags_over_indented_closer_does_not_close_the_fence():
     lines = ["```", "AC:US-001-01 (v1.0.0 - active) example inside the fence", "    ```", "still inside"]
 
     assert compute_fence_flags(lines) == [True, True, True, True]
+
+
+def test_feature_header_rule_6_is_recorded_per_line_with_its_before_and_after():
+    """A tab-indented `.feature` header line is rewritten and recorded as a `whitespace` change on that line."""
+    result = normalize("# business_value:\n#\t- one\n", SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+
+    assert result.lines == ["# business_value:", "# - one", ""]
+    assert [(c.line, c.rule, c.before, c.after) for c in result.changes] == [
+        (2, normalize_module.RULE_WHITESPACE, "#\t- one", "# - one")
+    ]
+
+
+def test_feature_header_wrapped_bullet_line_is_never_rewritten_as_a_key_or_an_ac_header():
+    """A line deeper than an open item's `- ` is item text: its `status:` and `AC:` look-alikes keep their case."""
+    text = (
+        "# business_value:\n"
+        "#   - Old accounts carry\n"
+        "#     status: Deprecated\n"
+        "#     AC:US-001-09 (V1.0 - Active)\n"
+        "#   status: Active\n"
+    )
+    result = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+
+    assert result.lines[2:4] == ["#     status: Deprecated", "#     AC:US-001-09 (V1.0 - Active)"]
+    assert result.lines[4] == "#   status: active"
+    assert [c.line for c in result.changes] == [5]
+
+
+def test_feature_header_criterion_header_keeps_its_authors_indent_when_rewritten():
+    """Rule 3 fixes a header's state casing where the author put it: flush stays flush, the canon's indent 2 stays 2."""
+    text = "# AC:US-001-01 (v1.0.0 - Active)\n# - d1\n#\n#   AC:US-001-02 (v1.0.0 - Active)\n#     - d2\n"
+    result = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+
+    assert result.lines[:5] == [
+        "# AC:US-001-01 (v1.0.0 - active)",
+        "# - d1",
+        "#",
+        "#   AC:US-001-02 (v1.0.0 - active)",
+        "#     - d2",
+    ]
+    assert [(c.line, c.rule) for c in result.changes] == [
+        (1, normalize_module.RULE_STATE_CASING),
+        (4, normalize_module.RULE_STATE_CASING),
+    ]
+
+
+def test_feature_header_split_description_sits_one_level_below_its_header():
+    """Rule 7 puts an inline description on a bullet two spaces deeper than its header, wherever the header is."""
+    result = normalize("# AC:US-001-01 (v1.0.0 - active) - desc\n", SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+
+    assert result.lines[:2] == ["# AC:US-001-01 (v1.0.0 - active)", "#   - desc"]
+
+
+def test_issue_body_rule_6_is_recorded_on_the_line_alongside_the_bullet_marker_rule():
+    """A tab-indented `•` bullet gets both rules on one line: its indent to GitHub's tab stop, its marker to `-`."""
+    result = normalize("## Business Value\n\n- A.\n\t• B.\n", SourceFormat.ISSUE_BODY, "DocumentedUserStory")
+
+    assert result.lines[3] == "    - B."
+    assert [(c.line, c.rule, c.before, c.after) for c in result.changes] == [
+        (4, normalize_module.RULE_BULLET_MARKER, "\t• B.", "    - B."),
+        (4, normalize_module.RULE_WHITESPACE, "\t• B.", "    - B."),
+    ]

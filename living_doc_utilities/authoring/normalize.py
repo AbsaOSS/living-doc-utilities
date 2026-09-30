@@ -121,13 +121,99 @@ _NBSP = chr(0xA0)  # kept out of string literals - formatters fold \u00A0 escape
 _INDENT_WS_RE = re.compile("^[ \t" + _NBSP + "]*")
 
 
-def _fix_indentation_whitespace(line: str) -> str:
+def _fix_indentation_whitespace(line: str, tab_stop: int = 1) -> str:
+    """Rule 6 on `line`'s indent: a no-break space becomes one space, a tab moves to the next multiple of
+    `tab_stop`. A header passes 1 (one space per tab); an issue body passes 4, the tab stop GitHub renders."""
     m = _INDENT_WS_RE.match(line)
     lead = m.group(0) if m else ""
     if not lead or ("\t" not in lead and _NBSP not in lead):
         return line
-    new_lead = lead.replace("\t", " ").replace(_NBSP, " ")
+    new_lead = lead.replace(_NBSP, " ").expandtabs(tab_stop)
     return new_lead + line[len(lead) :]
+
+
+# --- the one indentation model: every parser and both header normalisers read a line through it ---
+
+
+class IndentedLine(NamedTuple):
+    """One line with its comment marker already removed: `indent` is its leading-space count,
+    `text` the rest with no surrounding whitespace, `raw` the line as given. A line's level is
+    decided from `indent` - never from a stripped line, which has lost it."""
+
+    indent: int
+    text: str
+    raw: str
+
+
+def indented(content: str) -> IndentedLine:
+    """`content` - a line after its comment marker and one following space are removed
+    (`_split_comment_prefix`, `_PO_LINE_RE`) - as an `IndentedLine`."""
+    text = content.lstrip()
+    return IndentedLine(len(content) - len(text), text.rstrip(), content)
+
+
+# Any bullet marker opening a list item, before (rule 1 rewrites the non-dash ones) or after normalisation.
+_ITEM_MARKER_RE = re.compile(r"^[-–—*•+]\s")
+
+
+class BulletItemTracker:
+    """The open item of a bullet-list key in a header. A line indented deeper than that item's
+    marker is the item's text - wrapped text or a nested item - and never a key or an `AC:`
+    header, whatever it reads like (a wrapped item may read `status: x`). Every other line
+    closes the item and is read at face value, so an indented key outside a bullet item still
+    counts. Shared by both header parsers and the `.feature` header normaliser."""
+
+    def __init__(self) -> None:
+        self._marker_indent: Optional[int] = None
+
+    def continues_item(self, line: IndentedLine) -> bool:
+        """True when `line` belongs to the open item; otherwise the item is closed and False."""
+        if self._marker_indent is not None and line.text and line.indent > self._marker_indent:
+            return True
+        self._marker_indent = None
+        return False
+
+    def read(self, line: IndentedLine, in_bullet_section: bool) -> None:
+        """Opens an item when `line` starts one inside a bullet-list section."""
+        opens = in_bullet_section and _ITEM_MARKER_RE.match(line.text) is not None
+        self._marker_indent = line.indent if opens else None
+
+
+class ItemText:
+    """The lines under one bullet item whose `- ` sits at `marker`, as they add to that item's string.
+    Wrapped text before any nested item is joined with a space, as a flat list always was. A nested
+    `- ` item, and every line after it, is kept as extracted: on its own line, at its indent relative
+    to `marker` (`"Parent.\\n  - Child."`), so the consumer of the field decides how to render it.
+    Shared by `issue_body.py::extract_bullets` and the criterion grammar."""
+
+    def __init__(self, marker: int) -> None:
+        self.marker = marker
+        # Marker indents of the open nested items, outermost first.
+        self._open: list[int] = []
+        # Indent of a dropped misindented line: every line deeper than it is dropped with it.
+        self._dropped: Optional[int] = None
+
+    def fragment(self, line: IndentedLine) -> Optional[str]:
+        """What `line`, deeper than the marker, appends to the item's string; `None` when the line is
+        dropped: a nested `- ` whose indent fits no open level, or a line deeper than such a `- `."""
+        if self._dropped is not None:
+            if line.indent > self._dropped:
+                return None
+            self._dropped = None
+        if _BULLET_RE.match(line.text):
+            closed = False
+            while self._open and self._open[-1] > line.indent:
+                self._open.pop()
+                closed = True
+            if not self._open or self._open[-1] != line.indent:
+                if closed:
+                    # Back out of a nested item, but not to the indent of any item still open.
+                    self._dropped = line.indent
+                    return None
+                self._open.append(line.indent)
+        elif not self._open:
+            return f" {line.text}"
+        return "\n" + " " * (line.indent - self.marker) + line.text
 
 
 def _rewrite_ac_header_inner(inner: str) -> tuple[str, set[str]]:
@@ -340,22 +426,26 @@ def _normalize_markdown(lines: list[str], profile: frozenset[str], changes: list
             out_lines.append(raw)
             continue
 
+        # Rule 6 first, at GitHub's tab stop, so every later decision reads the indent the reader sees.
+        line = _fix_indentation_whitespace(raw, tab_stop=4)
+        ws_fired = _fired_if(line != raw, RULE_WHITESPACE)
+
         # Recognised on any line, not only under a markdown heading (e.g. a bare "AC:..." snippet).
-        header_full_m = _AC_HEADER_FULL_RE.match(raw)
+        header_full_m = _AC_HEADER_FULL_RE.match(line)
         if header_full_m:
             lead = header_full_m.group("lead")
             new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=False, bullet_indent="")
             in_ac_block = True
-            _emit_if_changed(out_lines, changes, fired, raw, f"{lead}{new_lines[0]}")
+            _emit_if_changed(out_lines, changes, fired | ws_fired, raw, f"{lead}{new_lines[0]}")
             for extra in new_lines[1:]:
                 _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", extra)
             continue
 
-        heading_m = _MD_HEADING_RE.match(raw)
+        heading_m = _MD_HEADING_RE.match(line)
         if heading_m:
             current_section = _slugify_section(heading_m.group("text"))
             in_ac_block = False
-            out_lines.append(raw)
+            _emit_if_changed(out_lines, changes, ws_fired, raw, line)
             continue
 
         if current_section == "status":
@@ -364,13 +454,14 @@ def _normalize_markdown(lines: list[str], profile: frozenset[str], changes: list
             continue
 
         if _in_bullet_context(in_ac_block, current_section, profile):
-            bullet_m = _BULLET_START_RE.match(raw)
+            bullet_m = _BULLET_START_RE.match(line)
             if bullet_m:
                 new_line = _fix_bullet_marker(bullet_m)
-                _emit_if_changed(out_lines, changes, _fired_if(new_line != raw, RULE_BULLET_MARKER), raw, new_line)
+                fired = ws_fired | _fired_if(new_line != line, RULE_BULLET_MARKER)
+                _emit_if_changed(out_lines, changes, fired, raw, new_line)
                 continue
 
-        out_lines.append(raw)
+        _emit_if_changed(out_lines, changes, ws_fired, raw, line)
 
     return out_lines
 
@@ -379,14 +470,15 @@ _FH_KEY_LIST_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):\s*$")
 _FH_KEY_SCALAR_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):(?P<sep>\s+)(?P<val>.*)$")
 
 
-# Shared with `feature_header.py::_strip_comment_prefix`, which only needs the content half.
-_COMMENT_PREFIX_RE = re.compile(r"^#\s?")
+# Shared with `feature_header.py::_strip_comment_prefix`, which only needs the content half. A literal
+# space, as in `_PO_LINE_RE`, so a tab or NBSP stays in the content's indent for rule 6 to rewrite.
+_COMMENT_PREFIX_RE = re.compile(r"^# ?")
 
 
 def _split_comment_prefix(raw: str) -> tuple[str, str]:
     """Strips the feature-header comment marker: a leading '#' plus at most one
-    following whitespace character. Returns (prefix, content) so callers can reattach
-    the exact prefix that was removed."""
+    following space. Returns (prefix, content) so callers can reattach the exact
+    prefix that was removed."""
     m = _COMMENT_PREFIX_RE.match(raw)
     prefix = m.group(0) if m else ""
     return prefix, raw[len(prefix) :]
@@ -397,6 +489,7 @@ def _normalize_feature_header(lines: list[str], profile: frozenset[str], changes
     current_section: Optional[str] = None
     in_ac_block = False
     seen_title = False
+    items = BulletItemTracker()
 
     for raw in lines:
         if not raw.startswith("#"):
@@ -407,7 +500,8 @@ def _normalize_feature_header(lines: list[str], profile: frozenset[str], changes
         stripped = content.strip()
 
         if stripped == "":
-            # A blank line doesn't end an AC block.
+            # A blank line doesn't end an AC block; it does close an open bullet item.
+            items.continues_item(indented(content))
             out_lines.append(raw)
             continue
 
@@ -420,45 +514,58 @@ def _normalize_feature_header(lines: list[str], profile: frozenset[str], changes
             seen_title = True
             continue
 
-        header_full_m = _AC_HEADER_FULL_RE.match(stripped)
+        # Rule 6 first, so every later decision reads the line's indent in spaces.
+        fixed = _fix_indentation_whitespace(content)
+        ws_fired = _fired_if(fixed != content, RULE_WHITESPACE)
+        content = fixed
+        line = indented(content)
+
+        # A bullet item's wrapped text or nested item is never a key or an AC header, whatever it reads like.
+        is_item_text = items.continues_item(line)
+
+        header_full_m = None if is_item_text else _AC_HEADER_FULL_RE.match(stripped)
         if header_full_m and header_full_m.group("lead").strip() == "":
             new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=False, bullet_indent="  ")
             in_ac_block = True
-            _emit_if_changed(out_lines, changes, fired, raw, f"#   {new_lines[0]}")
+            # The header keeps the author's indent: its criterion's items are read relative to it.
+            indent = prefix + " " * line.indent
+            _emit_if_changed(out_lines, changes, fired | ws_fired, raw, indent + new_lines[0])
             for extra in new_lines[1:]:
-                # `extra` already carries the two-space bullet_indent; prefix with "#   " (not one more "  ").
-                _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", f"#   {extra}")
+                # `extra` already carries the two-space bullet_indent, so a split description sits one level deeper.
+                _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", indent + extra)
             continue
 
-        list_key_m = _FH_KEY_LIST_RE.match(stripped)
+        list_key_m = None if is_item_text else _FH_KEY_LIST_RE.match(stripped)
         if list_key_m:
             current_section = list_key_m.group("key")
             in_ac_block = False
-            out_lines.append(raw)
+            _emit_if_changed(out_lines, changes, ws_fired, raw, prefix + content)
             continue
 
-        scalar_m = _FH_KEY_SCALAR_RE.match(stripped)
+        scalar_m = None if is_item_text else _FH_KEY_SCALAR_RE.match(stripped)
         if scalar_m:
             current_section = None
             in_ac_block = False
+            fired = set(ws_fired)
             if scalar_m.group("key") == "status":
                 val = scalar_m.group("val")
                 canon = _canonicalize_token_case(val.strip())
-                fired = _fired_if(canon != val.strip(), RULE_STATE_CASING)
-                _emit_if_changed(out_lines, changes, fired, raw, raw.replace(val, canon, 1))
-                continue
-            out_lines.append(raw)
+                fired |= _fired_if(canon != val.strip(), RULE_STATE_CASING)
+                content = content.replace(val, canon, 1)
+            _emit_if_changed(out_lines, changes, fired, raw, prefix + content)
             continue
 
         if _in_bullet_context(in_ac_block, current_section, profile):
+            if not is_item_text:
+                items.read(line, True)
             bullet_m = _BULLET_START_RE.match(content)
             if bullet_m:
                 new_content = _fix_bullet_marker(bullet_m)
-                fired = _fired_if(new_content != content, RULE_BULLET_MARKER)
+                fired = ws_fired | _fired_if(new_content != content, RULE_BULLET_MARKER)
                 _emit_if_changed(out_lines, changes, fired, raw, prefix + new_content)
                 continue
 
-        out_lines.append(raw)
+        _emit_if_changed(out_lines, changes, ws_fired, raw, prefix + content)
 
     return out_lines
 
