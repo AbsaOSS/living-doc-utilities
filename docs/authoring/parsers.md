@@ -32,6 +32,7 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 - `state` and `state_origin` stay empty until [status derivation](#status-derivation) runs → `authoring/issue_body.py::ParsedEntity`
 - An authored value that fails its field's validation is dropped with a warning (`MALFORMED_STATUS` for a status) → `authoring/issue_body.py::_build_parsed_entity`
 - A bullet list joins a following line with no marker onto the previous item → `authoring/issue_body.py::extract_bullets`
+- Text in a bullet-list field before its first `- ` bullet, including text on the key's own line, is dropped with `UNPARSED_BULLET_LINE` → `authoring/issue_body.py::unparsed_bullet_warning`
 - An id list is comma-separated; blank or `none` means empty → `authoring/issue_body.py::split_id_list`
 
 ## Issue body

@@ -48,6 +48,7 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 | `MALFORMED_AC` | warning | collector | a criterion header or `@AC:` tag that cannot be mapped ([conditions](../authoring/ac-grammar.md#dropped-criteria)) | criterion or tag skipped |
 | `LEGACY_AC_STATE` | warning | collector | a retired state value, `descoped` | criterion kept as version-less `planned` |
 | `UNPARSED_AC_LINE` | warning | collector | a criterion-block line that fits no field after normalisation | line dropped |
+| `UNPARSED_BULLET_LINE` | warning | collector | text in a bullet-list field before its first `- ` bullet, including text on the key's own line | text dropped |
 | `UNKNOWN_SECTION` | warning | collector | an unrecognised `##` heading in an issue body | section dropped |
 | `MISSING_ENTITY_ID` | warning | collector | a title with no recognised entity-id prefix | item not emitted |
 | `IGNORED_AUTHORED_KEY` | warning | collector | a key the contract does not carry, including a written Feature status | value dropped |

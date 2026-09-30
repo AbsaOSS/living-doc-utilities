@@ -80,7 +80,7 @@ def test_compat_raised_codes_are_registered_as_errors_emitted_by_utilities(name)
 def test_every_code_member_is_a_distinct_object():
     """Every Code member is a distinct object, none collapsed into another by a shared value."""
     # Guards Enum aliasing: `codes.py::Code.__new__` assigns unique sequential values, so members can't collapse.
-    assert len(set(Code)) == len(list(Code)) == 36
+    assert len(set(Code)) == len(list(Code)) == 37
 
 
 def test_every_code_has_a_kind_and_an_emitter():

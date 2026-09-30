@@ -27,10 +27,12 @@ from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import (
     _EXTRACTORS,
+    BULLET_KINDS,
     ParsedEntity,
     _build_parsed_entity,
     _SectionKind,
     _SectionSpec,
+    unparsed_bullet_warning,
 )
 from living_doc_utilities.authoring.normalize import _FEATURE_LINE_RE, SourceFormat, _split_comment_prefix, normalize
 from living_doc_utilities.contracts.codes import Code
@@ -81,7 +83,11 @@ def _extract_header_block(lines: list[str]) -> list[str]:
     return lines[banner_indices[0] + 1 : banner_indices[-1]]
 
 
-def _parse_keys(header_lines: list[str], key_specs: dict[str, _SectionSpec]) -> tuple[dict[str, Any], list[str]]:
+def _parse_keys(
+    header_lines: list[str], key_specs: dict[str, _SectionSpec]
+) -> tuple[dict[str, Any], list[str], dict[str, list[str]]]:
+    """Field values, unrecognised key names, and each present key's raw lines - the key's own
+    line first - so the caller can report text a bullet field drops."""
     key_re = re.compile(
         r"^(?P<key>" + "|".join(re.escape(k) for k in sorted(key_specs, key=len, reverse=True)) + r"):\s*(?P<val>.*)$"
     )
@@ -133,7 +139,7 @@ def _parse_keys(header_lines: list[str], key_specs: dict[str, _SectionSpec]) -> 
             continue
         values[spec.field_name] = _EXTRACTORS[spec.kind](raw_values[key])
 
-    return values, unrecognised
+    return values, unrecognised, raw_values
 
 
 def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
@@ -159,7 +165,7 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
 
     warnings: list[ContractWarning] = []
     key_specs = _KEYS_BY_TYPE[entity_type]
-    fields, unrecognised = _parse_keys(header_lines, key_specs)
+    fields, unrecognised, raw_values = _parse_keys(header_lines, key_specs)
     for key in unrecognised:
         warnings.append(
             ContractWarning(
@@ -168,6 +174,9 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
                 context=f"entity_id={entity_id!r}",
             )
         )
+    for key, spec in key_specs.items():
+        if spec.kind in BULLET_KINDS and key in raw_values:
+            warnings.extend(unparsed_bullet_warning(entity_id, key, raw_values[key]))
 
     header_text = "\n".join(header_lines)
     acceptance_criteria, ac_warnings = parse_acceptance_criteria(header_text, entity_id)

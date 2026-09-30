@@ -309,3 +309,50 @@ def test_feature_dependencies_on_a_non_feature_is_an_unknown_section(title, enti
     assert entity.feature_dependencies == []
     assert [w.code for w in warnings] == [Code.UNKNOWN_SECTION.name]
     assert "Feature Dependencies" in warnings[0].message
+
+
+def test_prose_only_rationale_is_dropped_with_unparsed_bullet_line():
+    """A `## Rationale` with prose and no `- ` bullet has no item to keep: it is dropped with `UNPARSED_BULLET_LINE`."""
+    body = "## Description\n\nd\n\n## Rationale\n\nKeeps the audit trail intact.\n"
+    entity, warnings = parse_issue_body(body, "FUNC-001 · Sample", "DocumentedFunctionality")
+
+    assert entity.rationale is None
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale'")
+    ]
+    assert "'Keeps the audit trail intact.'" in warnings[0].message
+
+
+def test_prose_before_the_first_precondition_bullet_warns_and_keeps_the_bullets():
+    """Text before the first `- ` bullet warns once; the bullets below it are still extracted."""
+    body = "## Description\n\nd\n\n## Preconditions\n\nBefore anything else:\n- signed in\n- has an account\n"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert entity.preconditions == ["signed in", "has an account"]
+    assert [w.code for w in warnings] == [Code.UNPARSED_BULLET_LINE.name]
+    assert "'preconditions'" in warnings[0].message
+    assert "'Before anything else:'" in warnings[0].message
+
+
+@pytest.mark.parametrize(
+    "section",
+    ["- one\n- two\n", "- one that wraps\nonto a second line\n- two\n"],
+    ids=["bullets_only", "unmarked_continuation"],
+)
+def test_bullets_and_their_continuation_lines_raise_no_unparsed_bullet_line(section):
+    """Only bullets, or a bullet followed by an unmarked continuation line (joined, not dropped), raise nothing."""
+    body = f"## Description\n\nd\n\n## Business Value\n\n{section}"
+    entity, warnings = parse_issue_body(body, "US-001 · Sample", "DocumentedUserStory")
+
+    assert warnings == []
+    assert len(entity.business_value) == 2
+
+
+def test_an_id_list_section_never_raises_unparsed_bullet_line():
+    """An id list is not a bullet field: its unbulleted text is the value, not dropped text."""
+    body = "## Surface Type\n\nAPI\n\n## User Stories\n\nUS-001, US-002\n\n## Feature Dependencies\n\nFEAT-002\n"
+    entity, warnings = parse_issue_body(body, "FEAT-001 · Sample", "DocumentedFeature")
+
+    assert warnings == []
+    assert entity.user_stories == ["US-001", "US-002"]
+    assert entity.feature_dependencies == ["FEAT-002"]
