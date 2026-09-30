@@ -42,11 +42,14 @@ def test_module_never_branches_on_entity_type():
 
 
 def test_type_profiles_lists_the_bullet_sections_per_entity_type():
-    """`TYPE_PROFILES`: a Feature has no bullet sections, a User Story `business_value`, a Functionality `rationale`."""
-    assert TYPE_PROFILES["DocumentedFeature"] == frozenset()
+    """`TYPE_PROFILES`: a Feature has only `notes`, a User Story `business_value`, a Functionality `rationale`."""
+    assert TYPE_PROFILES["DocumentedFeature"] == frozenset({"notes"})
     assert "business_value" in TYPE_PROFILES["DocumentedUserStory"]
     assert "rationale" in TYPE_PROFILES["DocumentedFunctionality"]
     assert "rationale" not in TYPE_PROFILES["DocumentedUserStory"]
+    # `notes` is the one bullet section every entity type carries.
+    for entity_type in TYPE_PROFILES:
+        assert "notes" in TYPE_PROFILES[entity_type]
 
 
 def test_normalized_source_text_joins_lines():

@@ -173,6 +173,7 @@ def _entities() -> list[Entity]:
         feature_dependencies=["FEAT-002"],
         stub_reason="surface not yet instrumented: awaiting UI test coverage",
         wizard_steps=["cart-review", "payment", "confirmation"],
+        notes=["The checkout markup comes from the shared storefront template."],
         pages=[
             PageRef(
                 is_primary=True,

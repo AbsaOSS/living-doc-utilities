@@ -59,6 +59,7 @@ _COMMON_KEYS = {
     "superseded_by": _SectionSpec("superseded_by", _SectionKind.SCALAR),
     "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
     "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
+    "notes": _SectionSpec("notes", _SectionKind.BULLETS),
     "acceptance_criteria": _SectionSpec(None, _SectionKind.IGNORED),
 }
 

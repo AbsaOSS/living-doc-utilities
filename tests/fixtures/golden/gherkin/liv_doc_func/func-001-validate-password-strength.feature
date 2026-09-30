@@ -1,6 +1,6 @@
 # Golden fixture. Copied verbatim from AbsaOSS/living-doc's
 # docs/examples/gherkin/liv_doc_func/func-001-validate-password-strength.feature at commit
-# bfcc402ff998085cbf7bb91a7fd55ea8ac12c911 (the canonical-corpus commit, PRs #25/#26).
+# eccbc9e72970e10e8d7e61ffc400c66c252229bd (canon HEAD; the `## Notes` corpus round, PR #43).
 # =============================================================================
 # LIVING DOC — FUNC-001 · Login Page - Validate Password Strength
 # =============================================================================
@@ -16,15 +16,15 @@
 #
 #   AC:FUNC-001-02 (v1.0.0 - active)
 #     - Returns valid=true when the candidate password satisfies every complexity rule.
-#
-#   AC:FUNC-001-03 (planned)
-#     - Returns valid=false when the candidate password appears in the breached-password list.
 # =============================================================================
 
 @FUNC_ID:FUNC-001
 @domain_authentication
 Feature: Login Page - Validate Password Strength
   Validates a candidate password against the account complexity policy before the login form is submitted.
+
+  # This Functionality calls nothing: the complexity policy is checked client-side. The
+  # breached-password check is FUNC-002, which declares the dependency on the API Feature.
 
   # AC:FUNC-001-01 (v1.0.0 - active) - rejects a weak password | aspect: minimum length
   @AC:FUNC-001-01/aspect:minimum-length
@@ -43,4 +43,3 @@ Feature: Login Page - Validate Password Strength
   # AC:FUNC-001-02 (v1.0.0 - active) is intentionally left UNCOVERED: no scenario
   # carries @AC:FUNC-001-02. Both declared aspects of AC:FUNC-001-01 have a
   # scenario, so that AC is fully covered; FUNC-001-02 is the uncovered counterpart.
-  # AC:FUNC-001-03 (planned) is a backlog AC - no target version, not counted.

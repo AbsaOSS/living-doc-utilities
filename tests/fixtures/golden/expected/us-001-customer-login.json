@@ -9,6 +9,7 @@
   "narrative": "As a registered customer, I can sign in with my email and password, so that I can reach my account area.",
   "purpose": null,
   "source": null,
+  "notes": [],
   "business_value": [
     "Registered customers can reach their account area, so returning users convert without friction."
   ],

@@ -29,6 +29,7 @@ USER_STORY_HEADINGS = [
     ("Acceptance Criteria", Entity, "acceptance_criteria"),
     ("Preconditions", Entity, "preconditions"),
     ("Not In Scope", Entity, "not_in_scope"),
+    ("Notes", Entity, "notes"),
     ("Deprecated At", Entity, "deprecated_at"),
     ("Deprecation Reason", Entity, "deprecation_reason"),
     ("Superseded By", Entity, "superseded_by"),
@@ -43,6 +44,7 @@ FEATURE_HEADINGS = [
     ("Functionalities", Entity, "functionalities"),
     ("External Dependencies", Entity, "external_dependencies"),
     ("Feature Dependencies", Entity, "feature_dependencies"),
+    ("Notes", Entity, "notes"),
     ("Deprecated At", Entity, "deprecated_at"),
     ("Deprecation Reason", Entity, "deprecation_reason"),
     ("Superseded By", Entity, "superseded_by"),
@@ -57,6 +59,7 @@ FUNCTIONALITY_HEADINGS = [
     ("Rationale", Entity, "rationale"),
     ("Preconditions", Entity, "preconditions"),
     ("Not In Scope", Entity, "not_in_scope"),
+    ("Notes", Entity, "notes"),
     ("Deprecated At", Entity, "deprecated_at"),
     ("Deprecation Reason", Entity, "deprecation_reason"),
     ("Superseded By", Entity, "superseded_by"),
@@ -68,6 +71,7 @@ FEATURE_FILE_HEADER_OPTIONAL_KEYS = [
     ("rationale", Entity, "rationale"),
     ("preconditions", Entity, "preconditions"),
     ("not_in_scope", Entity, "not_in_scope"),
+    ("notes", Entity, "notes"),
     ("deprecated_at", Entity, "deprecated_at"),
     ("deprecation_reason", Entity, "deprecation_reason"),
     ("superseded_by", Entity, "superseded_by"),
@@ -77,6 +81,7 @@ PAGE_OBJECT_OPTIONAL_KEYS = [
     ("wizard-steps", Entity, "wizard_steps"),
     ("stub-reason", Entity, "stub_reason"),
     ("feature_dependencies", Entity, "feature_dependencies"),
+    ("notes", Entity, "notes"),
 ]
 
 AC_BLOCK_EXTENSIONS = [
@@ -109,7 +114,7 @@ def test_authored_heading_has_a_field_on_the_shared_model(heading, model, field_
 def test_every_heading_in_this_table_is_exercised():
     """The heading table's combined length matches the expected count, so no list silently went empty."""
     # Guards the table: an emptied list would make the parametrized test silently stop covering it.
-    assert len(ALL_HEADINGS) == 9 + 10 + 11 + 7 + 3 + 5
+    assert len(ALL_HEADINGS) == 10 + 11 + 12 + 8 + 4 + 5
 
 
 def test_parsed_entity_field_set_equals_entity_minus_provenance_by_construction():

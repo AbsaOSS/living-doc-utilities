@@ -61,9 +61,9 @@ class Change(NamedTuple):
 
 # Which of an entity type's sections are bullet-list sections; data only, nothing else branches on entity type.
 TYPE_PROFILES: dict[DocType, frozenset[str]] = {
-    "DocumentedUserStory": frozenset({"business_value", "preconditions", "not_in_scope"}),
-    "DocumentedFeature": frozenset(),
-    "DocumentedFunctionality": frozenset({"rationale", "preconditions", "not_in_scope"}),
+    "DocumentedUserStory": frozenset({"business_value", "preconditions", "not_in_scope", "notes"}),
+    "DocumentedFeature": frozenset({"notes"}),
+    "DocumentedFunctionality": frozenset({"rationale", "preconditions", "not_in_scope", "notes"}),
 }
 
 
@@ -597,18 +597,37 @@ def _normalize_scenario_file(lines: list[str], changes: list[Change]) -> list[st
 
 # Shared with `page_object.py::_content_lines`; the trailing char is a literal space so a tab/NBSP stays in `content`.
 _PO_LINE_RE = re.compile(r"^(?P<lead>\s*\*[ ]?)(?P<content>.*)$")
+# Shared with `page_object.py::_parse_keys`, which reads the same lines; both must agree on what a key is.
+_PO_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:")
+# A banner line of the header comment, opening or closing (`===` or `=== */`); shared with `page_object.py`.
+_PO_BANNER_CONTENT_RE = re.compile(r"^=+\s*(\*/)?\s*$")
+# The PageObject header keys whose value is a bullet list, declared here because the normaliser has to know
+# them before the parser runs; `page_object.py::_BULLET_KEYS` is this same set, under the name the parser uses.
+PO_BULLET_KEYS: frozenset[str] = frozenset({"notes"})
 
 
 def _normalize_page_object(lines: list[str], changes: list[Change]) -> list[str]:
-    """A PageObject header carries no bullet sections, AC blocks or states - only its
-    title line (rules 5/5b) and generic indentation whitespace (rule 6) are ever
-    rewritten; every ` * key: value` metadata line passes through untouched."""
+    """A PageObject header carries no AC blocks and no states, so its title line (rules 5/5b), generic
+    indentation whitespace (rule 6) and the bullet markers of a `PO_BULLET_KEYS` list (rule 1) are all
+    that is ever rewritten; every other ` * key: value` metadata line passes through untouched.
+
+    Rule 1 reaches only a line inside an open bullet key of the leading header comment, which is the whole
+    of what `page_object.py::_header_comment_lines` reads. The section closes at a banner, a blank line, any
+    other key and any line that is not a ` * ` comment line, and the comment's own `*/` closes it for the
+    rest of the file - so a later JSDoc block, even one with a `notes:` line of its own, and a Gherkin-like
+    `*` are never candidates. The state machine mirrors `page_object.py::_parse_keys`, which reads the same
+    lines - the two have to agree on where a list runs."""
     out_lines: list[str] = []
     seen_title = False
+    in_bullet_key = False
+    header_closed = False
+    items = BulletItemTracker()
+
     for raw in lines:
         m = _PO_LINE_RE.match(raw)
         if not m:
             out_lines.append(raw)
+            in_bullet_key = False
             continue
 
         content = m.group("content")
@@ -616,11 +635,35 @@ def _normalize_page_object(lines: list[str], changes: list[Change]) -> list[str]
 
         if not seen_title and _emit_title_if_present(out_lines, changes, raw, prefix, content):
             seen_title = True
+            in_bullet_key = False
             continue
 
+        # Rule 6 first, so the indent every later decision reads is already in spaces.
         new_content = _fix_indentation_whitespace(content)
         fired = _fired_if(new_content != content, RULE_WHITESPACE)
-        _emit_if_changed(out_lines, changes, fired, raw, prefix + new_content)
+        content = new_content
+        line = indented(content)
+
+        # A bullet item's wrapped text is the item's own, so it neither closes the list nor reads as a key.
+        if not items.continues_item(line):
+            key_m = _PO_KEY_RE.match(line.text)
+            if key_m is not None:
+                in_bullet_key = not header_closed and key_m.group("key") in PO_BULLET_KEYS
+            elif line.text == "" or _PO_BANNER_CONTENT_RE.match(line.text) or "LIVING DOC" in content:
+                in_bullet_key = False
+            elif in_bullet_key:
+                items.read(line, True)
+        if "*/" in content:
+            header_closed = True
+
+        if in_bullet_key:
+            bullet_m = _BULLET_START_RE.match(content)
+            if bullet_m:
+                marked = _fix_bullet_marker(bullet_m)
+                fired |= _fired_if(marked != content, RULE_BULLET_MARKER)
+                content = marked
+
+        _emit_if_changed(out_lines, changes, fired, raw, prefix + content)
 
     return out_lines
 

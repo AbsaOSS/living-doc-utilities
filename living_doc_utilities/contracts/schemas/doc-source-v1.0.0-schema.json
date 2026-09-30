@@ -371,6 +371,13 @@
           "default": null,
           "title": "Source"
         },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
         "business_value": {
           "items": {
             "type": "string"
@@ -1019,6 +1026,7 @@
               "features[].functionalities[]",
               "features[].narrative",
               "features[].not_in_scope[]",
+              "features[].notes[]",
               "features[].owners[]",
               "features[].pages[].functionalities[]",
               "features[].pages[].is_primary",
@@ -1071,6 +1079,7 @@
               "functionalities[].functionalities[]",
               "functionalities[].narrative",
               "functionalities[].not_in_scope[]",
+              "functionalities[].notes[]",
               "functionalities[].owners[]",
               "functionalities[].pages[].functionalities[]",
               "functionalities[].pages[].is_primary",
@@ -1123,6 +1132,7 @@
               "user_stories[].functionalities[]",
               "user_stories[].narrative",
               "user_stories[].not_in_scope[]",
+              "user_stories[].notes[]",
               "user_stories[].owners[]",
               "user_stories[].pages[].functionalities[]",
               "user_stories[].pages[].is_primary",

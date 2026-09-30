@@ -72,5 +72,4 @@ def test_func_001_feature_header_matches_its_issue_body_golden_entity():
     # The one extension this corpus assigns only to the .feature-header form.
     by_id = {ac.id: ac for ac in entity.acceptance_criteria}
     assert by_id["FUNC-001-01"].aspect == ["minimum-length", "character-classes"]
-    for ac_id in ("FUNC-001-02", "FUNC-001-03"):
-        assert by_id[ac_id].aspect == []
+    assert by_id["FUNC-001-02"].aspect == []

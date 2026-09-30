@@ -14,20 +14,39 @@
 # limitations under the License.
 #
 
-"""Parsing and status-deriving the three canonical issue bodies together reproduces each golden entity."""
+"""Parsing and status-deriving the six canonical issue bodies together reproduces each golden entity."""
 
 from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.authoring.status import derive_statuses
+from living_doc_utilities.contracts.codes import Code
 from tests.authoring.golden.helpers import load_expected, read_fixture, to_entity_dict
 
 _ENTITIES = [
     ("us-001-customer-login.md", "US-001 · Customer Login", "DocumentedUserStory", "us-001-customer-login.json"),
     ("feat-001-login-page.md", "FEAT-001 · Login Page", "DocumentedFeature", "feat-001-login-page.json"),
     (
+        "feat-002-breached-password-check.md",
+        "FEAT-002 · Breached Password Check",
+        "DocumentedFeature",
+        "feat-002-breached-password-check.json",
+    ),
+    (
+        "feat-003-registration-page.md",
+        "FEAT-003 · Registration Page",
+        "DocumentedFeature",
+        "feat-003-registration-page.json",
+    ),
+    (
         "func-001-validate-password-strength.md",
         "FUNC-001 · Login Page - Validate Password Strength",
         "DocumentedFunctionality",
         "func-001-validate-password-strength.json",
+    ),
+    (
+        "func-002-reject-breached-password.md",
+        "FUNC-002 · Login Page - Reject Breached Password",
+        "DocumentedFunctionality",
+        "func-002-reject-breached-password.json",
     ),
 ]
 
@@ -46,7 +65,7 @@ def _parse_all():
 
 
 def test_golden_entities_match_hand_written_json():
-    """Parsing and status-deriving the three canonical issue bodies reproduces each hand-written golden entity."""
+    """Parsing and status-deriving the six canonical issue bodies reproduces each hand-written golden entity."""
     derived, _warnings = _parse_all()
     by_id = {entity.entity_id: entity for entity in derived}
 
@@ -56,7 +75,18 @@ def test_golden_entities_match_hand_written_json():
         assert actual == expected, f"mismatch for {expected['entity_id']}"
 
 
-def test_golden_run_produces_no_warnings():
-    """Parsing and status-deriving the three canonical issue bodies together produces no warnings."""
+def test_golden_run_produces_exactly_the_expected_corpus_warnings():
+    """The six canonical issue bodies produce one warning: FEAT-003 links no entity, so its state is derived orphan."""
     _derived, warnings = _parse_all()
-    assert warnings == []
+    assert [(w.code, w.context) for w in warnings] == [(Code.ORPHAN_FEATURE.name, "entity_id='FEAT-003'")]
+
+
+def test_the_notes_of_the_one_corpus_entity_that_carries_them_round_trip():
+    """FEAT-001 is the corpus's single `## Notes` instance: both bullets reach `notes`, wrapped lines joined."""
+    derived, _warnings = _parse_all()
+    by_id = {entity.entity_id: entity for entity in derived}
+
+    assert by_id["FEAT-001"].notes == load_expected("feat-001-login-page.json")["notes"]
+    assert len(by_id["FEAT-001"].notes) == 2
+    # Every other corpus entity authors no note, so the field defaults to empty rather than to None.
+    assert all(by_id[entity_id].notes == [] for entity_id in by_id if entity_id != "FEAT-001")

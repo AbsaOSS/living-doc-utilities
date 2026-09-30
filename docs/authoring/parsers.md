@@ -38,7 +38,8 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
   - Example: `#   - Migrated accounts carry` then `#     status: deprecated until re-verified.` is one `business_value` item; no `status` key is read.
   - A line at or above the item's `- ` closes the item, so an indented key outside a bullet item is still a key → `tests/authoring/test_feature_header.py::test_an_indented_key_after_the_bullet_item_has_closed_is_still_a_key`
   - The `.feature` header normaliser uses the same rule, so it never rewrites such a line as a key or a criterion header → `authoring/normalize.py::_normalize_feature_header`
-  - A PageObject header has no bullet-list key yet, so there the rule has nothing to guard → `authoring/page_object.py::_BULLET_KEYS`
+  - A PageObject header's one bullet-list key is `notes:`, declared where the normaliser can see it too → `authoring/normalize.py::PO_BULLET_KEYS`
+    - The normaliser tracks that key with the same state machine the parser uses, so rule 1 reaches its items and the two agree on where the list runs ([normalisation](normalisation.md#rule-1-bullet-marker)) → `authoring/normalize.py::_normalize_page_object`
 - A bullet-list field holds one string per top-level item. Its first `- ` sets the item level; each line is read by its indent → `authoring/issue_body.py::_read_bullets`
 
   | Line | Read as |
@@ -58,6 +59,11 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 - A header key's own-line text counts as before the first bullet → `authoring/feature_header.py::_parse_keys`
 - The `UNPARSED_BULLET_LINE` context names the contract field, not the authored key or heading → `authoring/issue_body.py::unparsed_bullet_warning`
 - An id list is comma-separated; blank or `none` means empty → `authoring/issue_body.py::split_id_list`
+- Every entity type carries an optional `notes` bullet list, the canon's [one place for human context](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md#core-entities) → `contracts/doc_entities.py::EntityContent`
+  - Nothing ever reads a note's text: it drives no state, nothing is derived from it, and it is never validated, whatever it reads like (`status: deprecated` stays free text) → `tests/authoring/test_notes.py::test_a_field_shaped_note_changes_no_derived_state_and_raises_no_warning`
+    - Why: anything that must drive behaviour has to be a typed field; a note exists so a recordable fact needs no new field.
+  - It is entity-level only. A `notes:` inside a criterion block fills no criterion field and is reported instead ([grammar](ac-grammar.md#extensions)) → `tests/authoring/test_notes.py::test_an_ac_level_notes_key_in_an_issue_body_is_reported_and_reads_as_no_field`
+  - `deprecation_reason` stays its own typed field and does not move into a note → `contracts/doc_entities.py::EntityContent`
 
 ## Issue body
 
@@ -81,6 +87,7 @@ Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a f
 | `## Parent Feature` | | | `parent` |
 | `## Func Type` | | | `func_type` |
 | `## Rationale` | | | `rationale` (one bullet) |
+| `## Notes` | `notes` (bullets) | `notes` (bullets) | `notes` (bullets) |
 | `## Deprecated At`, `## Deprecation Reason`, `## Superseded By` | the same-named field | the same-named field | the same-named field |
 
 - A heading with no mapping is `UNKNOWN_SECTION`, not a failure → `authoring/issue_body.py::parse_issue_body`
@@ -102,7 +109,7 @@ Keys → `authoring/feature_header.py::_KEYS_BY_TYPE`:
 | Key | User Story | Functionality |
 |---|---|---|
 | `source`, `status`, `deprecated_at`, `deprecation_reason`, `superseded_by` | yes | yes |
-| `preconditions`, `not_in_scope` (bullets) | yes | yes |
+| `preconditions`, `not_in_scope`, `notes` (bullets) | yes | yes |
 | `acceptance_criteria` (read by the [grammar](ac-grammar.md)) | yes | yes |
 | `business_value` (bullets) | yes | |
 | `parent`, `func_type`, `rationale` | | yes |
@@ -114,13 +121,15 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 
 | Shape | When | Known keys | Result |
 |---|---|---|---|
-| full header | no `parent-feat:` | `surface_type`, `route`, `owners`, `purpose`, `user_stories`, `functionalities`, `external_dependencies`, `feature_dependencies`, `page-object`, `wizard-steps`, `stub-reason`, `status` | a Feature plus its primary page |
+| full header | no `parent-feat:` | `surface_type`, `route`, `owners`, `purpose`, `user_stories`, `functionalities`, `external_dependencies`, `feature_dependencies`, `page-object`, `wizard-steps`, `stub-reason`, `notes`, `status` | a Feature plus its primary page |
 | cross-reference header | `parent-feat:` present | `parent-feat`, `route`, `owners`, `purpose`, `page-object`, `functionalities`, `status` | one page for an already-described Feature |
 
 - The key sets are `authoring/page_object.py::_FULL_HEADER_KEYS` and `authoring/page_object.py::_CROSS_REFERENCE_KEYS`
 - A cross-reference result names `parent_feat`; the collector appends its page to that Feature's `pages` → `authoring/page_object.py::PageObjectResult`
 - `status:` is recognised only to be dropped as `IGNORED_AUTHORED_KEY` → `authoring/page_object.py::IGNORED_AUTHORED_KEYS`
 - A full-header-only key (`surface_type`, `user_stories`, `external_dependencies`, `feature_dependencies`) on a cross-reference header is an unknown key, `IGNORED_AUTHORED_KEY` → `tests/authoring/test_page_object.py::test_full_header_only_key_on_a_cross_reference_header_is_an_unrecognised_key`
+- `notes` is full-header-only for the same reason: a note is Feature-level, and a cross-reference header describes only its own page → `tests/authoring/test_notes.py::test_a_note_on_a_cross_reference_page_object_header_is_an_unrecognised_key`
+- `notes` is the header's one bullet key; every other key's value is a scalar or an id list, joined from its lines → `authoring/page_object.py::_joined`
 - `wizard-steps` is split on ` · ` → `authoring/page_object.py::parse_page_object`
 
 ## Scenarios
@@ -205,6 +214,9 @@ An authored state contradicts its criteria when → `authoring/status.py::_is_mi
 ## Golden fixtures
 
 - `tests/fixtures/golden/` holds the canonical documents of `AbsaOSS/living-doc`'s `docs/examples/`, copied verbatim under a provenance header, plus hand-written expected entities → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`
+- Each fixture's header names the canon commit it was copied from; a refresh re-pins every fixture together → `tests/fixtures/golden/gh-issues/us-001-customer-login.md`
+- The corpus is expected to raise exactly one warning: FEAT-003 links no entity, so its derived state is `ORPHAN_FEATURE` → `tests/authoring/golden/test_golden_entities.py::test_golden_run_produces_exactly_the_expected_corpus_warnings`
+  - In the source-code chain FEAT-003's `feature_dependencies` target is also `UNRESOLVED_RELATION`, expected until an API Feature has a source-code form → `tests/authoring/golden/test_golden_source_code_chain.py::test_a_ui_feature_dependency_is_unresolved_in_a_source_code_run_and_nothing_else`
 - Other repositories compare their parsers' output against these → `living-doc-collector-gh`, `living-doc-toolkit`, `living-doc-collector-ad`
 
 ## Example
