@@ -166,9 +166,11 @@ def extract_bullets(lines: list[str]) -> list[str]:
     return items
 
 
-def unbulleted_lines(lines: list[str]) -> list[str]:
-    """The non-blank lines of already-normalised `lines` before the first `- ` bullet:
-    `extract_bullets` has no item to join them onto, so it drops them."""
+def unparsed_bullet_warning(entity_id: str, field_name: str, lines: list[str]) -> list[ContractWarning]:
+    """`[UNPARSED_BULLET_LINE]` when a bullet-list field's already-normalised `lines` hold text
+    before its first `- ` bullet, else `[]`: `extract_bullets` has no item to join that text onto,
+    so it drops it. Shared by every parser with a bullet field - the one place this warning is built.
+    `field_name` is the contract field, never the authored key or heading."""
     dropped: list[str] = []
     for raw in lines:
         stripped = raw.strip()
@@ -177,13 +179,6 @@ def unbulleted_lines(lines: list[str]) -> list[str]:
         if _BULLET_RE.match(stripped):
             break
         dropped.append(stripped)
-    return dropped
-
-
-def unparsed_bullet_warning(entity_id: str, field_name: str, lines: list[str]) -> list[ContractWarning]:
-    """`[UNPARSED_BULLET_LINE]` when a bullet-list field's `lines` hold text before its first
-    bullet, else `[]`. Shared by every parser with a bullet field - the one place this warning is built."""
-    dropped = unbulleted_lines(lines)
     if not dropped:
         return []
     return [

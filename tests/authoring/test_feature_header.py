@@ -277,3 +277,23 @@ def test_a_bullet_with_a_continuation_line_raises_no_unparsed_bullet_line():
 
     assert warnings == []
     assert entity.business_value == ["fewer support calls"]
+
+
+def test_prose_on_a_rationale_keys_own_line_is_dropped_with_unparsed_bullet_line():
+    """`# rationale: <text>` with no `- ` bullet keeps nothing: `rationale` is `None` and the text is reported."""
+    text = (
+        "# =============================================================================\n"
+        "# LIVING DOC — FUNC-001 · Sample\n"
+        "# =============================================================================\n"
+        "# status:       active\n"
+        "# rationale:    Keeps the audit trail intact.\n"
+        "# =============================================================================\n"
+        "\nFeature: Sample\n"
+    )
+    entity, warnings = parse_feature_header(text, "DocumentedFunctionality")
+
+    assert entity.rationale is None
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale'")
+    ]
+    assert "'Keeps the audit trail intact.'" in warnings[0].message

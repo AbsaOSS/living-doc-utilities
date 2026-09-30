@@ -176,7 +176,8 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
         )
     for key, spec in key_specs.items():
         if spec.kind in BULLET_KINDS and key in raw_values:
-            warnings.extend(unparsed_bullet_warning(entity_id, key, raw_values[key]))
+            assert spec.field_name is not None  # every bullet kind carries a field
+            warnings.extend(unparsed_bullet_warning(entity_id, spec.field_name, raw_values[key]))
 
     header_text = "\n".join(header_lines)
     acceptance_criteria, ac_warnings = parse_acceptance_criteria(header_text, entity_id)
