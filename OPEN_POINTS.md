@@ -1,13 +1,17 @@
 # Otevřené body — P35-UT10 (framing pass, issue #183)
 
-Stav k 2026-10-01 večer. Tento soubor je **neverzovaný** a do commitu nepatří (stejně jako `pr.md` a `P35-UT10-migration-guide-cs.md`).
+Stav k 2026-10-01, 22:05.
+
+> **Aktualizace 22:05:** commit `1230899` („#183: one framing pass decides every boundary before parsing") je hotový a **pushnutý** na `origin/refactor/183-framing-pass`. Kroky 5 (commit) a půlka kroku 6 (push) níže jsou tím splněné; PR zatím otevřený není.
+> Commit obsahuje záměrně i `OPEN_POINTS.md`, `P35-UT10-migration-guide-cs.md` a `pr.md`, aby byly k dispozici na jiném počítači. Před merge je odstranit (bod **O12**).
 
 ## Kde co je
 
 | Co | Kde |
 |---|---|
-| kód | větev `refactor/183-framing-pass` v tomto repu, stojí na `origin/master` (`216d866`), **nic není commitnuto** |
-| průvodce (česky, se všemi skupinami a příklady) | `P35-UT10-migration-guide-cs.md` v kořeni tohoto repa (neverzovaný) |
+| kód | větev `refactor/183-framing-pass`, commit `1230899` na `216d866`, pushnuto na `origin` |
+| průvodce (česky, se všemi skupinami a příklady) | `P35-UT10-migration-guide-cs.md` v kořeni tohoto repa (v commitu `1230899`) |
+| záloha (patch commitu + archiv souborů) | `../living-doc/specs/liv-doc-spec/issues/P35-UT10-backup-2026-10-01/` |
 | commit message | `../living-doc/specs/liv-doc-spec/issues/P35-UT10-commit-message.txt` |
 | PR popis | `pr.md` v kořeni tohoto repa (neverzovaný) |
 | dluh | `../living-doc/specs/liv-doc-spec/debt.md` — `D20` smazán + poznámka *Closed 2026-10-01*, nový řádek `D22` |
@@ -108,6 +112,8 @@ Commit message končí řádkem `Co-Authored-By: Claude …` — pokud ho nechce
 | O9 | **Ostatní soubory ve `specs/` zmiňují `D20`** jako otevřený (tasklist, drafty issue). Upraven byl jen `debt.md`. | aktualizovat tasklist (`P35-UT10` hotovo, `D20` uzavřen) po merge | po merge |
 | O10 | **Prázdný Claude Docs dokument** „Průvodce migrací: framing pass (P35-UT10)" (`https://claude.ai/artifact/FPkhF3apoz6dQzpjxKvsjZ`) vznikl omylem, než padlo rozhodnutí pro lokální soubor. Je prázdný a soukromý. | řekni, a smažu ho | kdykoli |
 | O11 | **Skupina 12 chyběla v první verzi `pr.md`** — doplněna. Při další revizi `pr.md` zkontrolovat, že seznam skupin sedí s průvodcem (1–12). | kontrola | před PR |
+| O12 | **Odstranit pracovní soubory z větve.** `OPEN_POINTS.md`, `P35-UT10-migration-guide-cs.md` a `pr.md` jsou v commitu `1230899` záměrně, kvůli práci na jiném počítači. Před merge je z větve odstranit: `git rm --cached OPEN_POINTS.md P35-UT10-migration-guide-cs.md pr.md` a commit (soubory zůstanou na disku). | ty | před merge |
+| O13 | Pokud se po rozhodnutí o skupinách 3–12 mění kód, bude to **další commit** (ne nový) — commit message v `P35-UT10-commit-message.txt` už je použitá. | — | po rozhodnutí O1 |
 
 ## Rychlá orientace v návrhu
 
