@@ -76,9 +76,13 @@ def test_golden_entities_match_hand_written_json():
 
 
 def test_golden_run_produces_exactly_the_expected_corpus_warnings():
-    """The six canonical issue bodies produce one warning: FEAT-003 links no entity, so its state is derived orphan."""
+    """The six canonical issue bodies produce two orphan warnings: FEAT-002 links only a User Story and FEAT-003
+    links no entity - neither has a Functionality, the one input a Feature's state derives from."""
     _derived, warnings = _parse_all()
-    assert [(w.code, w.context) for w in warnings] == [(Code.ORPHAN_FEATURE.name, "entity_id='FEAT-003'")]
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.ORPHAN_FEATURE.name, "entity_id='FEAT-002'"),
+        (Code.ORPHAN_FEATURE.name, "entity_id='FEAT-003'"),
+    ]
 
 
 def test_the_notes_of_the_one_corpus_entity_that_carries_them_round_trip():

@@ -172,12 +172,14 @@ def test_every_user_story_heading_lands_on_its_field():
     assert [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
 
 
-def test_every_feature_heading_lands_on_its_field_and_status_is_ignored():
-    """Every canonical Feature heading maps to its field, and an authored Status is ignored since it is derived."""
+def test_every_feature_heading_lands_on_its_field_and_status_and_deprecated_at_are_ignored():
+    """Every canonical Feature heading maps to its field; an authored Status or Deprecated At is ignored, since a
+    Feature's state is derived and it has no deprecation date."""
     entity, warnings = parse_issue_body(_FEATURE_BODY, "FEAT-001 · Sample", "DocumentedFeature")
 
-    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
+    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name, Code.IGNORED_AUTHORED_KEY.name]
     assert warnings[0].message == "Feature state is derived; use `stub-reason:` for an uninstrumented surface"
+    assert warnings[1].message == "Feature has no deprecation date"
     assert entity.state is None
     assert entity.purpose == "A purpose sentence."
     assert entity.surface_type == "UI"
@@ -186,7 +188,7 @@ def test_every_feature_heading_lands_on_its_field_and_status_is_ignored():
     assert entity.functionalities == ["FUNC-001"]
     assert entity.external_dependencies == ["dep-api"]
     assert entity.feature_dependencies == ["FEAT-003", "FEAT-004"]
-    assert entity.deprecated_at == "2026-01-01"
+    assert entity.deprecated_at is None
     assert entity.deprecation_reason == "Reason text."
     assert entity.superseded_by == "FEAT-002"
 

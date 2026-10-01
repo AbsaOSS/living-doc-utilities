@@ -134,6 +134,36 @@ def test_unrecognised_key_produces_ignored_authored_key():
     assert "query_params" in warnings[0].message
 
 
+def test_deprecated_at_on_a_full_header_is_ignored_authored_key():
+    """A `deprecated_at:` key on a full PageObject header is `IGNORED_AUTHORED_KEY`, not parsed into the entity."""
+    text = (
+        "/* ===\n * LIVING DOC — FEAT-044 · Sample Page\n * ===\n"
+        " * surface_type: UI\n * route: /s\n * owners: Team\n * deprecated_at: 2026-09-15\n"
+        " * purpose: p\n * user_stories: none\n * functionalities: none\n"
+        " * external_dependencies: none\n * page-object: S.ts\n * === */\n"
+    )
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.entity is not None
+    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
+    assert warnings[0].message == "Feature has no deprecation date"
+    assert warnings[0].context == "entity_id='FEAT-044' key='deprecated_at:'"
+
+
+def test_deprecated_at_on_a_cross_reference_header_is_ignored_authored_key():
+    """A `deprecated_at:` key on a cross-reference PageObject header is `IGNORED_AUTHORED_KEY` too."""
+    text = (
+        "/* ===\n * LIVING DOC — FEAT-044 · Sample Page [cross-reference]\n * ===\n"
+        " * parent-feat: FEAT-044\n * route: /s\n * owners: Team\n * deprecated_at: 2026-09-15\n"
+        " * purpose: p\n * functionalities: none\n * page-object: S.ts\n * === */\n"
+    )
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.entity is None
+    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
+    assert warnings[0].message == "Feature has no deprecation date"
+
+
 def test_missing_title_line_produces_missing_entity_id():
     """A PageObject header with no parseable title line yields no result and a `MISSING_ENTITY_ID` warning."""
     text = "/* ===\n * no title here\n * === */\n"

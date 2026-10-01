@@ -16,8 +16,8 @@
 
 """
 `derive_statuses` settles every entity's `state`/`state_origin` in one pass. A User Story/Functionality's
-state is authored, falling back to its ACs; a Feature's is always derived: `deprecated_at`, then its
-Functionalities, then its User Stories, else `planned` with an `ORPHAN_FEATURE` warning.
+state is authored, falling back to its ACs; a Feature's is always derived, from its Functionalities alone,
+else `planned` with an `ORPHAN_FEATURE` warning.
 """
 
 from typing import Iterable
@@ -88,41 +88,26 @@ def _linked_functionalities(feature: ParsedEntity, by_id: dict[str, ParsedEntity
     ]
 
 
-def _linked_user_stories(feature: ParsedEntity, by_id: dict[str, ParsedEntity]) -> list[ParsedEntity]:
-    return [
-        other
-        for other in by_id.values()
-        if other.type == "DocumentedUserStory" and other.entity_id in feature.user_stories
-    ]
-
-
 def _derive_feature(
     feature: ParsedEntity, resolved_non_features: dict[str, ParsedEntity], warnings: list[ContractWarning]
 ) -> ParsedEntity:
-    if feature.deprecated_at is not None:
-        return feature.model_copy(update={"state": "deprecated", "state_origin": "derived"})
-
     linked_functionalities = _linked_functionalities(feature, resolved_non_features)
     if linked_functionalities:
         state = _majority_state(f.state for f in linked_functionalities if f.state is not None)
-        return feature.model_copy(update={"state": state, "state_origin": "derived"})
-
-    linked_user_stories = _linked_user_stories(feature, resolved_non_features)
-    if linked_user_stories:
-        state = _majority_state(u.state for u in linked_user_stories if u.state is not None)
         return feature.model_copy(update={"state": state, "state_origin": "derived"})
 
     warnings.append(
         ContractWarning(
             code=Code.ORPHAN_FEATURE.name,
             message=(
-                "Feature has no linked Functionality and no linked User Story in this run — either it is not yet "
-                "populated, or it has been fully retired. Author its Functionalities, or remove the Feature."
+                "Feature has no linked Functionality in this run — either it is not yet populated, or it has been "
+                "fully retired. Author its Functionalities, or remove the Feature."
             ),
             context=f"entity_id={feature.entity_id!r}",
         )
     )
     # Nothing to derive from, the same case `_majority_state` answers `planned` for: never claim the surface works.
+    # A linked User Story never stands in for a Functionality - it links to the Feature, it does not compose it.
     return feature.model_copy(update={"state": "planned", "state_origin": "derived"})
 
 

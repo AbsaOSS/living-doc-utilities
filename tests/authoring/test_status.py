@@ -130,17 +130,48 @@ def test_in_review_never_mismatches_for_any_ac_combination():
 # --- Feature derivation ------------------------------------------------------------------
 
 
-def test_feature_deprecated_at_wins_over_everything_else():
-    """A Feature with deprecated_at set is always derived as deprecated, overriding its functionalities' states."""
+def test_feature_authored_deprecated_at_does_not_win_over_active_functionalities():
+    """An authored deprecated_at on a Feature does not drive its state; it still comes from its Functionalities."""
     feature = _feature(deprecated_at="2026-01-01", functionalities=["FUNC-001"])
     func = _func(state="active", parent="FEAT-001")
 
     entities, warnings = derive_statuses([feature, func])
     by_id = {e.entity_id: e for e in entities}
 
-    assert by_id["FEAT-001"].state == "deprecated"
+    assert by_id["FEAT-001"].state == "active"
     assert by_id["FEAT-001"].state_origin == "derived"
     assert warnings == []
+
+
+def test_feature_is_deprecated_once_every_functionality_is():
+    """A Feature derives deprecated from its Functionalities alone, once every one of them is deprecated - and takes
+    no deprecation date from them: a Feature has none (DEC-47)."""
+    feature = _feature(functionalities=["FUNC-001", "FUNC-002"])
+    funcs = [
+        _func(state="deprecated", parent="FEAT-001", deprecated_at="2026-01-01"),
+        _func(entity_id="FUNC-002", state="deprecated", parent="FEAT-001", deprecated_at="2026-02-01"),
+    ]
+
+    entities, _warnings = derive_statuses([feature, *funcs])
+    by_id = {e.entity_id: e for e in entities}
+
+    assert by_id["FEAT-001"].state == "deprecated"
+    assert by_id["FEAT-001"].state_origin == "derived"
+    assert by_id["FEAT-001"].deprecated_at is None
+
+
+def test_feature_is_not_deprecated_while_any_functionality_is_live():
+    """One active Functionality keeps the Feature active, however many of its siblings are deprecated."""
+    feature = _feature(functionalities=["FUNC-001", "FUNC-002"])
+    funcs = [
+        _func(state="deprecated", parent="FEAT-001"),
+        _func(entity_id="FUNC-002", state="active", parent="FEAT-001"),
+    ]
+
+    entities, _warnings = derive_statuses([feature, *funcs])
+    by_id = {e.entity_id: e for e in entities}
+
+    assert by_id["FEAT-001"].state == "active"
 
 
 def test_feature_derives_from_linked_functionalities_via_parent():
@@ -167,20 +198,21 @@ def test_feature_derives_from_own_functionalities_list_when_func_has_no_parent()
     assert by_id["FEAT-001"].state_origin == "derived"
 
 
-def test_feature_falls_back_to_user_stories_when_no_functionalities_linked():
-    """A Feature with no linked functionalities falls back to its linked user stories to derive its state."""
+def test_feature_with_only_linked_user_stories_is_an_orphan():
+    """Linked User Stories never stand in for Functionalities: such a Feature derives planned with ORPHAN_FEATURE."""
     feature = _feature(user_stories=["US-001"])
     story = _us(state="active")
 
-    entities, _warnings = derive_statuses([feature, story])
+    entities, warnings = derive_statuses([feature, story])
     by_id = {e.entity_id: e for e in entities}
 
-    assert by_id["FEAT-001"].state == "active"
+    assert by_id["FEAT-001"].state == "planned"
     assert by_id["FEAT-001"].state_origin == "derived"
+    assert [(w.code, w.context) for w in warnings] == [(Code.ORPHAN_FEATURE.name, "entity_id='FEAT-001'")]
 
 
 def test_orphan_feature_derives_planned_with_a_warning():
-    """A Feature with no linked functionalities or user stories derives planned, with an orphan warning."""
+    """A Feature with no linked Functionality derives planned, with an orphan warning."""
     entities, warnings = derive_statuses([_feature()])
 
     assert entities[0].state == "planned"
@@ -189,9 +221,11 @@ def test_orphan_feature_derives_planned_with_a_warning():
 
 
 def test_the_orphan_warning_names_both_possibilities_and_the_choice():
-    """The orphan message says the Feature is either unpopulated or retired, and names the action either way."""
+    """The orphan message names a missing Functionality as the only trigger, both possibilities, and the choice."""
     _entities, warnings = derive_statuses([_feature()])
 
     assert warnings[0].context == "entity_id='FEAT-001'"
+    assert warnings[0].message.startswith("Feature has no linked Functionality in this run")
+    assert "User Story" not in warnings[0].message
     assert "not yet" in warnings[0].message and "retired" in warnings[0].message
     assert "Author its Functionalities, or remove the Feature." in warnings[0].message

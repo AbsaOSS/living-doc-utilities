@@ -1,6 +1,6 @@
 <!--
 Golden fixture. Copied verbatim from AbsaOSS/living-doc's docs/examples/gh-issues/feat-002-breached-password-check.md
-at commit eccbc9e72970e10e8d7e61ffc400c66c252229bd (canon HEAD; the `## Notes` corpus round, PR #43).
+at commit b28820e5940ebc8ee2578fc2663e1464aca83a57 (canon HEAD; a Feature has no deprecated_at, PR #44).
 -->
 <!--
 GitHub issue body for a Feature mined by collector-gh `doc-issues`.
@@ -10,7 +10,7 @@ It has no second authored form — an API contract anchor carries no living-doc 
 there is no source-code form to write. Documented at surface level: `## Functionalities` is
 `none`, because a dependency resolves on the Feature id.
 A Feature carries no `## Status` and no `## Deprecated At`: its state is derived from its
-Functionalities, and the deprecation date is derived with it.
+Functionalities, and a Feature has no deprecation date at all.
 Layout: see ../README.md (GitHub issue-body layout)
 -->
 

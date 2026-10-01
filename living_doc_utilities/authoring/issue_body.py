@@ -48,6 +48,7 @@ from living_doc_utilities.contracts.envelope import ContractWarning
 # Glossary headings that map to no field - a documented drop; still warns IGNORED_AUTHORED_KEY, not silent.
 IGNORED_AUTHORED_KEYS = {
     "Status": "Feature state is derived; use `stub-reason:` for an uninstrumented surface",
+    "Deprecated At": "Feature has no deprecation date",
 }
 
 
@@ -76,7 +77,9 @@ class _SectionKind(Enum):
     PROSE_BULLET = auto()  # a single `- ...` value (still one string field)
     ID_LIST = auto()  # a comma-separated list of ids/names, or "none"
     AC = auto()  # the "## Acceptance Criteria" heading itself - content parsed separately
-    IGNORED_STATUS = auto()  # "## Status" on a Feature - not a real field
+    # A declared heading that maps to no field - `field_name` holds its `IGNORED_AUTHORED_KEYS` lookup key,
+    # not a contract field (e.g. "## Status"/"## Deprecated At" on a Feature).
+    IGNORED_AUTHORED = auto()
     IGNORED = auto()  # a declared key whose content is parsed elsewhere (feature_header's "acceptance_criteria:")
 
 
@@ -86,11 +89,14 @@ class _SectionSpec:
     kind: _SectionKind
 
 
+# Authored on every entity type, a Feature included; neither drives the state.
 _DEPRECATION_SECTIONS = {
-    "deprecated_at": _SectionSpec("deprecated_at", _SectionKind.SCALAR),
     "deprecation_reason": _SectionSpec("deprecation_reason", _SectionKind.SCALAR),
     "superseded_by": _SectionSpec("superseded_by", _SectionKind.SCALAR),
 }
+
+# Authored on a User Story and a Functionality only; a Feature has none.
+_DEPRECATED_AT_SECTION = {"deprecated_at": _SectionSpec("deprecated_at", _SectionKind.SCALAR)}
 
 # Entity-level human context; every entity type carries it, and nothing ever reads a note's text.
 _NOTES_SECTION = {"notes": _SectionSpec("notes", _SectionKind.BULLETS)}
@@ -105,11 +111,13 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
         "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
         "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
         **_NOTES_SECTION,
+        **_DEPRECATED_AT_SECTION,
         **_DEPRECATION_SECTIONS,
     },
     "DocumentedFeature": {
         "description": _SectionSpec("purpose", _SectionKind.PROSE),
-        "status": _SectionSpec(None, _SectionKind.IGNORED_STATUS),
+        "status": _SectionSpec("Status", _SectionKind.IGNORED_AUTHORED),
+        "deprecated_at": _SectionSpec("Deprecated At", _SectionKind.IGNORED_AUTHORED),
         "surface_type": _SectionSpec("surface_type", _SectionKind.SCALAR),
         "owners": _SectionSpec("owners", _SectionKind.ID_LIST),
         "user_stories": _SectionSpec("user_stories", _SectionKind.ID_LIST),
@@ -129,6 +137,7 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
         "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
         "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
         **_NOTES_SECTION,
+        **_DEPRECATED_AT_SECTION,
         **_DEPRECATION_SECTIONS,
     },
 }
@@ -351,11 +360,12 @@ def parse_issue_body(
             continue
         if spec.kind == _SectionKind.AC:
             continue
-        if spec.kind == _SectionKind.IGNORED_STATUS:
+        if spec.kind == _SectionKind.IGNORED_AUTHORED:
+            assert spec.field_name is not None  # holds the IGNORED_AUTHORED_KEYS lookup key
             warnings.append(
                 ContractWarning(
                     code=Code.IGNORED_AUTHORED_KEY.name,
-                    message=IGNORED_AUTHORED_KEYS["Status"],
+                    message=IGNORED_AUTHORED_KEYS[spec.field_name],
                     context=f"entity_id={entity_id!r} heading='## {heading_text}'",
                 )
             )

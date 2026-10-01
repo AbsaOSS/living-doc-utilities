@@ -90,7 +90,8 @@ Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a f
 | `## Func Type` | | | `func_type` |
 | `## Rationale` | | | `rationale` (one bullet) |
 | `## Notes` | `notes` (bullets) | `notes` (bullets) | `notes` (bullets) |
-| `## Deprecated At`, `## Deprecation Reason`, `## Superseded By` | the same-named field | the same-named field | the same-named field |
+| `## Deprecated At` | `deprecated_at` | dropped: `IGNORED_AUTHORED_KEY` - a Feature has no deprecation date | `deprecated_at` |
+| `## Deprecation Reason`, `## Superseded By` | the same-named field | the same-named field | the same-named field |
 
 - A heading with no mapping is `UNKNOWN_SECTION`, not a failure → `authoring/issue_body.py::parse_issue_body`
 - The grammar reads the whole normalised text, so an `### AC:` heading counts wherever it appears → `authoring/issue_body.py::parse_issue_body`
@@ -123,12 +124,12 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 
 | Shape | When | Known keys | Result |
 |---|---|---|---|
-| full header | no `parent-feat:` | `surface_type`, `route`, `owners`, `purpose`, `user_stories`, `functionalities`, `external_dependencies`, `feature_dependencies`, `page-object`, `wizard-steps`, `stub-reason`, `notes`, `status` | a Feature plus its primary page |
-| cross-reference header | `parent-feat:` present | `parent-feat`, `route`, `owners`, `purpose`, `page-object`, `functionalities`, `status` | one page for an already-described Feature |
+| full header | no `parent-feat:` | `surface_type`, `route`, `owners`, `purpose`, `user_stories`, `functionalities`, `external_dependencies`, `feature_dependencies`, `page-object`, `wizard-steps`, `stub-reason`, `notes`, `status`, `deprecated_at` | a Feature plus its primary page |
+| cross-reference header | `parent-feat:` present | `parent-feat`, `route`, `owners`, `purpose`, `page-object`, `functionalities`, `status`, `deprecated_at` | one page for an already-described Feature |
 
 - The key sets are `authoring/page_object.py::_FULL_HEADER_KEYS` and `authoring/page_object.py::_CROSS_REFERENCE_KEYS`
 - A cross-reference result names `parent_feat`; the collector appends its page to that Feature's `pages` → `authoring/page_object.py::PageObjectResult`
-- `status:` is recognised only to be dropped as `IGNORED_AUTHORED_KEY` → `authoring/page_object.py::IGNORED_AUTHORED_KEYS`
+- `status:` and `deprecated_at:` are recognised only to be dropped as `IGNORED_AUTHORED_KEY`, in a full or a cross-reference header → `authoring/page_object.py::IGNORED_AUTHORED_KEYS`
 - A full-header-only key (`surface_type`, `user_stories`, `external_dependencies`, `feature_dependencies`) on a cross-reference header is an unknown key, `IGNORED_AUTHORED_KEY` → `tests/authoring/test_page_object.py::test_full_header_only_key_on_a_cross_reference_header_is_an_unrecognised_key`
 - `notes` is full-header-only for the same reason: a note is Feature-level, and a cross-reference header describes only its own page → `tests/authoring/test_notes.py::test_a_note_on_a_cross_reference_page_object_header_is_an_unrecognised_key`
 - `notes` is the header's one bullet key; every other key's value is a scalar or an id list, joined from its lines → `authoring/page_object.py::_joined`
@@ -169,11 +170,11 @@ The state vocabulary: [Entities and state](../contracts/entities-and-state.md#st
 - A User Story or Functionality keeps its authored state, with `state_origin` `authored` → `authoring/status.py::_derive_us_or_func`
 - With no authored state, it is derived from its own criteria by the majority rule, with `MISSING_STATUS`; the origin stays `authored` → `authoring/status.py::_derive_us_or_func`
 - An authored state that contradicts its own criteria gets `STATUS_AC_MISMATCH`; the authored value wins → `authoring/status.py::_is_mismatch`
-- A Feature is always derived, in order → `authoring/status.py::_derive_feature`:
-  1. `deprecated` if the Feature has `deprecated_at`;
-  2. else the majority of its linked Functionalities (its `parent`, or listed in its `functionalities` when `parent` is absent);
-  3. else the majority of its linked User Stories;
-  4. else `planned`, with `ORPHAN_FEATURE` — the same answer the majority rule gives for an empty input, because nothing about the Feature is documented yet.
+- A Feature is always derived, from its Functionalities alone → `authoring/status.py::_derive_feature`:
+  - the majority of its linked Functionalities: its `parent`, or listed in its `functionalities` when `parent` is absent;
+  - with no linked Functionality, `planned` with `ORPHAN_FEATURE` — the same answer the majority rule gives for an empty input, because no Functionality speaks for it.
+- A linked User Story never stands in for a Functionality → `tests/authoring/test_status.py::test_feature_with_only_linked_user_stories_is_an_orphan`
+  - Why: a Feature is composed of its Functionalities; a User Story only links to it.
 - Non-Features are settled first, so a Feature reads settled states whatever the input order → `authoring/status.py::derive_statuses`
 
 The majority rule → `authoring/status.py::_majority_state`:
@@ -217,7 +218,7 @@ An authored state contradicts its criteria when → `authoring/status.py::_is_mi
 
 - `tests/fixtures/golden/` holds the canonical documents of `AbsaOSS/living-doc`'s `docs/examples/`, copied verbatim under a provenance header, plus hand-written expected entities → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`
 - Each fixture's header names the canon commit it was copied from; a refresh re-pins every fixture together → `tests/fixtures/golden/gh-issues/us-001-customer-login.md`
-- The corpus is expected to raise exactly one warning: FEAT-003 links no entity, so its derived state is `ORPHAN_FEATURE` → `tests/authoring/golden/test_golden_entities.py::test_golden_run_produces_exactly_the_expected_corpus_warnings`
+- The corpus is expected to raise exactly two warnings, both `ORPHAN_FEATURE`: FEAT-002 links only a User Story and FEAT-003 links no entity, so neither has a Functionality to derive from → `tests/authoring/golden/test_golden_entities.py::test_golden_run_produces_exactly_the_expected_corpus_warnings`
   - In the source-code chain FEAT-003's `feature_dependencies` target is also `UNRESOLVED_RELATION`, expected until an API Feature has a source-code form → `tests/authoring/golden/test_golden_source_code_chain.py::test_a_ui_feature_dependency_is_unresolved_in_a_source_code_run_and_nothing_else`
 - Other repositories compare their parsers' output against these → `living-doc-collector-gh`, `living-doc-toolkit`, `living-doc-collector-ad`
 

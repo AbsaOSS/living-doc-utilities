@@ -15,8 +15,8 @@
 #
 
 """
-PageObject header parsing for a Feature. A PageObject carries no status - only
-`stub-reason:`. A full header describes the whole Feature plus its own page; a
+PageObject header parsing for a Feature. A PageObject carries no status and no deprecation
+date - only `stub-reason:`. A full header describes the whole Feature plus its own page; a
 cross-reference header (`parent-feat:` present) only describes its own page.
 """
 
@@ -49,10 +49,14 @@ _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*(?P<val>.*
 _COMMENT_OPEN_RE = re.compile(r"^\s*/\*")
 _COMMENT_CLOSE_RE = re.compile(r".*\*/\s*$")
 
-# A glossary key that maps to no field, dropped for the same reason issue_body drops it (declared once, reused here).
-IGNORED_AUTHORED_KEYS = {"status": _ISSUE_BODY_IGNORED_AUTHORED_KEYS["Status"]}
+# Glossary keys that map to no field, dropped for the same reason issue_body drops them (declared once, reused here).
+IGNORED_AUTHORED_KEYS = {
+    "status": _ISSUE_BODY_IGNORED_AUTHORED_KEYS["Status"],
+    "deprecated_at": _ISSUE_BODY_IGNORED_AUTHORED_KEYS["Deprecated At"],
+}
 
-# Required + optional keys of a full header and a cross-reference header; status is recognised only to be flagged.
+# Required + optional keys of a full header and a cross-reference header; status and deprecated_at are
+# recognised only to be flagged.
 _FULL_HEADER_KEYS = {
     "surface_type",
     "route",
@@ -67,6 +71,7 @@ _FULL_HEADER_KEYS = {
     "stub-reason",
     "notes",
     "status",
+    "deprecated_at",
 }
 _CROSS_REFERENCE_KEYS = {
     "parent-feat",
@@ -76,6 +81,7 @@ _CROSS_REFERENCE_KEYS = {
     "page-object",
     "functionalities",
     "status",
+    "deprecated_at",
 }
 # Every key either header shape can carry, used only to find `parent-feat:` before the shape is known.
 _ANY_HEADER_KEYS = _FULL_HEADER_KEYS | _CROSS_REFERENCE_KEYS
@@ -217,14 +223,15 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     for key, lines in raw_values.items():
         if key in _BULLET_KEYS:
             warnings.extend(bullet_field_warnings(entity_id, key, lines))
-    if "status" in values:
-        warnings.append(
-            ContractWarning(
-                code=Code.IGNORED_AUTHORED_KEY.name,
-                message=IGNORED_AUTHORED_KEYS["status"],
-                context=f"entity_id={entity_id!r} key='status:'",
+    for key, reason in IGNORED_AUTHORED_KEYS.items():
+        if key in values:
+            warnings.append(
+                ContractWarning(
+                    code=Code.IGNORED_AUTHORED_KEY.name,
+                    message=reason,
+                    context=f"entity_id={entity_id!r} key='{key}:'",
+                )
             )
-        )
 
     if is_cross_reference:
         page_ref = PageRef(

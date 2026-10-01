@@ -35,7 +35,7 @@ USER_STORY_HEADINGS = [
     ("Superseded By", Entity, "superseded_by"),
 ]
 
-# Feature carries no "Status" heading - its state is derived (see test_doc_entities.py).
+# Feature carries no "Status" heading - its state is derived (see test_doc_entities.py) - and no "Deprecated At".
 FEATURE_HEADINGS = [
     ("Description", Entity, "purpose"),
     ("Surface Type", Entity, "surface_type"),
@@ -45,7 +45,6 @@ FEATURE_HEADINGS = [
     ("External Dependencies", Entity, "external_dependencies"),
     ("Feature Dependencies", Entity, "feature_dependencies"),
     ("Notes", Entity, "notes"),
-    ("Deprecated At", Entity, "deprecated_at"),
     ("Deprecation Reason", Entity, "deprecation_reason"),
     ("Superseded By", Entity, "superseded_by"),
 ]
@@ -114,7 +113,7 @@ def test_authored_heading_has_a_field_on_the_shared_model(heading, model, field_
 def test_every_heading_in_this_table_is_exercised():
     """The heading table's combined length matches the expected count, so no list silently went empty."""
     # Guards the table: an emptied list would make the parametrized test silently stop covering it.
-    assert len(ALL_HEADINGS) == 10 + 11 + 12 + 8 + 4 + 5
+    assert len(ALL_HEADINGS) == 10 + 10 + 12 + 8 + 4 + 5
 
 
 def test_parsed_entity_field_set_equals_entity_minus_provenance_by_construction():

@@ -52,11 +52,11 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 | `MISINDENTED_LINE` | warning | collector | a line in a bullet-list field or a criterion block whose indent fits no level of its list ([Parsers](../authoring/parsers.md#common-behaviour)) | line dropped, with any line deeper than it |
 | `UNKNOWN_SECTION` | warning | collector | an unrecognised `##` heading in an issue body | section dropped |
 | `MISSING_ENTITY_ID` | warning | collector | a title with no recognised entity-id prefix | item not emitted |
-| `IGNORED_AUTHORED_KEY` | warning | collector | a key the contract does not carry, including a written Feature status | value dropped |
+| `IGNORED_AUTHORED_KEY` | warning | collector | a key the contract does not carry, including a written Feature status or deprecation date | value dropped |
 | `MALFORMED_STATUS` | warning | collector | a `## Status` or `status:` value that is not one of the four states | value dropped; falls through to `MISSING_STATUS` |
 | `MISSING_STATUS` | warning | collector | a User Story or Functionality with no authored status | status derived |
 | `STATUS_AC_MISMATCH` | warning | collector | the authored status contradicts the entity's own criteria | authored value wins |
-| `ORPHAN_FEATURE` | warning | collector | a Feature with no Functionality and no User Story in the run | state set to `planned`; the message names the choice — author its Functionalities, or remove the Feature |
+| `ORPHAN_FEATURE` | warning | collector | a Feature with no linked Functionality in the run, whatever User Stories it links | state set to `planned`; the message names the choice — author its Functionalities, or remove the Feature |
 | `RELATION_MISMATCH` | warning | collector | a Functionality's declared parent and its Feature's declared children disagree, or a Feature names itself in `feature_dependencies` | reported |
 | `UNRESOLVED_RELATION` | warning | collector | a relation points outside the collected set | reported |
 | `RELATION_TYPE_MISMATCH` | warning | collector | a relation resolves to an entity of the wrong type, or a `feature_dependencies` target is not an `API` Feature ([expected types](../authoring/parsers.md#relations)) | context names entity, field, target, actual and expected type |
