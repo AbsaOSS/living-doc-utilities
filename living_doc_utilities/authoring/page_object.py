@@ -16,7 +16,8 @@
 
 """
 PageObject header parsing for a Feature. A PageObject carries no status and no deprecation
-date - only `stub-reason:`. A full header describes the whole Feature plus its own page; a
+date - only `stub-reason:`, and on a full header `deprecation_reason:` / `superseded_by:`, none of
+which drives the state. A full header describes the whole Feature plus its own page; a
 cross-reference header (`parent-feat:` present) only describes its own page.
 """
 
@@ -69,6 +70,8 @@ _FULL_HEADER_KEYS = {
     "page-object",
     "wizard-steps",
     "stub-reason",
+    "deprecation_reason",
+    "superseded_by",
     "notes",
     "status",
     "deprecated_at",
@@ -264,6 +267,8 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
         external_dependencies=split_id_list(values.get("external_dependencies")),
         feature_dependencies=split_id_list(values.get("feature_dependencies")),
         stub_reason=values.get("stub-reason"),
+        deprecation_reason=values.get("deprecation_reason"),
+        superseded_by=values.get("superseded_by"),
         wizard_steps=split_id_list(values.get("wizard-steps"), sep=" · "),
         notes=extract_bullets(raw_values.get("notes", [])),
         pages=[page_ref],

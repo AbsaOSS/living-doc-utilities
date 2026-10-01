@@ -17,7 +17,7 @@
 """
 `derive_statuses` settles every entity's `state`/`state_origin` in one pass. A User Story/Functionality's
 state is authored, falling back to its ACs; a Feature's is always derived, from its Functionalities alone,
-else `planned` with an `ORPHAN_FEATURE` warning.
+else `planned` with a `FEATURE_WITHOUT_FUNCTIONALITY` warning.
 """
 
 from typing import Iterable
@@ -98,7 +98,7 @@ def _derive_feature(
 
     warnings.append(
         ContractWarning(
-            code=Code.ORPHAN_FEATURE.name,
+            code=Code.FEATURE_WITHOUT_FUNCTIONALITY.name,
             message=(
                 "Feature has no linked Functionality in this run — either it is not yet populated, or it has been "
                 "fully retired. Author its Functionalities, or remove the Feature."

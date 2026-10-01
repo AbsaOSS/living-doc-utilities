@@ -235,9 +235,23 @@ def test_full_header_without_feature_dependencies_leaves_it_empty():
     assert result.entity.feature_dependencies == []
 
 
-@pytest.mark.parametrize("key", ["feature_dependencies", "surface_type"])
+def test_full_header_retirement_keys_land_on_the_feature_with_no_warning():
+    """`deprecation_reason:` and `superseded_by:` on a full header are scalars on the Feature, like `stub-reason:`."""
+    extra = (
+        " * deprecation_reason:    Replaced by the single sign-on flow;\n"
+        " *                        retired once every tenant has migrated.\n"
+        " * superseded_by:         FEAT-007\n"
+    )
+    result, warnings = parse_page_object(_header("UI", extra))
+
+    assert warnings == []
+    assert result.entity.deprecation_reason == "Replaced by the single sign-on flow; retired once every tenant has migrated."
+    assert result.entity.superseded_by == "FEAT-007"
+
+
+@pytest.mark.parametrize("key", ["feature_dependencies", "surface_type", "deprecation_reason", "superseded_by"])
 def test_full_header_only_key_on_a_cross_reference_header_is_an_unrecognised_key(key):
-    """A cross-reference header carries no `feature_dependencies:`, the same as any other full-header-only key."""
+    """A cross-reference header carries no full-header-only key: each is unrecognised, like any unknown key."""
     text = _CROSS_REFERENCE_HEADER.replace(
         " * page-object:     AccountSetupWizardProfilePage.ts\n",
         f" * page-object:     AccountSetupWizardProfilePage.ts\n * {key}: FEAT-002\n",

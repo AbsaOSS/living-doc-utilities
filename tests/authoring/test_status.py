@@ -198,8 +198,8 @@ def test_feature_derives_from_own_functionalities_list_when_func_has_no_parent()
     assert by_id["FEAT-001"].state_origin == "derived"
 
 
-def test_feature_with_only_linked_user_stories_is_an_orphan():
-    """Linked User Stories never stand in for Functionalities: such a Feature derives planned with ORPHAN_FEATURE."""
+def test_feature_with_only_linked_user_stories_is_a_feature_without_functionality():
+    """Linked User Stories never stand in for Functionalities: it derives planned, FEATURE_WITHOUT_FUNCTIONALITY."""
     feature = _feature(user_stories=["US-001"])
     story = _us(state="active")
 
@@ -208,20 +208,22 @@ def test_feature_with_only_linked_user_stories_is_an_orphan():
 
     assert by_id["FEAT-001"].state == "planned"
     assert by_id["FEAT-001"].state_origin == "derived"
-    assert [(w.code, w.context) for w in warnings] == [(Code.ORPHAN_FEATURE.name, "entity_id='FEAT-001'")]
+    assert [(w.code, w.context) for w in warnings] == [
+        (Code.FEATURE_WITHOUT_FUNCTIONALITY.name, "entity_id='FEAT-001'")
+    ]
 
 
-def test_orphan_feature_derives_planned_with_a_warning():
-    """A Feature with no linked Functionality derives planned, with an orphan warning."""
+def test_feature_without_functionality_derives_planned_with_a_warning():
+    """A Feature with no linked Functionality derives planned, with a FEATURE_WITHOUT_FUNCTIONALITY warning."""
     entities, warnings = derive_statuses([_feature()])
 
     assert entities[0].state == "planned"
     assert entities[0].state_origin == "derived"
-    assert [w.code for w in warnings] == [Code.ORPHAN_FEATURE.name]
+    assert [w.code for w in warnings] == [Code.FEATURE_WITHOUT_FUNCTIONALITY.name]
 
 
-def test_the_orphan_warning_names_both_possibilities_and_the_choice():
-    """The orphan message names a missing Functionality as the only trigger, both possibilities, and the choice."""
+def test_the_feature_without_functionality_warning_names_both_possibilities_and_the_choice():
+    """The warning's message names a missing Functionality as the only trigger, both possibilities, and the choice."""
     _entities, warnings = derive_statuses([_feature()])
 
     assert warnings[0].context == "entity_id='FEAT-001'"

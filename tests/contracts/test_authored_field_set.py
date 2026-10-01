@@ -81,6 +81,8 @@ PAGE_OBJECT_OPTIONAL_KEYS = [
     ("stub-reason", Entity, "stub_reason"),
     ("feature_dependencies", Entity, "feature_dependencies"),
     ("notes", Entity, "notes"),
+    ("deprecation_reason", Entity, "deprecation_reason"),
+    ("superseded_by", Entity, "superseded_by"),
 ]
 
 AC_BLOCK_EXTENSIONS = [
@@ -113,7 +115,7 @@ def test_authored_heading_has_a_field_on_the_shared_model(heading, model, field_
 def test_every_heading_in_this_table_is_exercised():
     """The heading table's combined length matches the expected count, so no list silently went empty."""
     # Guards the table: an emptied list would make the parametrized test silently stop covering it.
-    assert len(ALL_HEADINGS) == 10 + 10 + 12 + 8 + 4 + 5
+    assert len(ALL_HEADINGS) == 10 + 10 + 12 + 8 + 6 + 5
 
 
 def test_parsed_entity_field_set_equals_entity_minus_provenance_by_construction():
