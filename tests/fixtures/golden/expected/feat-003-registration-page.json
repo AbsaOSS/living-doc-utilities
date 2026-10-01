@@ -2,7 +2,7 @@
   "entity_id": "FEAT-003",
   "type": "DocumentedFeature",
   "title": "FEAT-003 · Registration Page",
-  "state": "active",
+  "state": "planned",
   "state_origin": "derived",
   "tags": [],
   "timestamps": { "created_at": null, "updated_at": null, "closed_at": null },

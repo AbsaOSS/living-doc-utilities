@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(python -m pytest tests/authoring/test_status.py tests/authoring/golden/ tests/docs/ -q)",
+      "Bash(python3 -m pytest tests/authoring/test_status.py tests/authoring/golden/ tests/docs/ -q)",
+      "Bash(make qa *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }

@@ -179,10 +179,19 @@ def test_feature_falls_back_to_user_stories_when_no_functionalities_linked():
     assert by_id["FEAT-001"].state_origin == "derived"
 
 
-def test_orphan_feature_defaults_to_active_with_a_warning():
-    """A Feature with no linked functionalities or user stories defaults to active state with an orphan warning."""
+def test_orphan_feature_derives_planned_with_a_warning():
+    """A Feature with no linked functionalities or user stories derives planned, with an orphan warning."""
     entities, warnings = derive_statuses([_feature()])
 
-    assert entities[0].state == "active"
+    assert entities[0].state == "planned"
     assert entities[0].state_origin == "derived"
     assert [w.code for w in warnings] == [Code.ORPHAN_FEATURE.name]
+
+
+def test_the_orphan_warning_names_both_possibilities_and_the_choice():
+    """The orphan message says the Feature is either unpopulated or retired, and names the action either way."""
+    _entities, warnings = derive_statuses([_feature()])
+
+    assert warnings[0].context == "entity_id='FEAT-001'"
+    assert "not yet" in warnings[0].message and "retired" in warnings[0].message
+    assert "Author its Functionalities, or remove the Feature." in warnings[0].message

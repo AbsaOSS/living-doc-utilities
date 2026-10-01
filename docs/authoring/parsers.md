@@ -173,7 +173,7 @@ The state vocabulary: [Entities and state](../contracts/entities-and-state.md#st
   1. `deprecated` if the Feature has `deprecated_at`;
   2. else the majority of its linked Functionalities (its `parent`, or listed in its `functionalities` when `parent` is absent);
   3. else the majority of its linked User Stories;
-  4. else `active`, with `ORPHAN_FEATURE`.
+  4. else `planned`, with `ORPHAN_FEATURE` — the same answer the majority rule gives for an empty input, because nothing about the Feature is documented yet.
 - Non-Features are settled first, so a Feature reads settled states whatever the input order → `authoring/status.py::derive_statuses`
 
 The majority rule → `authoring/status.py::_majority_state`:
