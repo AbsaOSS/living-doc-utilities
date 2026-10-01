@@ -45,6 +45,13 @@ def extract_living_doc_title(lines: list[str]) -> Optional[str]:
     return None
 
 
+def is_living_doc_title(line: str) -> bool:
+    """True when `line` is a banner's 'LIVING DOC — ...' title line. Callers that have to skip
+    that line use this rather than testing for the words: a note is free text and may mention
+    'LIVING DOC' without being a title (#168)."""
+    return _LIVING_DOC_TITLE_RE.search(line) is not None
+
+
 def derive_entity_id(title: str) -> tuple[Optional[str], list[ContractWarning]]:
     """Extracts the leading entity id from `title`. Returns `(None, [MISSING_ENTITY_ID])` when
     the title carries no parseable id; the caller adds location context and counts the skip

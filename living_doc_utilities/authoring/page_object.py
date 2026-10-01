@@ -33,13 +33,13 @@ from living_doc_utilities.authoring.issue_body import (
     split_id_list,
 )
 from living_doc_utilities.authoring.normalize import (
-    _PO_BANNER_CONTENT_RE,
     _PO_LINE_RE,
     PO_BULLET_KEYS,
     BulletItemTracker,
     SourceFormat,
     indented,
     normalize,
+    po_section_break,
 )
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.doc_entities import PageRef
@@ -77,6 +77,8 @@ _CROSS_REFERENCE_KEYS = {
     "functionalities",
     "status",
 }
+# Every key either header shape can carry, used only to find `parent-feat:` before the shape is known.
+_ANY_HEADER_KEYS = _FULL_HEADER_KEYS | _CROSS_REFERENCE_KEYS
 # The keys whose value is a bullet list, whose items' wrapped lines are never read as a key and whose
 # dropped text is reported. Declared in `normalize.py`, which has to know them to apply rule 1, so the
 # normaliser and this parser cannot disagree about which key holds a list. `notes:` is the canon's only
@@ -145,7 +147,7 @@ def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, li
         if items.continues_item(line) and current_key is not None:
             raw_values[current_key].append(content.rstrip())
             continue
-        if line.text == "" or _PO_BANNER_CONTENT_RE.match(line.text) or "LIVING DOC" in content:
+        if po_section_break(content, line.text):
             current_key = None
             continue
 
@@ -194,12 +196,11 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     if entity_id is None:
         return None, id_warnings
 
-    is_cross_reference = False
-    for content in contents:
-        generic_m = _GENERIC_KEY_RE.match(indented(content).text)
-        if generic_m and generic_m.group("key") == "parent-feat":
-            is_cross_reference = True
-            break
+    # `parent-feat:` picks the key set, so it is read through `_parse_keys` like any other key rather than
+    # by scanning every line: a note's wrapped line may say `parent-feat:` and is still only that note's
+    # text (#168). Probing with both key sets keeps a bullet key open so its items cannot read as keys.
+    probe_values, _ = _parse_keys(contents, _ANY_HEADER_KEYS)
+    is_cross_reference = "parent-feat" in probe_values
     known_keys = _CROSS_REFERENCE_KEYS if is_cross_reference else _FULL_HEADER_KEYS
     raw_values, unrecognised = _parse_keys(contents, known_keys)
     values = {key: _joined(lines) for key, lines in raw_values.items() if key not in _BULLET_KEYS}

@@ -580,3 +580,93 @@ def test_a_nested_note_stays_inside_its_parents_string_as_extracted():
     assert result.entity.notes == [
         "Step order is fixed; the review step cannot be skipped.\n  - The step files each carry a cross-reference header."
     ]
+
+
+# --- a note's text never decides how the header is read --------------------------------
+
+
+def test_a_note_whose_wrapped_line_reads_as_parent_feat_does_not_make_a_cross_reference_header():
+    """`parent-feat:` picks the key set, so it is read as a key and not scanned for: a note's wrapped
+    line may say it and is still that note's text. Branching here cost the whole Feature (#168)."""
+    text = _PAGE_OBJECT_WITH_NOTES.replace(
+        " *   - The wizard shares one URL with its step files.\n",
+        " *   - The wizard owns its own header; the\n *     parent-feat: convention is for its step files.\n",
+    )
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and warnings == []
+    # The full header survived: an entity, no `parent_feat`, and the note kept its wrapped line.
+    assert result.parent_feat is None
+    assert result.entity is not None
+    assert result.entity.notes == [
+        "Step order is fixed; the review step cannot be skipped.",
+        "The wizard owns its own header; the parent-feat: convention is for its step files.",
+    ]
+
+
+def test_a_cross_reference_header_is_still_detected_through_a_wrapped_purpose():
+    """The companion case: `parent-feat:` on a real cross-reference header is still found, with the
+    canon's wrapped `purpose:` value in the value column (living-doc-header-types.md)."""
+    text = """\
+/* =============================================================================
+ * LIVING DOC — FEAT-042 · Account Setup Wizard  [cross-reference]
+ * =============================================================================
+ * parent-feat:     FEAT-042
+ * route:           /app/accounts/setup
+ * owners:          Platform Team
+ * purpose:         Step 1 (Profile) - user profile fields: display name,
+ *                  and role selection.
+ * page-object:     AccountSetupWizardProfilePage.ts
+ * ============================================================================= */
+"""
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and warnings == []
+    assert result.parent_feat == "FEAT-042"
+    assert result.entity is None
+
+
+def test_a_note_that_mentions_living_doc_is_still_a_note():
+    """The banner-title guard matches the title line, not the words: a note may say `LIVING DOC`.
+    Testing for the substring closed the list and dropped every note after it, silently (#168)."""
+    text = _PAGE_OBJECT_WITH_NOTES.replace(
+        " *   - Step order is fixed; the review step cannot be skipped.\n",
+        " *   - The LIVING DOC banner above names the owning Feature.\n",
+    )
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.entity is not None
+    assert warnings == []
+    assert result.entity.notes == [
+        "The LIVING DOC banner above names the owning Feature.",
+        "The wizard shares one URL with its step files.",
+    ]
+
+
+def test_rule_one_stops_at_a_bare_comment_close_as_it_does_at_the_banner():
+    """`_PO_LINE_RE` leaves only `/` in a bare ` */`'s content, so the close has to be read off the raw
+    line - otherwise a later JSDoc `notes:` re-opens rule 1 and normalisation rewrites TypeScript."""
+    text = _PAGE_OBJECT_WITH_NOTES.replace(
+        " * ============================================================================= */\n", " */\n"
+    ) + (
+        "\nexport class AccountSetupWizardPage {\n"
+        "  /**\n"
+        "   * notes:\n"
+        "   *   • Not a living-doc note; a JSDoc line of its own.\n"
+        "   */\n"
+        "  async goto(): Promise<void> {}\n"
+        "}\n"
+    )
+    normalized = normalize(text, SourceFormat.PAGE_OBJECT, "DocumentedFeature")
+
+    assert "   *   • Not a living-doc note; a JSDoc line of its own." in normalized.lines
+    assert normalized.changes == []
+
+    # The bare close also ends the list for the parser, so it raises no MISINDENTED_LINE of its own.
+    result, warnings = parse_page_object(text)
+    assert result is not None and result.entity is not None
+    assert warnings == []
+    assert result.entity.notes == [
+        "Step order is fixed; the review step cannot be skipped.",
+        "The wizard shares one URL with its step files.",
+    ]

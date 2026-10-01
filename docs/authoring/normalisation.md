@@ -65,6 +65,8 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 - Never touches: a bullet-shaped character that is not the leading marker, or a line outside a bullet section or criterion block.
   - A Gherkin `*` step and a PageObject ` * key: value` line both start with `*` and stay untouched.
   - In a PageObject header it reaches only a line inside an open `PO_BULLET_KEYS` list, and the header comment's `*/` closes it for the rest of the file, so a later JSDoc block is never rewritten → `tests/authoring/test_notes.py::test_rule_one_does_not_reach_a_jsdoc_notes_block_further_down_the_file`
+    - The close is read off the raw line, so a bare ` */` ends the list exactly as the canon's banner form does; only `/` of it survives into the line's content → `tests/authoring/test_notes.py::test_rule_one_stops_at_a_bare_comment_close_as_it_does_at_the_banner`
+  - Where a PageObject header line ends an open key is one rule both the normaliser and the parser read → `authoring/normalize.py::po_section_break`
 - Why: authors, autocorrect and drafting aids emit an en-dash or a bullet dot; every extractor recognises only `-`.
 - Breaks if removed: the item is glued onto the previous bullet or reported as `UNPARSED_AC_LINE`; the entry is lost.
 
