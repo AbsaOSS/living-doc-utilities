@@ -1,6 +1,6 @@
 <!--
 Golden fixture. Copied verbatim from AbsaOSS/living-doc's docs/examples/gh-issues/feat-002-breached-password-check.md
-at commit eccbc9e72970e10e8d7e61ffc400c66c252229bd (canon HEAD; the `## Notes` corpus round, PR #43).
+at commit b28820e5940ebc8ee2578fc2663e1464aca83a57 (canon HEAD; a Feature has no deprecated_at, PR #44).
 -->
 <!--
 GitHub issue body for a Feature mined by collector-gh `doc-issues`.
