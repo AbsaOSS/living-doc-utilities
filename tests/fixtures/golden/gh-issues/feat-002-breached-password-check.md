@@ -10,7 +10,7 @@ It has no second authored form — an API contract anchor carries no living-doc 
 there is no source-code form to write. Documented at surface level: `## Functionalities` is
 `none`, because a dependency resolves on the Feature id.
 A Feature carries no `## Status` and no `## Deprecated At`: its state is derived from its
-Functionalities, and the deprecation date is derived with it.
+Functionalities, and a Feature has no deprecation date at all.
 Layout: see ../README.md (GitHub issue-body layout)
 -->
 

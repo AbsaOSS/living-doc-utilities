@@ -6,7 +6,7 @@ at commit eccbc9e72970e10e8d7e61ffc400c66c252229bd (canon HEAD; the `## Notes` c
 GitHub issue body for a Feature mined by collector-gh `doc-issues`.
 Label: DocumentedFeature    Title: FEAT-001 · Login Page
 A Feature carries no `## Status` and no `## Deprecated At`: its state is derived from its
-Functionalities, and the deprecation date is derived with it.
+Functionalities, and a Feature has no deprecation date at all.
 `## Notes` is the corpus's single instance of the entity-level note section.
 Layout: see ../README.md (GitHub issue-body layout)
 -->

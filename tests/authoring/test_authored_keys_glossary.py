@@ -22,10 +22,13 @@ from living_doc_utilities.authoring.page_object import parse_page_object
 from living_doc_utilities.contracts.codes import Code
 from tests.contracts.test_authored_field_set import ALL_HEADINGS
 
-# Glossary keys with no model field (a Feature's status is derived, never authored), one per authoring surface.
+# Glossary keys with no model field (a Feature's status is derived, and it has no deprecation date), one per
+# authoring surface.
 _IGNORED_KEYS = [
     ("Status", issue_body.IGNORED_AUTHORED_KEYS, "issue body"),
     ("status", page_object.IGNORED_AUTHORED_KEYS, "PageObject header"),
+    ("Deprecated At", issue_body.IGNORED_AUTHORED_KEYS, "issue body"),
+    ("deprecated_at", page_object.IGNORED_AUTHORED_KEYS, "PageObject header"),
 ]
 
 
