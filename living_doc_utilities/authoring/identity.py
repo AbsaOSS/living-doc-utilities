@@ -30,28 +30,19 @@ from living_doc_utilities.contracts.envelope import ContractWarning
 # "GH-" prefix is skipped because `\b` still holds after its hyphen. Also used by `normalize.py::normalize_title`.
 _ENTITY_ID_RE = re.compile(r"\b(?:US|FEAT|FUNC)-\d+\b")
 
-# The .feature-banner / PageObject-banner title marker; the one place both formats' title lines are recognised.
+# The .feature-banner / PageObject-banner title text; the one place both formats' title lines are read.
 _LIVING_DOC_TITLE_RE = re.compile(r"LIVING DOC\s*—\s*(?P<title>.+?)\s*$")
 
 
 def extract_living_doc_title(lines: list[str]) -> Optional[str]:
-    """Finds the 'LIVING DOC — ...' title text among `lines` (a `.feature` banner's
-    comment lines, or a PageObject banner's `*`-content lines) and returns it stripped
-    of surrounding whitespace. `None` when no such line is present."""
+    """Reads the 'LIVING DOC — ...' title text from `lines` - the banner's title line, which the frame
+    finds by position (`framing.py::Frame.title`) - stripped of surrounding whitespace. `None` when no
+    line carries that form. It never decides which line is the title: a note may quote the whole form."""
     for line in lines:
         title_m = _LIVING_DOC_TITLE_RE.search(line)
         if title_m:
             return title_m.group("title").strip()
     return None
-
-
-def is_living_doc_title(line: str) -> bool:
-    """True when `line` reads as a banner's 'LIVING DOC — ...' title line. It tests the title form
-    rather than the bare words, so a note merely mentioning 'LIVING DOC' is not one (#168) - but a
-    note is free text and may quote the whole form, so this cannot decide a boundary on its own. A
-    caller that skips the title line must first rule out a line that belongs to a bullet item; the
-    structural guard lives with the marker it reads, in `normalize.py::po_section_break`."""
-    return _LIVING_DOC_TITLE_RE.search(line) is not None
 
 
 def derive_entity_id(title: str) -> tuple[Optional[str], list[ContractWarning]]:

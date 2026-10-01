@@ -27,17 +27,13 @@ from typing import Any, Callable, Optional
 from pydantic import ValidationError
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
+from living_doc_utilities.authoring.framing import Frame, IndentedLine, criteria_text, indented, sections
 from living_doc_utilities.authoring.identity import derive_entity_id
 from living_doc_utilities.authoring.normalize import (
     _BULLET_RE,
-    _MD_HEADING_RE,
-    IndentedLine,
     ItemText,
     SourceFormat,
-    _slugify_section,
-    compute_fence_flags,
-    indented,
-    normalize,
+    normalize_framed,
     normalize_title,
 )
 from living_doc_utilities.contracts.codes import Code
@@ -101,7 +97,7 @@ _DEPRECATED_AT_SECTION = {"deprecated_at": _SectionSpec("deprecated_at", _Sectio
 # Entity-level human context; every entity type carries it, and nothing ever reads a note's text.
 _NOTES_SECTION = {"notes": _SectionSpec("notes", _SectionKind.BULLETS)}
 
-# heading slug (`normalize.py::_slugify_section`) -> spec, per entity type.
+# heading slug (`framing.py::_slugify_section`) -> spec, per entity type.
 _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
     "DocumentedUserStory": {
         "description": _SectionSpec("narrative", _SectionKind.PROSE),
@@ -141,27 +137,6 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
         **_DEPRECATION_SECTIONS,
     },
 }
-
-
-# --- markdown H2 section splitting -----------------------------------------------------
-
-
-def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
-    """Every exactly-`##` heading outside a fenced code block, as `(slug, heading_text,
-    content_lines)` - content runs up to (not including) the next such heading."""
-    fence_flags = compute_fence_flags(lines)
-    sections: list[tuple[str, str, list[str]]] = []
-    current: Optional[list[str]] = None
-    for line, fenced in zip(lines, fence_flags, strict=True):
-        if not fenced:
-            heading_m = _MD_HEADING_RE.match(line)
-            if heading_m and len(heading_m.group("hashes")) == 2:
-                current = []
-                sections.append((_slugify_section(heading_m.group("text")), heading_m.group("text").strip(), current))
-                continue
-        if current is not None:
-            current.append(line)
-    return sections
 
 
 # --- content extraction per section kind -----------------------------------------------
@@ -332,23 +307,17 @@ def _build_parsed_entity(
         return parsed, warnings
 
 
-def parse_issue_body(
-    text: str, title: str, entity_type: DocType
-) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
-    """Parses a GitHub issue body into a `ParsedEntity`. `title`'s entity-id prefix becomes
-    `entity_id`; returns `(None, [MISSING_ENTITY_ID])` when the title has no parseable id."""
-    normalized_title, _title_changes = normalize_title(title)
-    entity_id, id_warnings = derive_entity_id(normalized_title)
-    if entity_id is None:
-        return None, id_warnings
-
-    warnings: list[ContractWarning] = []
-    normalized = normalize(text, SourceFormat.ISSUE_BODY, entity_type)
-    spec_map = _SECTIONS_BY_TYPE[entity_type]
-
+def _read_sections(
+    frame: Frame, spec_map: dict[str, _SectionSpec], entity_id: str
+) -> tuple[dict[str, Any], list[ContractWarning]]:
+    """Each `##` section of the frame, looked up by its slug in `spec_map`: the field values, and a warning
+    for each heading that maps to no field."""
     fields: dict[str, Any] = {}
-    for slug, heading_text, content in _split_h2_sections(normalized.lines):
-        spec = spec_map.get(slug)
+    warnings: list[ContractWarning] = []
+    for section in sections(frame):
+        heading_text = section.opener.line.text[2:].strip()
+        content = [framed.rendered for framed in section.lines]
+        spec = spec_map.get(section.name)
         if spec is None:
             warnings.append(
                 ContractWarning(
@@ -374,8 +343,24 @@ def parse_issue_body(
         fields[spec.field_name] = _EXTRACTORS[spec.kind](content)
         if spec.kind in BULLET_KINDS:
             warnings.extend(bullet_field_warnings(entity_id, spec.field_name, content))
+    return fields, warnings
 
-    acceptance_criteria, ac_warnings = parse_acceptance_criteria(normalized.text, entity_id)
+
+def parse_issue_body(
+    text: str, title: str, entity_type: DocType
+) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
+    """Parses a GitHub issue body into a `ParsedEntity`. `title`'s entity-id prefix becomes
+    `entity_id`; returns `(None, [MISSING_ENTITY_ID])` when the title has no parseable id."""
+    normalized_title, _title_changes = normalize_title(title)
+    entity_id, id_warnings = derive_entity_id(normalized_title)
+    if entity_id is None:
+        return None, id_warnings
+
+    _, frame = normalize_framed(text, SourceFormat.ISSUE_BODY, entity_type)
+    fields, warnings = _read_sections(frame, _SECTIONS_BY_TYPE[entity_type], entity_id)
+
+    # An item's own text is never a criterion, even when a wrapped line reads like an `AC:` header (`D20`).
+    acceptance_criteria, ac_warnings = parse_acceptance_criteria(criteria_text(frame, ""), entity_id)
     warnings.extend(ac_warnings)
 
     parsed, build_warnings = _build_parsed_entity(entity_id, entity_type, normalized_title, acceptance_criteria, fields)

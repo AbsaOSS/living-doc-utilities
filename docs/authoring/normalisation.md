@@ -17,6 +17,18 @@ Read before: [Authoring](../authoring.md) · Next: [Acceptance-criterion grammar
 ## Where normalisation runs
 
 - `normalize(text, fmt, entity_type)` absorbs small formatting variance before anything parses the text → `authoring/normalize.py::normalize`
+- It runs in three phases → `authoring/normalize.py::normalize_framed`:
+  1. Rule 6 on each line's indent, line by line and blind to context → `authoring/normalize.py::_prepare`
+  2. The framing pass: where the header starts and ends, and where each root-level section or key begins and ends → `authoring/framing.py::Frame`
+  3. Every other rule, line by line, by the section the frame put the line in → `authoring/normalize.py::_rewrite_markdown`
+  - Why: framing reads indents, so it needs rule 6 first; every other rule needs to know a line's section.
+- A boundary is structural: the frame decides it once, from a line's position and syntax, never its prose → `authoring/framing.py::Frame`
+  - Why: a prose test, blind to where its line sits, took a note for a boundary and dropped data silently.
+  - A line deeper than an open bullet item's marker is that item's text: never a key, an `AC:` header or a section's end → `authoring/framing.py::BulletItemTracker`
+  - A banner's title is the first line after its opening rule, whatever it reads like → `authoring/framing.py::Frame.title`
+  - The parser of the format reads the same frame, so the two cannot disagree about where a section runs ([Parsers](parsers.md#common-behaviour)) → `authoring/framing.py::sections`
+- The frame reports structural problems only: no frame found, a frame never closed, a key above `Feature:` outside the frame → `authoring/framing.py::Problem`
+  - Why: which fields are required is checked above the parser; the parsers stay lenient.
 - It rewrites only structural positions: a heading value, a bullet marker, a criterion header's segments, an entity title → `authoring/normalize.py::normalize`
 - It never touches fenced code, Gherkin step text, TypeScript or free prose → `tests/authoring/test_normalize_cases.py::test_normalisation_case`
 - A rewritten criterion header or bullet keeps the indent its author gave it; only rule 6 changes an indent → `tests/authoring/test_normalize.py::test_feature_header_criterion_header_keeps_its_authors_indent_when_rewritten`
@@ -44,12 +56,12 @@ every other line passes through byte for byte.
 | Format | Content lines | Parsed by |
 |---|---|---|
 | `ISSUE_BODY` | a GitHub issue body's Markdown, split on `##` headings | `issue_body.parse_issue_body` |
-| `FEATURE_HEADER` | a `.feature` file's leading `# key: value` / `# key:` block between its two `# ===` banner lines | `feature_header.parse_feature_header` |
+| `FEATURE_HEADER` | a `.feature` file's `# key: value` / `# key:` block, from its first `# ===` rule above `Feature:` to its last; every comment line of a fragment with no rule | `feature_header.parse_feature_header` |
 | `SCENARIO_FILE` | a `.feature` file's Gherkin body: only its `# AC:` comment lines; scenario, step and tag lines pass through | `scenario.parse_scenarios` |
 | `PAGE_OBJECT` | a PageObject file's leading `/* ... */` comment: its `* key: value` lines | `page_object.parse_page_object` |
 | `HTML_MARKDOWN` | the text `convert_html_to_markdown` makes from Azure DevOps HTML; the same rules as `ISSUE_BODY` | `html_to_markdown.convert_html_to_markdown`, then `issue_body.parse_issue_body` |
 
-- `HTML_MARKDOWN` shares the Markdown handler with `ISSUE_BODY` → `authoring/normalize.py::_normalize_markdown`
+- `HTML_MARKDOWN` shares the Markdown frame and rules with `ISSUE_BODY` → `authoring/normalize.py::_rewrite_markdown`
   - Why: once the HTML is flattened to text, the two are structurally identical.
 
 ## Rules
@@ -64,9 +76,9 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 - Rewrites: a leading `–`, `—`, `•`, `*` or `+` bullet marker to `-`, in a criterion block or a bullet section.
 - Never touches: a bullet-shaped character that is not the leading marker, or a line outside a bullet section or criterion block.
   - A Gherkin `*` step and a PageObject ` * key: value` line both start with `*` and stay untouched.
-  - In a PageObject header it reaches only a line inside an open `PO_BULLET_KEYS` list, and the header comment's `*/` closes it for the rest of the file, so a later JSDoc block is never rewritten → `tests/authoring/test_notes.py::test_rule_one_does_not_reach_a_jsdoc_notes_block_further_down_the_file`
-    - The close is read off the raw line, so a bare ` */` ends the list exactly as the canon's banner form does; only `/` of it survives into the line's content → `tests/authoring/test_notes.py::test_rule_one_stops_at_a_bare_comment_close_as_it_does_at_the_banner`
-  - Where a PageObject header line ends an open key is one rule both the normaliser and the parser read → `authoring/normalize.py::po_section_break`
+  - In a PageObject header it reaches only the items of a `PO_BULLET_KEYS` key, inside the header comment's frame, so a later JSDoc block is never rewritten → `tests/authoring/test_notes.py::test_rule_one_does_not_reach_a_jsdoc_notes_block_further_down_the_file`
+    - The frame ends at the first line that ends in `*/`: the canon's banner form or a bare ` */` → `tests/authoring/test_framing.py::test_the_canon_banner_and_a_bare_close_both_end_the_frame`
+    - A `*/` inside a value does not end it, so rule 1 still reaches the items after that value → `tests/authoring/test_framing.py::test_a_comment_close_inside_a_value_does_not_end_the_frame`
 - Why: authors, autocorrect and drafting aids emit an en-dash or a bullet dot; every extractor recognises only `-`.
 - Breaks if removed: the item is glued onto the previous bullet or reported as `UNPARSED_AC_LINE`; the entry is lost.
 
@@ -104,6 +116,7 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 `entity_name_dash` → `authoring/normalize.py::RULE_ENTITY_NAME_DASH`:
 
 - Rewrites: the dash between the two halves of a compound name to `" - "` (`Login Page–Validate Password Strength`).
+- In a `.feature` or PageObject banner it reaches only the line the frame placed as the title, and only when that line reads `LIVING DOC` → `authoring/normalize.py::_emit_title`
 - An en-dash or em-dash always; a plain hyphen only with whitespace on at least one side.
 - Never touches: a hyphen inside a word, such as `Password-reset` or `Sign-in`.
 - Why: renderers and comparisons expect one separator; autocorrect turns a typed `-` into a dash.
@@ -123,10 +136,12 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 `whitespace` → `authoring/normalize.py::RULE_WHITESPACE`:
 
 - Rewrites: CRLF line endings to LF, in every format.
+- Runs first, on every line that has text, before the frame is decided; a whitespace-only line stays as written → `authoring/normalize.py::_prepare`
 - Rewrites: each tab or non-breaking space in a line's leading indentation to one space, in a PageObject header and a `.feature` header → `authoring/normalize.py::_fix_indentation_whitespace`
-  - The indent is counted after the comment marker and at most one space (`# `, ` * `), so a tab right after the marker is indentation too → `authoring/normalize.py::_split_comment_prefix`
-  - One character becomes one space, so the lines keep their relative levels.
-- Rewrites: in an issue body, each non-breaking space in a line's leading indentation to one space, and each tab to the next multiple of 4 columns → `authoring/normalize.py::_normalize_markdown`
+  - The indent is counted after the comment marker and at most one space (`# `, ` * `).
+  - A tab right after the marker becomes the marker's own space: `#<tab>x` reads as `# x`, at indent 0, for every reader → `authoring/normalize.py::_prepared`
+  - One character becomes one space, so tab-indented lines keep their levels relative to each other.
+- Rewrites: in an issue body, each non-breaking space in a line's leading indentation to one space, and each tab to the next multiple of 4 columns → `authoring/normalize.py::_prepare`
   - Why 4: GitHub renders a tab to that stop, so the parser sees the levels the reader sees, even where tabs and spaces mix (`    - B` then `\t- C` are siblings).
   - A tab moves to the next stop, it does not add 4: two spaces and a tab are 4 columns, not 6.
   - A header keeps one space per tab: nothing renders it, and its indent starts after the comment marker, not at a tab stop.

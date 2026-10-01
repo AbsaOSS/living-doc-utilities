@@ -17,7 +17,8 @@
 """
 The one normalisation layer over the five authoring source formats: rewrites non-canonical
 dashes, bullet markers, case, version form and whitespace per format, never touching fenced
-or inline code, Gherkin step text, TypeScript, or free prose.
+or inline code, Gherkin step text, TypeScript, or free prose. It runs in three phases around
+`framing`: rule 6 on each line, then the frame, then every other rule by the frame's sections.
 """
 
 import re
@@ -25,7 +26,20 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import NamedTuple, Optional
 
-from living_doc_utilities.authoring.identity import _ENTITY_ID_RE, is_living_doc_title
+from living_doc_utilities.authoring.framing import (
+    _AC_HEADER_FULL_RE,
+    Frame,
+    FramedLine,
+    IndentedLine,
+    Role,
+    frame_feature_header,
+    frame_issue_body,
+    frame_page_object,
+    frame_scenario_file,
+    indented,
+    opening_value,
+)
+from living_doc_utilities.authoring.identity import _ENTITY_ID_RE
 from living_doc_utilities.contracts.common import DocType
 
 # Rule names for the seven authoring rules (plus 5b); doubles as normalisation_cases.yaml's `rule` column.
@@ -66,6 +80,10 @@ TYPE_PROFILES: dict[DocType, frozenset[str]] = {
     "DocumentedFunctionality": frozenset({"rationale", "preconditions", "not_in_scope", "notes"}),
 }
 
+# The PageObject header keys whose value is a bullet list, whatever entity type `normalize` is given;
+# `page_object.py::_BULLET_KEYS` is this same set, under the name the parser uses.
+PO_BULLET_KEYS: frozenset[str] = frozenset({"notes"})
+
 
 @dataclass
 class NormalizedSource:
@@ -90,7 +108,6 @@ _BULLET_START_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>[–—*•+])(?P<sp>
 _DASH_SEP_CAP_RE = re.compile(r"(\s*[-–—]\s+|\s+[-–—]\s*)")
 _VERSION_RESHAPE_RE = re.compile(r"^[vV]?(\d+)(?:\.(\d+))?(?:\.(\d+))?$")
 _REMOVAL_PLANNED_CLAUSE_RE = re.compile(r"^removal[ \t]+planned[ \t]+(\S+)$", re.IGNORECASE)
-_AC_HEADER_FULL_RE = re.compile(r"^(?P<lead>[#*]{0,3}\s*)AC:(?P<id>\S+)\s*\((?P<inner>[^)]*)\)(?P<trail>.*)$")
 _AC_TRAIL_DESC_RE = re.compile(r"^\s*[-–—]\s*(?P<desc>.+)$")
 
 
@@ -117,7 +134,7 @@ def _canonicalize_token_case(token: str) -> str:
     return _WORD_SEP_RE.sub("_", token.strip().lower())
 
 
-_NBSP = chr(0xA0)  # kept out of string literals - formatters fold \u00A0 escapes into a literal, invisible byte
+_NBSP = chr(0xA0)  # kept out of string literals - formatters fold   escapes into a literal, invisible byte
 _INDENT_WS_RE = re.compile("^[ \t" + _NBSP + "]*")
 
 
@@ -130,53 +147,6 @@ def _fix_indentation_whitespace(line: str, tab_stop: int = 1) -> str:
         return line
     new_lead = lead.replace(_NBSP, " ").expandtabs(tab_stop)
     return new_lead + line[len(lead) :]
-
-
-# --- the one indentation model: every parser and both header normalisers read a line through it ---
-
-
-class IndentedLine(NamedTuple):
-    """One line with its comment marker already removed: `indent` is its leading-space count,
-    `text` the rest with no surrounding whitespace, `raw` the line as given. A line's level is
-    decided from `indent` - never from a stripped line, which has lost it."""
-
-    indent: int
-    text: str
-    raw: str
-
-
-def indented(content: str) -> IndentedLine:
-    """`content` - a line after its comment marker and one following space are removed
-    (`_split_comment_prefix`, `_PO_LINE_RE`) - as an `IndentedLine`."""
-    text = content.lstrip()
-    return IndentedLine(len(content) - len(text), text.rstrip(), content)
-
-
-# Any bullet marker opening a list item, before (rule 1 rewrites the non-dash ones) or after normalisation.
-_ITEM_MARKER_RE = re.compile(r"^[-–—*•+]\s")
-
-
-class BulletItemTracker:
-    """The open item of a bullet-list key in a header. A line indented deeper than that item's
-    marker is the item's text - wrapped text or a nested item - and never a key or an `AC:`
-    header, whatever it reads like (a wrapped item may read `status: x`). Every other line
-    closes the item and is read at face value, so an indented key outside a bullet item still
-    counts. Shared by both header parsers and the `.feature` header normaliser."""
-
-    def __init__(self) -> None:
-        self._marker_indent: Optional[int] = None
-
-    def continues_item(self, line: IndentedLine) -> bool:
-        """True when `line` belongs to the open item; otherwise the item is closed and False."""
-        if self._marker_indent is not None and line.text and line.indent > self._marker_indent:
-            return True
-        self._marker_indent = None
-        return False
-
-    def read(self, line: IndentedLine, in_bullet_section: bool) -> None:
-        """Opens an item when `line` starts one inside a bullet-list section."""
-        opens = in_bullet_section and _ITEM_MARKER_RE.match(line.text) is not None
-        self._marker_indent = line.indent if opens else None
 
 
 class ItemText:
@@ -288,38 +258,50 @@ def _rewrite_ac_header_content(
     return [f"AC:{ac_id} ({new_inner})", f"{bullet_indent}- {desc_text}"], fired
 
 
-def _slugify_section(text: str) -> str:
-    """Shared with `issue_body.py::_split_h2_sections`, which slugifies the same way."""
-    return re.sub(r"[\s_]+", "_", text.strip().lower())
-
-
-def _emit(out_lines: list[str], changes: list[Change], fired: set[str], before: str, after: str) -> None:
-    out_lines.append(after)
-    for rule in sorted(fired):
-        changes.append(Change(len(out_lines), rule, before, after))
-
-
-def _in_bullet_context(in_ac_block: bool, current_section: Optional[str], profile: frozenset) -> bool:
-    """A bullet-marker line is content precisely inside an AC block or a bullet-list
-    section - the one context check `_normalize_markdown` and `_normalize_feature_header`
-    both make before treating a line as a candidate bullet."""
-    return in_ac_block or (current_section is not None and current_section in profile)
-
-
 def _fired_if(changed: bool, rule: str) -> set[str]:
     """`{rule}` when `changed`, else the empty set - the single-rule `fired` shape most
-    `_emit_if_changed` call sites below build from a plain before/after comparison."""
+    `_emit` call sites below build from a plain before/after comparison."""
     return {rule} if changed else set()
 
 
-def _emit_if_changed(out_lines: list[str], changes: list[Change], fired: set[str], before: str, after: str) -> None:
-    """`_emit`'s `after` when `fired` is non-empty, else `before` unchanged and no
-    `Change` recorded - the "rewrite this line only if some rule actually fired" shape
-    every per-format handler below repeats."""
-    if fired:
-        _emit(out_lines, changes, fired, before, after)
-    else:
-        out_lines.append(before)
+def _emit(out: list[FramedLine], changes: list[Change], fired: set[str], framed: FramedLine, content: str) -> None:
+    """Emits `framed` with `content` after its marker, one `Change` per rule in `fired`; when no rule
+    fired, `framed` goes out as it came in."""
+    if not fired:
+        out.append(framed)
+        return
+    rewritten = framed._replace(line=indented(content))
+    out.append(rewritten)
+    for rule in sorted(fired):
+        changes.append(Change(len(out), rule, framed.raw, rewritten.rendered))
+
+
+def _emit_description(out: list[FramedLine], changes: list[Change], header: FramedLine, content: str) -> None:
+    """Emits the bullet rule 7 splits off a criterion header, in that header's section."""
+    bullet = header._replace(raw="", line=indented(content), role=Role.TEXT)
+    out.append(bullet)
+    changes.append(Change(len(out), RULE_INLINE_AC_DESCRIPTION, "", bullet.rendered))
+
+
+def _whitespace(framed: FramedLine) -> set[str]:
+    """Rule 6, when phase 1 rewrote this line's indent."""
+    return _fired_if(framed.rendered != framed.raw, RULE_WHITESPACE)
+
+
+def _criterion_header(framed: FramedLine, text: str) -> Optional["re.Match[str]"]:
+    """`text` read as a criterion header: only on a criterion block's line, never on a bullet item's text."""
+    if not framed.criterion or framed.item_text:
+        return None
+    return _AC_HEADER_FULL_RE.match(text)
+
+
+def _rewrite_bullet(content: str) -> tuple[str, set[str]]:
+    """Rule 1 on `content` when it opens a list item; `content` unchanged otherwise."""
+    bullet_m = _BULLET_START_RE.match(content)
+    if bullet_m is None:
+        return content, set()
+    marked = _fix_bullet_marker(bullet_m)
+    return marked, _fired_if(marked != content, RULE_BULLET_MARKER)
 
 
 # --- entity/title rules (5, 5b): _ENTITY_ID_RE lives in identity.py, imported here not redefined ---
@@ -361,23 +343,20 @@ def _record_title_dash(dm: "re.Match[str]", changes: list[Change]) -> str:
     return " - "
 
 
-def _emit_title_if_present(out_lines: list[str], changes: list[Change], raw: str, prefix: str, content: str) -> bool:
-    """Rewrites and emits the banner's 'LIVING DOC' title line (rules 5/5b), returning
-    True so the caller can flip its own `seen_title` flag; False (nothing emitted) otherwise."""
-    if "LIVING DOC" not in content:
-        return False
-    new_content, title_changes = normalize_title(content)
-    fired = {c.rule for c in title_changes}
-    _emit_if_changed(out_lines, changes, fired, raw, prefix + new_content)
-    return True
+def _emit_title(out: list[FramedLine], changes: list[Change], framed: FramedLine) -> None:
+    """Rules 5 and 5b on the banner's title line, which the frame found by position. The line is rewritten
+    only when it carries the banner's marker: a header with no title has some other line there, such as
+    an `AC:` header whose criterion id would read as an entity id."""
+    content = framed.line.raw
+    fired = _whitespace(framed)
+    if "LIVING DOC" in content:
+        content, title_changes = normalize_title(content)
+        fired |= {c.rule for c in title_changes}
+    _emit(out, changes, fired, framed, content)
 
 
-# --- per-format handlers -------------------------------------------------------------
+# --- phase 1: each line's marker split off, and rule 6 on the indent after it ---------------------------------
 
-# Gherkin "Feature:" line; shared by feature_header (bounds its banner search) and scenario (resets pending tags).
-_FEATURE_LINE_RE = re.compile(r"^Feature:\s*.*$")
-
-_MD_HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.*)$")
 # CommonMark fence rule: <=3 leading spaces, no backtick in a backtick fence's info string; else "AC:" lines misfile.
 _FENCE_OPEN_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 _FENCE_CLOSE_RE = re.compile(r"^ {0,3}(?P<fence>`+|~+)[ \t]*$")
@@ -385,7 +364,7 @@ _FENCE_CLOSE_RE = re.compile(r"^ {0,3}(?P<fence>`+|~+)[ \t]*$")
 
 def compute_fence_flags(lines: list[str]) -> list[bool]:
     """True for a line that opens, closes or lies inside a fenced code block, per
-    CommonMark fence-closing rules. Shared by `_normalize_markdown` and `ac_grammar.py`
+    CommonMark fence-closing rules. Shared by `normalize`'s first phase and `ac_grammar.py`
     so neither parses an `AC:...` example quoted inside a fence."""
     flags: list[bool] = []
     fence_char: Optional[str] = None
@@ -409,288 +388,156 @@ def compute_fence_flags(lines: list[str]) -> list[bool]:
     return flags
 
 
-def _normalize_markdown(lines: list[str], profile: frozenset[str], changes: list[Change]) -> list[str]:
-    out_lines: list[str] = []
-    current_section: Optional[str] = None
-    in_ac_block = False
-    fence_flags = compute_fence_flags(lines)
+# A `.feature` header line's comment marker: '#' and at most one following space. A literal space, as in
+# `_PO_LINE_RE`, so a tab or NBSP stays in the content's indent for rule 6 to rewrite.
+_COMMENT_PREFIX_RE = re.compile(r"^# ?")
+# A PageObject header line: its ` * ` marker, then the content; the trailing char is a literal space likewise.
+_PO_LINE_RE = re.compile(r"^(?P<lead>\s*\*[ ]?)(?P<content>.*)$")
 
-    for line_idx, raw in enumerate(lines):
-        if fence_flags[line_idx]:
-            out_lines.append(raw)
+
+def _prepared(raw: str, prefix: str, role: Role, tab_stop: int = 0) -> FramedLine:
+    """`raw` split after its `prefix`, with rule 6 at `tab_stop` on the rest when it has text (0: rule 6 off).
+    A tab right after a bare marker becomes the marker's own space, as the rewritten line reads (`#\\tx` is
+    `# x`): every reader of the normalised text, the criterion grammar included, sees the indent the frame saw."""
+    content = raw[len(prefix) :]
+    if tab_stop and content.strip():
+        content = _fix_indentation_whitespace(content, tab_stop)
+        if prefix and not prefix.endswith(" ") and content.startswith(" "):
+            prefix, content = prefix + " ", content[1:]
+    return FramedLine(raw, prefix, indented(content), role)
+
+
+def _prepare(lines: list[str], fmt: SourceFormat) -> list[FramedLine]:
+    """Phase 1, line-local and context-free: each line's comment marker split off and rule 6 applied to the
+    indent after it, so every placement the frame makes reads an indent already in spaces. A whitespace-only
+    line, a fenced code block's line, a line that is no comment of the header format and a scenario file
+    stay as written; `TEXT` and `OUTSIDE` are placeholders the frame replaces."""
+    if fmt in (SourceFormat.ISSUE_BODY, SourceFormat.HTML_MARKDOWN):
+        fenced = compute_fence_flags(lines)
+        return [
+            _prepared(raw, "", Role.CODE) if code else _prepared(raw, "", Role.TEXT, tab_stop=4)
+            for raw, code in zip(lines, fenced, strict=True)
+        ]
+    if fmt == SourceFormat.FEATURE_HEADER:
+        return [
+            _prepared(raw, marker.group(0), Role.TEXT, tab_stop=1) if marker else _prepared(raw, "", Role.OUTSIDE)
+            for raw, marker in ((raw, _COMMENT_PREFIX_RE.match(raw)) for raw in lines)
+        ]
+    if fmt == SourceFormat.PAGE_OBJECT:
+        return [
+            _prepared(raw, marker.group("lead"), Role.TEXT, tab_stop=1) if marker else _prepared(raw, "", Role.OUTSIDE)
+            for raw, marker in ((raw, _PO_LINE_RE.match(raw)) for raw in lines)
+        ]
+    return [_prepared(raw, "", Role.TEXT) for raw in lines]
+
+
+# --- phase 3: every other rule, per line, by the section the frame put it in -------------------------------
+
+
+def _rewrite_markdown(lines: list[FramedLine], profile: frozenset[str], changes: list[Change]) -> list[FramedLine]:
+    out: list[FramedLine] = []
+    for framed in lines:
+        if framed.role in (Role.CODE, Role.BLANK):
+            out.append(framed)
             continue
-
-        stripped = raw.strip()
-        if stripped == "":
-            # A blank line doesn't end an AC block (issue-body headings get one blank line before their bullets).
-            out_lines.append(raw)
-            continue
-
-        # Rule 6 first, at GitHub's tab stop, so every later decision reads the indent the reader sees.
-        line = _fix_indentation_whitespace(raw, tab_stop=4)
-        ws_fired = _fired_if(line != raw, RULE_WHITESPACE)
+        line, ws_fired = framed.line.raw, _whitespace(framed)
 
         # Recognised on any line, not only under a markdown heading (e.g. a bare "AC:..." snippet).
-        header_full_m = _AC_HEADER_FULL_RE.match(line)
-        if header_full_m:
-            lead = header_full_m.group("lead")
-            new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=False, bullet_indent="")
-            in_ac_block = True
-            _emit_if_changed(out_lines, changes, fired | ws_fired, raw, f"{lead}{new_lines[0]}")
+        header_m = _criterion_header(framed, line)
+        if header_m:
+            new_lines, fired = _rewrite_ac_header_content(header_m, inline_description=False, bullet_indent="")
+            _emit(out, changes, fired | ws_fired, framed, f"{header_m.group('lead')}{new_lines[0]}")
             for extra in new_lines[1:]:
-                _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", extra)
+                _emit_description(out, changes, framed, extra)
             continue
 
-        heading_m = _MD_HEADING_RE.match(line)
-        if heading_m:
-            current_section = _slugify_section(heading_m.group("text"))
-            in_ac_block = False
-            _emit_if_changed(out_lines, changes, ws_fired, raw, line)
-            continue
-
-        if current_section == "status":
+        if framed.role in (Role.HEADING, Role.SUBHEADING):
+            _emit(out, changes, ws_fired, framed, line)
+        elif framed.section == "status":
+            stripped = line.strip()
             canon = _canonicalize_token_case(stripped)
-            _emit_if_changed(out_lines, changes, _fired_if(canon != stripped, RULE_STATE_CASING), raw, canon)
+            if canon != stripped:
+                _emit(out, changes, {RULE_STATE_CASING}, framed, canon)
+            else:
+                _emit(out, changes, ws_fired, framed, line)
+        elif framed.criterion or framed.section in profile:
+            marked, fired = _rewrite_bullet(line)
+            _emit(out, changes, ws_fired | fired, framed, marked)
+        else:
+            _emit(out, changes, ws_fired, framed, line)
+    return out
+
+
+def _rewrite_feature_header(
+    lines: list[FramedLine], profile: frozenset[str], changes: list[Change]
+) -> list[FramedLine]:
+    out: list[FramedLine] = []
+    for framed in lines:
+        content, ws_fired = framed.line.raw, _whitespace(framed)
+        if framed.role is Role.TITLE:
+            _emit_title(out, changes, framed)
             continue
 
-        if _in_bullet_context(in_ac_block, current_section, profile):
-            bullet_m = _BULLET_START_RE.match(line)
-            if bullet_m:
-                new_line = _fix_bullet_marker(bullet_m)
-                fired = ws_fired | _fired_if(new_line != line, RULE_BULLET_MARKER)
-                _emit_if_changed(out_lines, changes, fired, raw, new_line)
-                continue
-
-        _emit_if_changed(out_lines, changes, ws_fired, raw, line)
-
-    return out_lines
-
-
-_FH_KEY_LIST_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):\s*$")
-_FH_KEY_SCALAR_RE = re.compile(r"^(?P<key>[a-zA-Z_]+):(?P<sep>\s+)(?P<val>.*)$")
-
-
-# Shared with `feature_header.py::_strip_comment_prefix`, which only needs the content half. A literal
-# space, as in `_PO_LINE_RE`, so a tab or NBSP stays in the content's indent for rule 6 to rewrite.
-_COMMENT_PREFIX_RE = re.compile(r"^# ?")
-
-
-def _split_comment_prefix(raw: str) -> tuple[str, str]:
-    """Strips the feature-header comment marker: a leading '#' plus at most one
-    following space. Returns (prefix, content) so callers can reattach the exact
-    prefix that was removed."""
-    m = _COMMENT_PREFIX_RE.match(raw)
-    prefix = m.group(0) if m else ""
-    return prefix, raw[len(prefix) :]
-
-
-def _normalize_feature_header(lines: list[str], profile: frozenset[str], changes: list[Change]) -> list[str]:
-    out_lines: list[str] = []
-    current_section: Optional[str] = None
-    in_ac_block = False
-    seen_title = False
-    items = BulletItemTracker()
-
-    for raw in lines:
-        if not raw.startswith("#"):
-            out_lines.append(raw)
-            continue
-
-        prefix, content = _split_comment_prefix(raw)
-        stripped = content.strip()
-
-        if stripped == "":
-            # A blank line doesn't end an AC block; it does close an open bullet item.
-            items.continues_item(indented(content))
-            out_lines.append(raw)
-            continue
-
-        if set(stripped) == {"="}:
-            out_lines.append(raw)
-            in_ac_block = False
-            continue
-
-        if not seen_title and _emit_title_if_present(out_lines, changes, raw, prefix, content):
-            seen_title = True
-            continue
-
-        # Rule 6 first, so every later decision reads the line's indent in spaces.
-        fixed = _fix_indentation_whitespace(content)
-        ws_fired = _fired_if(fixed != content, RULE_WHITESPACE)
-        content = fixed
-        line = indented(content)
-
-        # A bullet item's wrapped text or nested item is never a key or an AC header, whatever it reads like.
-        is_item_text = items.continues_item(line)
-
-        header_full_m = None if is_item_text else _AC_HEADER_FULL_RE.match(stripped)
-        if header_full_m and header_full_m.group("lead").strip() == "":
-            new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=False, bullet_indent="  ")
-            in_ac_block = True
+        header_m = _criterion_header(framed, framed.line.text)
+        if header_m and header_m.group("lead") == "":
+            new_lines, fired = _rewrite_ac_header_content(header_m, inline_description=False, bullet_indent="  ")
             # The header keeps the author's indent: its criterion's items are read relative to it.
-            indent = prefix + " " * line.indent
-            _emit_if_changed(out_lines, changes, fired | ws_fired, raw, indent + new_lines[0])
+            indent = " " * framed.line.indent
+            _emit(out, changes, fired | ws_fired, framed, indent + new_lines[0])
             for extra in new_lines[1:]:
                 # `extra` already carries the two-space bullet_indent, so a split description sits one level deeper.
-                _emit(out_lines, changes, {RULE_INLINE_AC_DESCRIPTION}, "", indent + extra)
+                _emit_description(out, changes, framed, indent + extra)
             continue
 
-        list_key_m = None if is_item_text else _FH_KEY_LIST_RE.match(stripped)
-        if list_key_m:
-            current_section = list_key_m.group("key")
-            in_ac_block = False
-            _emit_if_changed(out_lines, changes, ws_fired, raw, prefix + content)
-            continue
-
-        scalar_m = None if is_item_text else _FH_KEY_SCALAR_RE.match(stripped)
-        if scalar_m:
-            current_section = None
-            in_ac_block = False
-            fired = set(ws_fired)
-            if scalar_m.group("key") == "status":
-                val = scalar_m.group("val")
-                canon = _canonicalize_token_case(val.strip())
-                fired |= _fired_if(canon != val.strip(), RULE_STATE_CASING)
-                content = content.replace(val, canon, 1)
-            _emit_if_changed(out_lines, changes, fired, raw, prefix + content)
-            continue
-
-        if _in_bullet_context(in_ac_block, current_section, profile):
-            if not is_item_text:
-                items.read(line, True)
-            bullet_m = _BULLET_START_RE.match(content)
-            if bullet_m:
-                new_content = _fix_bullet_marker(bullet_m)
-                fired = ws_fired | _fired_if(new_content != content, RULE_BULLET_MARKER)
-                _emit_if_changed(out_lines, changes, fired, raw, prefix + new_content)
-                continue
-
-        _emit_if_changed(out_lines, changes, ws_fired, raw, prefix + content)
-
-    return out_lines
+        fired = set(ws_fired)
+        if framed.role is Role.KEY and framed.section == "status":
+            value = opening_value(framed)
+            canon = _canonicalize_token_case(value)
+            fired |= _fired_if(canon != value, RULE_STATE_CASING)
+            content = content.replace(value, canon, 1)
+        elif framed.role is Role.TEXT and (framed.criterion or framed.section in profile):
+            content, bullet_fired = _rewrite_bullet(content)
+            fired |= bullet_fired
+        _emit(out, changes, fired, framed, content)
+    return out
 
 
 _SCENARIO_AC_COMMENT_RE = re.compile(r"^(?P<lead>\s*#\s?)(?P<content>AC:\S+\s*\(.*)$")
 
 
-def _normalize_scenario_file(lines: list[str], changes: list[Change]) -> list[str]:
+def _rewrite_scenario_file(lines: list[FramedLine], changes: list[Change]) -> list[FramedLine]:
     """Only `# AC:` comment lines are content; Gherkin steps (including `*`-style
     steps), tags, section banners and everything else pass through untouched."""
-    out_lines: list[str] = []
-    for raw in lines:
-        m = _SCENARIO_AC_COMMENT_RE.match(raw)
-        if not m:
-            out_lines.append(raw)
+    out: list[FramedLine] = []
+    for framed in lines:
+        m = _SCENARIO_AC_COMMENT_RE.match(framed.raw) if framed.role is Role.COMMENT else None
+        if m is None:
+            out.append(framed)
             continue
-
-        content = m.group("content")
-        header_full_m = _AC_HEADER_FULL_RE.match(content)
-        if not header_full_m or header_full_m.group("lead") != "":
-            out_lines.append(raw)
+        header_m = _AC_HEADER_FULL_RE.match(m.group("content"))
+        if header_m is None or header_m.group("lead") != "":
+            out.append(framed)
             continue
-
-        new_lines, fired = _rewrite_ac_header_content(header_full_m, inline_description=True, bullet_indent="")
-        _emit_if_changed(out_lines, changes, fired, raw, m.group("lead") + new_lines[0])
-
-    return out_lines
+        new_lines, fired = _rewrite_ac_header_content(header_m, inline_description=True, bullet_indent="")
+        _emit(out, changes, fired, framed, m.group("lead") + new_lines[0])
+    return out
 
 
-# Shared with `page_object.py::_content_lines`; the trailing char is a literal space so a tab/NBSP stays in `content`.
-_PO_LINE_RE = re.compile(r"^(?P<lead>\s*\*[ ]?)(?P<content>.*)$")
-# Shared with `page_object.py::_parse_keys`, which reads the same lines; both must agree on what a key is.
-_PO_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:")
-# A banner line of the header comment, opening or closing (`===` or `=== */`); shared with `page_object.py`.
-_PO_BANNER_CONTENT_RE = re.compile(r"^=+\s*(\*/)?\s*$")
-# A bare ` */` closing the header comment instead of the canon's banner: `_PO_LINE_RE`'s `lead` eats its
-# `*`, so all that reaches `content` is the `/`.
-_PO_COMMENT_CLOSE_CONTENT_RE = re.compile(r"^/\s*$")
-# The PageObject header keys whose value is a bullet list, declared here because the normaliser has to know
-# them before the parser runs; `page_object.py::_BULLET_KEYS` is this same set, under the name the parser uses.
-PO_BULLET_KEYS: frozenset[str] = frozenset({"notes"})
-
-
-def po_section_break(content: str, text: str) -> bool:
-    """True when this PageObject header line ends whatever key was open: a blank line, a banner, a bare
-    ` */` comment close, or the banner's title line. Shared with `page_object.py::_parse_keys` so the
-    normaliser and the parser cannot disagree about where a key's list stops.
-
-    The title test is the only one that reads the line's prose, so it is the only one a note's own text
-    could trip. It is therefore structural, not textual: the banner title sits at the banner's base level
-    and never carries a bullet marker, so a line that opens an item is never a title, however it reads
-    (#168). A wrapped line inside an open item never reaches here at all - both callers put the line
-    through `BulletItemTracker` first."""
-    return (
-        text == ""
-        or _PO_BANNER_CONTENT_RE.match(text) is not None
-        or _PO_COMMENT_CLOSE_CONTENT_RE.match(text) is not None
-        or (_ITEM_MARKER_RE.match(text) is None and is_living_doc_title(content))
-    )
-
-
-def _normalize_page_object(lines: list[str], changes: list[Change]) -> list[str]:
+def _rewrite_page_object(lines: list[FramedLine], changes: list[Change]) -> list[FramedLine]:
     """A PageObject header carries no AC blocks and no states, so its title line (rules 5/5b), generic
     indentation whitespace (rule 6) and the bullet markers of a `PO_BULLET_KEYS` list (rule 1) are all
-    that is ever rewritten; every other ` * key: value` metadata line passes through untouched.
-
-    Rule 1 reaches only a line inside an open bullet key of the leading header comment, which is the whole
-    of what `page_object.py::_header_comment_lines` reads. The section closes at any other key, at every
-    `po_section_break` line and at any line that is not a ` * ` comment line, and the comment's own `*/` -
-    the canon's banner form or a bare one - closes it for the rest of the file, so a later JSDoc block, even
-    one with a `notes:` line of its own, and a Gherkin-like `*` are never candidates. The state machine
-    mirrors `page_object.py::_parse_keys`, which reads the same lines through the same `po_section_break` -
-    the two have to agree on where a list runs."""
-    out_lines: list[str] = []
-    seen_title = False
-    in_bullet_key = False
-    header_closed = False
-    items = BulletItemTracker()
-
-    for raw in lines:
-        m = _PO_LINE_RE.match(raw)
-        if not m:
-            out_lines.append(raw)
-            in_bullet_key = False
+    that is ever rewritten; every other ` * key: value` metadata line passes through untouched."""
+    out: list[FramedLine] = []
+    for framed in lines:
+        if framed.role is Role.TITLE:
+            _emit_title(out, changes, framed)
             continue
-
-        content = m.group("content")
-        prefix = m.group("lead")
-
-        if not seen_title and _emit_title_if_present(out_lines, changes, raw, prefix, content):
-            seen_title = True
-            in_bullet_key = False
-            continue
-
-        # Rule 6 first, so the indent every later decision reads is already in spaces.
-        new_content = _fix_indentation_whitespace(content)
-        fired = _fired_if(new_content != content, RULE_WHITESPACE)
-        content = new_content
-        line = indented(content)
-
-        # Read off `raw`: a bare ` */` leaves only `/` in `content`, so the close would be missed and a
-        # later JSDoc `notes:` could re-open rule 1 over the file's TypeScript.
-        if "*/" in raw:
-            header_closed = True
-
-        # A bullet item's wrapped text is the item's own, so it neither closes the list nor reads as a key.
-        if not items.continues_item(line):
-            key_m = _PO_KEY_RE.match(line.text)
-            if key_m is not None:
-                in_bullet_key = not header_closed and key_m.group("key") in PO_BULLET_KEYS
-            elif po_section_break(content, line.text):
-                in_bullet_key = False
-            elif in_bullet_key:
-                items.read(line, True)
-
-        if in_bullet_key:
-            bullet_m = _BULLET_START_RE.match(content)
-            if bullet_m:
-                marked = _fix_bullet_marker(bullet_m)
-                fired |= _fired_if(marked != content, RULE_BULLET_MARKER)
-                content = marked
-
-        _emit_if_changed(out_lines, changes, fired, raw, prefix + content)
-
-    return out_lines
+        content, fired = framed.line.raw, _whitespace(framed)
+        if framed.role is Role.TEXT and framed.section in PO_BULLET_KEYS:
+            content, bullet_fired = _rewrite_bullet(content)
+            fired |= bullet_fired
+        _emit(out, changes, fired, framed, content)
+    return out
 
 
 def _split_lines_lf(text: str) -> tuple[list[str], list[int]]:
@@ -712,18 +559,28 @@ def normalize(text: str, fmt: SourceFormat, entity_type: DocType) -> NormalizedS
     """Rewrites `text` (one format's worth of authoring input) to the canonical form,
     without ever touching code, Gherkin step text, or free prose. `entity_type` selects
     a `TYPE_PROFILES` entry; this function itself never branches on it."""
+    return normalize_framed(text, fmt, entity_type)[0]
+
+
+def normalize_framed(text: str, fmt: SourceFormat, entity_type: DocType) -> tuple[NormalizedSource, Frame]:
+    """`normalize`, plus the frame its rules were applied by, holding the rewritten lines. Every parser reads
+    its sections here instead of finding a boundary itself; `Frame.problems` are its structural diagnostics."""
     profile = TYPE_PROFILES[entity_type]
     lines, crlf_indices = _split_lines_lf(text)
     changes: list[Change] = []
 
     if fmt in (SourceFormat.ISSUE_BODY, SourceFormat.HTML_MARKDOWN):
-        out_lines = _normalize_markdown(lines, profile, changes)
+        frame = frame_issue_body(_prepare(lines, fmt), profile)
+        rewritten = _rewrite_markdown(frame.lines, profile, changes)
     elif fmt == SourceFormat.FEATURE_HEADER:
-        out_lines = _normalize_feature_header(lines, profile, changes)
+        frame = frame_feature_header(_prepare(lines, fmt), profile)
+        rewritten = _rewrite_feature_header(frame.lines, profile, changes)
     elif fmt == SourceFormat.SCENARIO_FILE:
-        out_lines = _normalize_scenario_file(lines, changes)
+        frame = frame_scenario_file(_prepare(lines, fmt))
+        rewritten = _rewrite_scenario_file(frame.lines, changes)
     elif fmt == SourceFormat.PAGE_OBJECT:
-        out_lines = _normalize_page_object(lines, changes)
+        frame = frame_page_object(_prepare(lines, fmt), PO_BULLET_KEYS)
+        rewritten = _rewrite_page_object(frame.lines, changes)
     else:
         raise ValueError(f"unknown SourceFormat: {fmt!r}")
 
@@ -731,4 +588,5 @@ def normalize(text: str, fmt: SourceFormat, entity_type: DocType) -> NormalizedS
     for idx in crlf_indices:
         changes.append(Change(idx + 1, RULE_WHITESPACE, lines[idx] + "\r", lines[idx]))
 
-    return NormalizedSource(lines=out_lines, changes=changes)
+    normalized = NormalizedSource(lines=[framed.rendered for framed in rewritten], changes=changes)
+    return normalized, Frame(rewritten, frame.problems)

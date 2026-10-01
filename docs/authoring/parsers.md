@@ -31,15 +31,17 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
   - Why: a parser only ever sees document text.
 - `state` and `state_origin` stay empty until [status derivation](#status-derivation) runs → `authoring/issue_body.py::ParsedEntity`
 - An authored value that fails its field's validation is dropped with a warning (`MALFORMED_STATUS` for a status) → `authoring/issue_body.py::_build_parsed_entity`
-- Every parser reads a line's indent before deciding what the line belongs to; one line model serves them all → `authoring/normalize.py::indented`
+- Every parser reads its sections from the frame built in normalisation's [three phases](normalisation.md#where-normalisation-runs): rule 6, then the frame, then the other rules → `authoring/framing.py::sections`
+  - Why: the normaliser and the parser read one result, so they cannot disagree about where a section or a list runs.
+  - A boundary is structural, never read from a line's prose; no parser finds one itself.
+- Every parser reads a line's indent before deciding what the line belongs to; one line model serves them all → `authoring/framing.py::indented`
   - Why: indentation is significant in every authored input (the canon's [Indentation](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-header-types.md#indentation) rule); a stripped line has lost its level.
   - The indent is counted after the comment marker and at most one space (`# `, ` * `); [rule 6](normalisation.md#rule-6-whitespace) has already turned a tab or non-breaking space into spaces: one per tab in a header, to GitHub's tab stop of 4 in an issue body.
-- In a `.feature` or PageObject header, a line deeper than an open bullet item's `- ` is that item's text: never a key and never an `AC:` header, whatever it reads like → `authoring/normalize.py::BulletItemTracker`
+- In a bullet-list field, a line deeper than an open item's `- ` is that item's text: never a key, an `AC:` header or a section's end, whatever it reads like → `authoring/framing.py::BulletItemTracker`
   - Example: `#   - Migrated accounts carry` then `#     status: deprecated until re-verified.` is one `business_value` item; no `status` key is read.
   - A line at or above the item's `- ` closes the item, so an indented key outside a bullet item is still a key → `tests/authoring/test_feature_header.py::test_an_indented_key_after_the_bullet_item_has_closed_is_still_a_key`
-  - The `.feature` header normaliser uses the same rule, so it never rewrites such a line as a key or a criterion header → `authoring/normalize.py::_normalize_feature_header`
-  - A PageObject header's one bullet-list key is `notes:`, declared where the normaliser can see it too → `authoring/normalize.py::PO_BULLET_KEYS`
-    - The normaliser tracks that key with the same state machine the parser uses, so rule 1 reaches its items and the two agree on where the list runs ([normalisation](normalisation.md#rule-1-bullet-marker)) → `authoring/normalize.py::_normalize_page_object`
+  - In an issue body a blank line does not close the item, as Markdown nests a list item; an item's wrapped `AC:` line yields no criterion → `tests/authoring/test_framing.py::test_d20_an_ac_shaped_wrapped_line_in_a_bullet_item_is_that_items_text_and_no_criterion`
+  - A PageObject header's one bullet-list key is `notes:`, declared where the frame reads it → `authoring/normalize.py::PO_BULLET_KEYS`
 - A bullet-list field holds one string per top-level item. Its first `- ` sets the item level; each line is read by its indent → `authoring/issue_body.py::_read_bullets`
 
   | Line | Read as |
@@ -56,14 +58,14 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 - The same rule reads a criterion's `preconditions` and `not_in_scope` items ([grammar](ac-grammar.md#extensions)) → `authoring/normalize.py::ItemText`
 - Text before a bullet-list field's first `- ` bullet is dropped with `UNPARSED_BULLET_LINE` → `authoring/issue_body.py::unparsed_bullet_warning`
 - Both bullet-field warnings are built in one place → `authoring/issue_body.py::bullet_field_warnings`
-- A header key's own-line text counts as before the first bullet → `authoring/feature_header.py::_parse_keys`
+- A header key's own-line text counts as before the first bullet → `authoring/feature_header.py::_read_keys`
 - The `UNPARSED_BULLET_LINE` context names the contract field, not the authored key or heading → `authoring/issue_body.py::unparsed_bullet_warning`
 - An id list is comma-separated; blank or `none` means empty → `authoring/issue_body.py::split_id_list`
 - Every entity type carries an optional `notes` bullet list, the canon's [one place for human context](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md#core-entities) → `contracts/doc_entities.py::EntityContent`
   - Nothing ever reads a note's text: it drives no state, nothing is derived from it, and it is never validated, whatever it reads like (`status: deprecated` stays free text) → `tests/authoring/test_notes.py::test_a_field_shaped_note_changes_no_derived_state_and_raises_no_warning`
     - Why: anything that must drive behaviour has to be a typed field; a note exists so a recordable fact needs no new field.
     - It does not decide how its own file is read either: a note saying `parent-feat:` leaves a PageObject header a full header, and one saying `LIVING DOC` is not a banner title → `tests/authoring/test_notes.py::test_a_note_whose_wrapped_line_reads_as_parent_feat_does_not_make_a_cross_reference_header`, `::test_a_note_that_mentions_living_doc_is_still_a_note`
-      - The title line is recognised structurally, not by its prose: it sits at the banner's base level and carries no bullet marker, so an item may quote the whole `LIVING DOC — <id> · <title>` form → `authoring/normalize.py::po_section_break`, `tests/authoring/test_notes.py::test_a_note_quoting_a_whole_banner_title_is_still_a_note`
+      - The title is found by position, not by its prose, so an item may quote the whole `LIVING DOC — <id> · <title>` form → `authoring/framing.py::Frame.title`, `tests/authoring/test_notes.py::test_a_note_quoting_a_whole_banner_title_is_still_a_note`
   - It is entity-level only. A `notes:` inside a criterion block fills no criterion field and is reported instead ([grammar](ac-grammar.md#extensions)) → `tests/authoring/test_notes.py::test_an_ac_level_notes_key_in_an_issue_body_is_reported_and_reads_as_no_field`
   - `deprecation_reason` stays its own typed field and does not move into a note → `contracts/doc_entities.py::EntityContent`
 
@@ -94,17 +96,19 @@ Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a f
 | `## Deprecation Reason`, `## Superseded By` | the same-named field | the same-named field | the same-named field |
 
 - A heading with no mapping is `UNKNOWN_SECTION`, not a failure → `authoring/issue_body.py::parse_issue_body`
-- The grammar reads the whole normalised text, so an `### AC:` heading counts wherever it appears → `authoring/issue_body.py::parse_issue_body`
-- Headings inside a fenced code block are not sections → `authoring/issue_body.py::_split_h2_sections`
+- The grammar reads the whole normalised text, so an `### AC:` heading counts wherever it appears, except as a bullet item's text → `authoring/framing.py::criteria_text`
+- Only a `##` heading outside a fenced code block opens a section; a `###` heading is content of the section it sits in → `authoring/framing.py::frame_issue_body`
 
 ## Feature header
 
 `parse_feature_header(text, entity_type)` reads a User Story's or Functionality's `.feature` header → `authoring/feature_header.py::parse_feature_header`.
 
-- Two `# ===` banner lines bracket a block of `# key: value` lines, and `# key:` lines with an indented bullet list.
-- The first content line is the title: `LIVING DOC — <id> · <title>` → `authoring/identity.py::extract_living_doc_title`
-- The banner search stops at the file's `Feature:` line → `authoring/feature_header.py::_extract_header_block`
+- The header runs from the first `# ===` rule to the last; it holds `# key: value` lines, and `# key:` lines with an indented bullet list → `authoring/framing.py::frame_feature_header`
+- The title is the first line after the opening rule: `LIVING DOC — <id> · <title>` → `authoring/framing.py::Frame.title`
+  - A header with no title there is `MISSING_ENTITY_ID`, whatever a later line reads like → `tests/authoring/test_framing.py::test_a_feature_header_title_is_the_line_after_the_opening_rule_not_any_line_reading_like_one`
+- The rule search stops at the file's `Feature:` line → `authoring/framing.py::frame_feature_header`
   - Why: a banner-shaped comment in the scenario body is never taken for the header's closing banner.
+- A criterion block runs from its `AC:` header to the next `# ===` rule; no key is read inside it → `authoring/framing.py::frame_feature_header`
 - An unknown key is `IGNORED_AUTHORED_KEY` → `authoring/feature_header.py::parse_feature_header`
 
 Keys → `authoring/feature_header.py::_KEYS_BY_TYPE`:
@@ -120,7 +124,11 @@ Keys → `authoring/feature_header.py::_KEYS_BY_TYPE`:
 ## PageObject header
 
 `parse_page_object(text)` reads a PageObject file's leading `/* ... */` comment → `authoring/page_object.py::parse_page_object`.
-Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` title.
+Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` title, on the line after the comment opens.
+
+- The comment ends at its first line that ends in `*/`; a `*/` inside a value does not end it → `authoring/framing.py::frame_page_object`
+  - A key written on that last line is still read.
+- A blank line or a `===` rule ends the open key → `authoring/framing.py::frame_page_object`
 
 | Shape | When | Known keys | Result |
 |---|---|---|---|
@@ -160,7 +168,7 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 - No such run returns `(None, [MISSING_ENTITY_ID])`, even when the title names another key such as `JIRA-12`; the collector adds location context and counts `entities_skipped` → `authoring/identity.py::derive_entity_id`
 - Normalisation rules 5 and 5b find the id with the same pattern, so the ` · ` separator lands after the real id → `authoring/normalize.py::normalize_title`
 - The same function serves an issue title, a `.feature` banner and a PageObject banner → `authoring/identity.py::derive_entity_id`
-- One helper finds the `LIVING DOC — ` title line in both banner formats → `authoring/identity.py::extract_living_doc_title`
+- One helper reads the title text from the banner's title line, in both banner formats → `authoring/identity.py::extract_living_doc_title`
 
 ## Status derivation
 

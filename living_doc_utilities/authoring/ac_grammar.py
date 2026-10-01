@@ -26,13 +26,12 @@ from typing import Optional
 
 from pydantic import ValidationError
 
+from living_doc_utilities.authoring.framing import IndentedLine, indented
 from living_doc_utilities.authoring.normalize import (
     _BULLET_RE,
     _WORD_SEP_RE,
-    IndentedLine,
     ItemText,
     compute_fence_flags,
-    indented,
 )
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import (

@@ -41,7 +41,8 @@ table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module
 | `contracts.lineage` | `LineageTable`, `Dropped`, `assert_complete()`, `check_field_loss()` | none |
 | `contracts.testing` | `full_sample()`, `shown_paths()` for component tests | none |
 | `contracts.check_no_vendored_schemas` | the vendored-schema check, runnable with `python -m` | none |
-| `authoring.normalize` | `normalize()`, `SourceFormat` | none |
+| `authoring.normalize` | `normalize()`, `normalize_framed()`, `SourceFormat` | none |
+| `authoring.framing` | `Frame`, `FramedLine`, `Role`, `sections()`, the structural `Problem` kinds | none |
 | `authoring.ac_grammar` | `parse_acceptance_criteria()`, `is_valid_ac_id()` | none |
 | `authoring.issue_body` | `parse_issue_body()`, `ParsedEntity` | none |
 | `authoring.feature_header` | `parse_feature_header()` | none |
