@@ -1,6 +1,6 @@
 # Golden fixture. Copied verbatim from AbsaOSS/living-doc's
 # docs/examples/gherkin/liv_doc_us/us-001-customer-login.feature at commit
-# bfcc402ff998085cbf7bb91a7fd55ea8ac12c911 (the canonical-corpus commit, PRs #25/#26).
+# eccbc9e72970e10e8d7e61ffc400c66c252229bd (canon HEAD; the `## Notes` corpus round, PR #43).
 # =============================================================================
 # LIVING DOC — US-001 · Customer Login
 # =============================================================================

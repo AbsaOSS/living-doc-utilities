@@ -68,6 +68,61 @@
     - Returns valid=false when the candidate password fails a complexity rule.
   note: A "•" bullet inside an AC block is corrected, independent of TYPE_PROFILES.
 
+- id: rule1_bullet_marker_bullet_dot_notes_page_object
+  rule: bullet_marker
+  format: page_object
+  entity_type: DocumentedFeature
+  input: |
+    /* =============================================================================
+     * page-object:           LoginPage.ts
+     * notes:
+     *   • The sign-in form markup comes from the shared identity template.
+     *   - The screen is called "Sign in" to customers.
+     * ============================================================================= */
+  expected: |
+    /* =============================================================================
+     * page-object:           LoginPage.ts
+     * notes:
+     *   - The sign-in form markup comes from the shared identity template.
+     *   - The screen is called "Sign in" to customers.
+     * ============================================================================= */
+  note: >
+    A PageObject header's "notes:" list is its one bullet section, so rule 1 corrects its markers
+    there too. Mixing markers is the case that would otherwise merge the two notes into one entry
+    with no warning: the "•" item has no marker the reader knows, so it joins the open item.
+
+- id: never_touched_page_object_jsdoc_after_the_header
+  rule: none
+  format: page_object
+  entity_type: DocumentedFeature
+  input: |
+    /* =============================================================================
+     * page-object:           LoginPage.ts
+     * ============================================================================= */
+
+    export class LoginPage {
+      /**
+       * notes:
+       *   • Not a living-doc note; a JSDoc line of its own.
+       */
+      async goto(): Promise<void> {}
+    }
+  expected: |
+    /* =============================================================================
+     * page-object:           LoginPage.ts
+     * ============================================================================= */
+
+    export class LoginPage {
+      /**
+       * notes:
+       *   • Not a living-doc note; a JSDoc line of its own.
+       */
+      async goto(): Promise<void> {}
+    }
+  note: >
+    The header comment's "*/" closes rule 1 for the rest of the file, so a later JSDoc block with a
+    "notes:" line of its own keeps its markers: normalisation never rewrites TypeScript.
+
 - id: rule2_ac_header_separator_en_dash_issue_body
   rule: ac_header_separator
   format: issue_body

@@ -92,6 +92,9 @@ _DEPRECATION_SECTIONS = {
     "superseded_by": _SectionSpec("superseded_by", _SectionKind.SCALAR),
 }
 
+# Entity-level human context; every entity type carries it, and nothing ever reads a note's text.
+_NOTES_SECTION = {"notes": _SectionSpec("notes", _SectionKind.BULLETS)}
+
 # heading slug (`normalize.py::_slugify_section`) -> spec, per entity type.
 _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
     "DocumentedUserStory": {
@@ -101,6 +104,7 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
         "acceptance_criteria": _SectionSpec(None, _SectionKind.AC),
         "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
         "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
+        **_NOTES_SECTION,
         **_DEPRECATION_SECTIONS,
     },
     "DocumentedFeature": {
@@ -112,6 +116,7 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
         "functionalities": _SectionSpec("functionalities", _SectionKind.ID_LIST),
         "external_dependencies": _SectionSpec("external_dependencies", _SectionKind.ID_LIST),
         "feature_dependencies": _SectionSpec("feature_dependencies", _SectionKind.ID_LIST),
+        **_NOTES_SECTION,
         **_DEPRECATION_SECTIONS,
     },
     "DocumentedFunctionality": {
@@ -123,6 +128,7 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
         "rationale": _SectionSpec("rationale", _SectionKind.PROSE_BULLET),
         "preconditions": _SectionSpec("preconditions", _SectionKind.BULLETS),
         "not_in_scope": _SectionSpec("not_in_scope", _SectionKind.BULLETS),
+        **_NOTES_SECTION,
         **_DEPRECATION_SECTIONS,
     },
 }

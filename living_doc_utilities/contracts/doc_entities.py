@@ -54,6 +54,9 @@ class EntityContent(ContractModel):
     purpose: Optional[str] = None
     # .feature-header optional key: a pointer back to this entity's issue-tracker counterpart, if one exists.
     source: Optional[str] = None
+    # Human context at entity level, one entry per authored bullet: stored and rendered as authored, never
+    # parsed for meaning. Nothing derives from a note, validates it or branches on it, whatever its text says.
+    notes: list[str] = Field(default_factory=list)
 
     # User Story
     business_value: list[str] = Field(default_factory=list)

@@ -371,6 +371,13 @@
           "default": null,
           "title": "Source"
         },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
         "business_value": {
           "items": {
             "type": "string"
@@ -1019,6 +1026,7 @@
               "entities[].functionalities[]",
               "entities[].narrative",
               "entities[].not_in_scope[]",
+              "entities[].notes[]",
               "entities[].owners[]",
               "entities[].pages[].functionalities[]",
               "entities[].pages[].is_primary",

@@ -229,9 +229,16 @@ def test_no_relation_warnings_for_the_golden_entity_fixtures():
     entities = [
         ("us-001-customer-login.md", "US-001 · Customer Login", "DocumentedUserStory"),
         ("feat-001-login-page.md", "FEAT-001 · Login Page", "DocumentedFeature"),
+        ("feat-002-breached-password-check.md", "FEAT-002 · Breached Password Check", "DocumentedFeature"),
+        ("feat-003-registration-page.md", "FEAT-003 · Registration Page", "DocumentedFeature"),
         (
             "func-001-validate-password-strength.md",
             "FUNC-001 · Login Page - Validate Password Strength",
+            "DocumentedFunctionality",
+        ),
+        (
+            "func-002-reject-breached-password.md",
+            "FUNC-002 · Login Page - Reject Breached Password",
             "DocumentedFunctionality",
         ),
     ]

@@ -45,6 +45,15 @@ def extract_living_doc_title(lines: list[str]) -> Optional[str]:
     return None
 
 
+def is_living_doc_title(line: str) -> bool:
+    """True when `line` reads as a banner's 'LIVING DOC — ...' title line. It tests the title form
+    rather than the bare words, so a note merely mentioning 'LIVING DOC' is not one (#168) - but a
+    note is free text and may quote the whole form, so this cannot decide a boundary on its own. A
+    caller that skips the title line must first rule out a line that belongs to a bullet item; the
+    structural guard lives with the marker it reads, in `normalize.py::po_section_break`."""
+    return _LIVING_DOC_TITLE_RE.search(line) is not None
+
+
 def derive_entity_id(title: str) -> tuple[Optional[str], list[ContractWarning]]:
     """Extracts the leading entity id from `title`. Returns `(None, [MISSING_ENTITY_ID])` when
     the title carries no parseable id; the caller adds location context and counts the skip

@@ -26,19 +26,25 @@ from typing import Optional
 
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEYS as _ISSUE_BODY_IGNORED_AUTHORED_KEYS
-from living_doc_utilities.authoring.issue_body import ParsedEntity, split_id_list
+from living_doc_utilities.authoring.issue_body import (
+    ParsedEntity,
+    bullet_field_warnings,
+    extract_bullets,
+    split_id_list,
+)
 from living_doc_utilities.authoring.normalize import (
     _PO_LINE_RE,
+    PO_BULLET_KEYS,
     BulletItemTracker,
     SourceFormat,
     indented,
     normalize,
+    po_section_break,
 )
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.doc_entities import PageRef
 from living_doc_utilities.contracts.envelope import ContractWarning
 
-_BANNER_CONTENT_RE = re.compile(r"^=+\s*(\*/)?\s*$")
 _GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*(?P<val>.*)$")
 _COMMENT_OPEN_RE = re.compile(r"^\s*/\*")
 _COMMENT_CLOSE_RE = re.compile(r".*\*/\s*$")
@@ -59,6 +65,7 @@ _FULL_HEADER_KEYS = {
     "page-object",
     "wizard-steps",
     "stub-reason",
+    "notes",
     "status",
 }
 _CROSS_REFERENCE_KEYS = {
@@ -70,9 +77,14 @@ _CROSS_REFERENCE_KEYS = {
     "functionalities",
     "status",
 }
-# The keys whose value is a bullet list, whose items' wrapped lines are never read as a key. The
-# canon's first is `notes:` (#168); every key on this list today is a scalar or an id list.
-_BULLET_KEYS: frozenset[str] = frozenset()
+# Every key either header shape can carry, used only to find `parent-feat:` before the shape is known.
+_ANY_HEADER_KEYS = _FULL_HEADER_KEYS | _CROSS_REFERENCE_KEYS
+# The keys whose value is a bullet list, whose items' wrapped lines are never read as a key and whose
+# dropped text is reported. Declared in `normalize.py`, which has to know them to apply rule 1, so the
+# normaliser and this parser cannot disagree about which key holds a list. `notes:` is the canon's only
+# one; its authored key is also its contract field, unlike the hyphenated keys above. A cross-reference
+# header carries no note: it describes a page, and a note is Feature-level, so `notes:` there is unknown.
+_BULLET_KEYS = PO_BULLET_KEYS
 
 
 @dataclass
@@ -115,13 +127,16 @@ def _extract_title(contents: list[str]) -> Optional[str]:
     return re.sub(r"\s*\[cross-reference]\s*$", "", title)
 
 
-def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, str], list[str]]:
+def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, list[str]], list[str]]:
+    """Each present key's raw lines - the key's own value first, then every line that continued it -
+    plus the unrecognised key names. The lines keep their indent, so a bullet key's list can be read
+    from them; `_joined` collapses a scalar key's lines back into one value."""
     key_re = re.compile(
         r"^(?P<key>"
         + "|".join(re.escape(k) for k in sorted(known_keys, key=len, reverse=True))
         + r")\s*:\s*(?P<val>.*)$"
     )
-    values: dict[str, str] = {}
+    raw_values: dict[str, list[str]] = {}
     current_key: Optional[str] = None
     unrecognised: list[str] = []
     items = BulletItemTracker()
@@ -130,16 +145,16 @@ def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, st
         line = indented(content)
         # Every line passes the tracker first, so a line that ends the key's section also closes its item.
         if items.continues_item(line) and current_key is not None:
-            values[current_key] = f"{values[current_key]} {line.text}".strip()
+            raw_values[current_key].append(content.rstrip())
             continue
-        if line.text == "" or _BANNER_CONTENT_RE.match(line.text) or "LIVING DOC" in content:
+        if po_section_break(content, line.text):
             current_key = None
             continue
 
         key_m = key_re.match(line.text)
         if key_m:
             current_key = key_m.group("key")
-            values[current_key] = key_m.group("val").strip()
+            raw_values[current_key] = [key_m.group("val")]
             continue
 
         generic_m = _GENERIC_KEY_RE.match(line.text)
@@ -149,10 +164,15 @@ def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, st
             continue
 
         if current_key is not None:
-            values[current_key] = f"{values[current_key]} {line.text}".strip()
+            raw_values[current_key].append(content.rstrip())
             items.read(line, current_key in _BULLET_KEYS)
 
-    return values, unrecognised
+    return raw_values, unrecognised
+
+
+def _joined(lines: list[str]) -> str:
+    """A scalar key's lines as one value: each stripped, blanks dropped, joined with a space."""
+    return " ".join(part for part in (line.strip() for line in lines) if part)
 
 
 def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[ContractWarning]]:
@@ -176,14 +196,14 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     if entity_id is None:
         return None, id_warnings
 
-    is_cross_reference = False
-    for content in contents:
-        generic_m = _GENERIC_KEY_RE.match(indented(content).text)
-        if generic_m and generic_m.group("key") == "parent-feat":
-            is_cross_reference = True
-            break
+    # `parent-feat:` picks the key set, so it is read through `_parse_keys` like any other key rather than
+    # by scanning every line: a note's wrapped line may say `parent-feat:` and is still only that note's
+    # text (#168). Probing with both key sets keeps a bullet key open so its items cannot read as keys.
+    probe_values, _ = _parse_keys(contents, _ANY_HEADER_KEYS)
+    is_cross_reference = "parent-feat" in probe_values
     known_keys = _CROSS_REFERENCE_KEYS if is_cross_reference else _FULL_HEADER_KEYS
-    values, unrecognised = _parse_keys(contents, known_keys)
+    raw_values, unrecognised = _parse_keys(contents, known_keys)
+    values = {key: _joined(lines) for key, lines in raw_values.items() if key not in _BULLET_KEYS}
 
     warnings: list[ContractWarning] = []
     for key in unrecognised:
@@ -194,6 +214,9 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
                 context=f"entity_id={entity_id!r}",
             )
         )
+    for key, lines in raw_values.items():
+        if key in _BULLET_KEYS:
+            warnings.extend(bullet_field_warnings(entity_id, key, lines))
     if "status" in values:
         warnings.append(
             ContractWarning(
@@ -235,6 +258,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
         feature_dependencies=split_id_list(values.get("feature_dependencies")),
         stub_reason=values.get("stub-reason"),
         wizard_steps=split_id_list(values.get("wizard-steps"), sep=" · "),
+        notes=extract_bullets(raw_values.get("notes", [])),
         pages=[page_ref],
     )
     return PageObjectResult(page_ref=page_ref, entity=entity, parent_feat=None), warnings

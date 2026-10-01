@@ -1,6 +1,6 @@
 <!--
 Golden fixture. Copied verbatim from AbsaOSS/living-doc's docs/examples/gh-issues/us-001-customer-login.md
-at commit bfcc402ff998085cbf7bb91a7fd55ea8ac12c911 (the canonical-corpus commit, PRs #25/#26).
+at commit eccbc9e72970e10e8d7e61ffc400c66c252229bd (canon HEAD; the `## Notes` corpus round, PR #43).
 -->
 <!--
 GitHub issue body for a User Story mined by collector-gh `doc-issues`.
