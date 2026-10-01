@@ -172,7 +172,7 @@ The state vocabulary: [Entities and state](../contracts/entities-and-state.md#st
 - An authored state that contradicts its own criteria gets `STATUS_AC_MISMATCH`; the authored value wins → `authoring/status.py::_is_mismatch`
 - A Feature is always derived, from its Functionalities alone → `authoring/status.py::_derive_feature`:
   - the majority of its linked Functionalities: its `parent`, or listed in its `functionalities` when `parent` is absent;
-  - with no linked Functionality, `planned` with `ORPHAN_FEATURE` — the same answer the majority rule gives for an empty input, because nothing about the Feature is documented yet.
+  - with no linked Functionality, `planned` with `ORPHAN_FEATURE` — the same answer the majority rule gives for an empty input, because no Functionality speaks for it.
 - A linked User Story never stands in for a Functionality → `tests/authoring/test_status.py::test_feature_with_only_linked_user_stories_is_an_orphan`
   - Why: a Feature is composed of its Functionalities; a User Story only links to it.
 - Non-Features are settled first, so a Feature reads settled states whatever the input order → `authoring/status.py::derive_statuses`

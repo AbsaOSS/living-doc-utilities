@@ -131,7 +131,7 @@ def test_in_review_never_mismatches_for_any_ac_combination():
 
 
 def test_feature_authored_deprecated_at_does_not_win_over_active_functionalities():
-    """An authored deprecated_at on a Feature is ignored; the state still comes from its Functionalities."""
+    """An authored deprecated_at on a Feature does not drive its state; it still comes from its Functionalities."""
     feature = _feature(deprecated_at="2026-01-01", functionalities=["FUNC-001"])
     func = _func(state="active", parent="FEAT-001")
 
@@ -144,11 +144,12 @@ def test_feature_authored_deprecated_at_does_not_win_over_active_functionalities
 
 
 def test_feature_is_deprecated_once_every_functionality_is():
-    """A Feature derives deprecated from its Functionalities alone, once every one of them is deprecated."""
+    """A Feature derives deprecated from its Functionalities alone, once every one of them is deprecated - and takes
+    no deprecation date from them: a Feature has none (DEC-47)."""
     feature = _feature(functionalities=["FUNC-001", "FUNC-002"])
     funcs = [
-        _func(state="deprecated", parent="FEAT-001"),
-        _func(entity_id="FUNC-002", state="deprecated", parent="FEAT-001"),
+        _func(state="deprecated", parent="FEAT-001", deprecated_at="2026-01-01"),
+        _func(entity_id="FUNC-002", state="deprecated", parent="FEAT-001", deprecated_at="2026-02-01"),
     ]
 
     entities, _warnings = derive_statuses([feature, *funcs])
@@ -156,6 +157,7 @@ def test_feature_is_deprecated_once_every_functionality_is():
 
     assert by_id["FEAT-001"].state == "deprecated"
     assert by_id["FEAT-001"].state_origin == "derived"
+    assert by_id["FEAT-001"].deprecated_at is None
 
 
 def test_feature_is_not_deprecated_while_any_functionality_is_live():
