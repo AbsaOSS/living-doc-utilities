@@ -76,9 +76,7 @@ def test_golden_entities_match_hand_written_json():
 
 
 def test_golden_run_produces_exactly_the_expected_corpus_warnings():
-    """The six canonical issue bodies produce two FEATURE_WITHOUT_FUNCTIONALITY warnings: FEAT-002 links only a
-    User Story and FEAT-003 links no entity - neither has a Functionality, the one input a Feature's state
-    derives from."""
+    """Two FEATURE_WITHOUT_FUNCTIONALITY warnings: FEAT-002 links only a User Story, FEAT-003 links no entity."""
     _derived, warnings = _parse_all()
     assert [(w.code, w.context) for w in warnings] == [
         (Code.FEATURE_WITHOUT_FUNCTIONALITY.name, "entity_id='FEAT-002'"),

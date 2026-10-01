@@ -199,8 +199,7 @@ def test_feature_derives_from_own_functionalities_list_when_func_has_no_parent()
 
 
 def test_feature_with_only_linked_user_stories_is_a_feature_without_functionality():
-    """Linked User Stories never stand in for Functionalities: such a Feature derives planned with
-    FEATURE_WITHOUT_FUNCTIONALITY."""
+    """Linked User Stories never stand in for Functionalities: it derives planned, FEATURE_WITHOUT_FUNCTIONALITY."""
     feature = _feature(user_stories=["US-001"])
     story = _us(state="active")
 
