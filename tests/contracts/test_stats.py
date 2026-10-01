@@ -340,13 +340,13 @@ def test_cardinality_warnings_by_code_counts_each_code_from_the_warnings_array()
         warnings=[
             ContractWarning(code="MISSING_STATUS", message="m1"),
             ContractWarning(code="MISSING_STATUS", message="m2"),
-            ContractWarning(code="ORPHAN_FEATURE", message="m3"),
+            ContractWarning(code="FEATURE_WITHOUT_FUNCTIONALITY", message="m3"),
         ],
     )
 
     computed = stats.compute_stats(result, DOC_ENTITIES_ROOTS, Cardinality())
 
-    assert computed.cardinality.warnings_by_code == {"MISSING_STATUS": 2, "ORPHAN_FEATURE": 1}
+    assert computed.cardinality.warnings_by_code == {"MISSING_STATUS": 2, "FEATURE_WITHOUT_FUNCTIONALITY": 1}
 
 
 # ---------------------------------------------------------------------------
