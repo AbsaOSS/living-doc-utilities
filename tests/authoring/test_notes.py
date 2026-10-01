@@ -643,6 +643,40 @@ def test_a_note_that_mentions_living_doc_is_still_a_note():
     ]
 
 
+def test_a_note_quoting_a_whole_banner_title_is_still_a_note():
+    """The sharpest form of the guard above: a note may quote the title form itself, em-dash and all.
+    Testing the form and not the words still read the note's own text as a boundary, so the list closed
+    at that item and every note was dropped - silently, since a closed key loses no text (#168)."""
+    text = _PAGE_OBJECT_WITH_NOTES.replace(
+        " *   - Step order is fixed; the review step cannot be skipped.\n",
+        " *   - See the LIVING DOC — FEAT-002 · Breached Password Check banner for the API surface.\n",
+    )
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.entity is not None
+    assert warnings == []
+    assert result.entity.notes == [
+        "See the LIVING DOC — FEAT-002 · Breached Password Check banner for the API surface.",
+        "The wizard shares one URL with its step files.",
+    ]
+    # The banner's own title still names the entity; the note never competed with it.
+    assert result.entity.entity_id == "FEAT-042"
+
+
+def test_a_quoted_banner_title_in_a_note_does_not_stop_rule_one():
+    """The normaliser reads the same `po_section_break`, so the item after the quoting note is still
+    inside the list and its non-canonical marker is still corrected."""
+    text = _PAGE_OBJECT_WITH_NOTES.replace(
+        " *   - Step order is fixed; the review step cannot be skipped.\n",
+        " *   - See the LIVING DOC — FEAT-002 · Breached Password Check banner.\n"
+        " *   • Step order is fixed; the review step cannot be skipped.\n",
+    )
+    normalized = normalize(text, SourceFormat.PAGE_OBJECT, "DocumentedFeature")
+
+    assert " *   - Step order is fixed; the review step cannot be skipped." in normalized.lines
+    assert [c.rule for c in normalized.changes] == [RULE_BULLET_MARKER]
+
+
 def test_rule_one_stops_at_a_bare_comment_close_as_it_does_at_the_banner():
     """`_PO_LINE_RE` leaves only `/` in a bare ` */`'s content, so the close has to be read off the raw
     line - otherwise a later JSDoc `notes:` re-opens rule 1 and normalisation rewrites TypeScript."""

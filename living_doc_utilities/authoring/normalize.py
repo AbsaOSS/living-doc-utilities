@@ -612,12 +612,18 @@ PO_BULLET_KEYS: frozenset[str] = frozenset({"notes"})
 def po_section_break(content: str, text: str) -> bool:
     """True when this PageObject header line ends whatever key was open: a blank line, a banner, a bare
     ` */` comment close, or the banner's title line. Shared with `page_object.py::_parse_keys` so the
-    normaliser and the parser cannot disagree about where a key's list stops."""
+    normaliser and the parser cannot disagree about where a key's list stops.
+
+    The title test is the only one that reads the line's prose, so it is the only one a note's own text
+    could trip. It is therefore structural, not textual: the banner title sits at the banner's base level
+    and never carries a bullet marker, so a line that opens an item is never a title, however it reads
+    (#168). A wrapped line inside an open item never reaches here at all - both callers put the line
+    through `BulletItemTracker` first."""
     return (
         text == ""
         or _PO_BANNER_CONTENT_RE.match(text) is not None
         or _PO_COMMENT_CLOSE_CONTENT_RE.match(text) is not None
-        or is_living_doc_title(content)
+        or (_ITEM_MARKER_RE.match(text) is None and is_living_doc_title(content))
     )
 
 
