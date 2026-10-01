@@ -17,7 +17,7 @@
 """
 `derive_statuses` settles every entity's `state`/`state_origin` in one pass. A User Story/Functionality's
 state is authored, falling back to its ACs; a Feature's is always derived: `deprecated_at`, then its
-Functionalities, then its User Stories, else `active` with an `ORPHAN_FEATURE` warning.
+Functionalities, then its User Stories, else `planned` with an `ORPHAN_FEATURE` warning.
 """
 
 from typing import Iterable
@@ -115,11 +115,15 @@ def _derive_feature(
     warnings.append(
         ContractWarning(
             code=Code.ORPHAN_FEATURE.name,
-            message="Feature has no linked Functionality and no linked User Story in this run.",
+            message=(
+                "Feature has no linked Functionality and no linked User Story in this run — either it is not yet "
+                "populated, or it has been fully retired. Author its Functionalities, or remove the Feature."
+            ),
             context=f"entity_id={feature.entity_id!r}",
         )
     )
-    return feature.model_copy(update={"state": "active", "state_origin": "derived"})
+    # Nothing to derive from, the same case `_majority_state` answers `planned` for: never claim the surface works.
+    return feature.model_copy(update={"state": "planned", "state_origin": "derived"})
 
 
 def derive_statuses(entities: list[ParsedEntity]) -> tuple[list[ParsedEntity], list[ContractWarning]]:
