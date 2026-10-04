@@ -81,7 +81,7 @@ class Role(Enum):
 
     OUTSIDE = auto()  # not a line of the frame: passes through, and no parser reads it
     CODE = auto()  # a fenced code block's line: content of its section, never rewritten
-    BLANK = auto()  # no text: in a header it ends the open key and its open item
+    BLANK = auto()  # no text: layout, so it ends neither the open key nor its open item
     RULE = auto()  # a banner rule, the header comment's opening line, or its bare close
     TITLE = auto()  # the banner title: the first line after the opening rule, whatever it reads like
     HEADING = auto()  # opens a section: an issue body's `##` heading; a Gherkin `Feature:`, `Background:`, `Scenario:`
@@ -117,9 +117,10 @@ class FramedLine(NamedTuple):
 # The structural problems a frame reports - never a missing required key, which is checked above the parser.
 NO_FRAME = "no_frame"  # no banner rule, or no header comment, was found
 UNTERMINATED_FRAME = "unterminated_frame"  # the frame opened and never closed
-KEY_OUTSIDE_FRAME = "key_outside_frame"  # a `.feature` header key line above `Feature:` but outside the frame
+KEY_OUTSIDE_FRAME = "key_outside_frame"  # a `.feature` key line between the header's end and `Feature:`
 LINE_WITHOUT_MARKER = "line_without_marker"  # a line with text inside the frame that lacks the comment marker
 CRITERION_HEADER_AS_TEXT = "criterion_header_as_text"  # an `AC:` line in a criterion block read as text, not a header
+LINE_AFTER_CLOSE = "line_after_close"  # a ` * ` line between a PageObject comment's early close and its real end
 
 
 class Problem(NamedTuple):
@@ -279,7 +280,7 @@ def frame_issue_body(lines: list[FramedLine], bullet_sections: frozenset[str]) -
 
 class _HeaderWalk:
     """Places a header's body lines one by one: which key's section each is in, and whether it is an open
-    bullet item's text. A blank line or a rule ends the open key; a key line opens the next."""
+    bullet item's text. A rule ends the open key, a key line opens the next, and a blank line ends nothing."""
 
     def __init__(self, bullet_sections: frozenset[str]) -> None:
         self._bullet_sections = bullet_sections
@@ -360,10 +361,10 @@ _AC_PREFIX_RE = re.compile(r"^AC:")
 def frame_feature_header(lines: list[FramedLine], bullet_sections: frozenset[str]) -> Frame:
     """Places a `.feature` file's lines. The frame runs from the first `# ===` rule above `Feature:` to the last;
     its title is the first line after the opening rule. Inside it every line with text is a header line: a
-    `key:` line opens that key's section, an `AC:` header opens a criterion block that runs to the next rule,
-    and neither is read on an open bullet item's text. A blank line without `#` is no header line and closes
-    nothing, as a blank line in a Markdown list does not. With no rule at all there is no header; nothing
-    outside the frame is read."""
+    `key:` line at the key level opens that key's section, and an `AC:` header at the criterion level opens a
+    criterion block that runs to the next `AC:` header, key or rule. Neither is read on an open bullet item's
+    text. A blank line without `#` is no header line and closes nothing, as a blank line in a Markdown list does
+    not. With no rule at all there is no header; nothing outside the frame is read."""
     end = next((i for i, framed in enumerate(lines) if _FEATURE_LINE_RE.match(framed.raw.strip())), len(lines))
     rules = [i for i in range(end) if _FH_RULE_RE.match(lines[i].raw)]
     problems: list[Problem] = []
@@ -393,8 +394,9 @@ def frame_feature_header(lines: list[FramedLine], bullet_sections: frozenset[str
         elif in_frame:
             placed.append(_place_header_line(walk, framed))
         else:
-            # A key between the rules' outside and `Feature:` is out of place; with no header at all it is not.
-            if rules and index < end and framed.role is not Role.OUTSIDE and _FH_KEY_RE.match(framed.line.text):
+            # A key between the header's end and `Feature:` is out of place. Above the opening rule the header has not
+            # started, so a comment there is no header line: Gherkin's own `# language:` sits on line 1.
+            if rules and stop < index < end and framed.role is not Role.OUTSIDE and _FH_KEY_RE.match(framed.line.text):
                 problems.append(Problem(KEY_OUTSIDE_FRAME, framed.number))
             placed.append(_placed(framed, Role.OUTSIDE))
     return Frame(placed, problems + walk.problems)
@@ -460,8 +462,8 @@ def without_comment_close(text: str) -> str:
 def frame_page_object(lines: list[FramedLine], bullet_keys: frozenset[str]) -> Frame:
     """Places a PageObject file's lines. The frame is the file's first `/* ... */` comment, from its opening
     line to the first line that ends in `*/`; its title is the first line after the opening one. Inside it
-    every ` * ` line is a header line: a `key:` line opens that key's section, and a blank line or a `===`
-    rule ends it. Everything else, a later JSDoc block included, is outside."""
+    every ` * ` line is a header line: a `key:` line opens that key's section, a `===` rule ends it, and a blank
+    ` *` line ends nothing. Everything else, a later JSDoc block included, is outside."""
     opening = next((i for i, framed in enumerate(lines) if _COMMENT_OPEN_RE.match(framed.raw)), None)
     close = None
     if opening is not None:
@@ -478,6 +480,12 @@ def frame_page_object(lines: list[FramedLine], bullet_keys: frozenset[str]) -> F
         for index in range(opening + 1, close)
         if lines[index].role is Role.OUTSIDE and lines[index].line.text
     ]
+    # A value ending in `*/` closed the comment early when a later ` * ` line, before any code, closes it again: the
+    # header's real end is there, and each line up to it is reported. With no later close the header ends here.
+    after = _star_lines_after(lines, close)
+    ends = [index for index, framed in enumerate(after) if _COMMENT_CLOSE_RE.search(framed.raw)]
+    if ends:
+        problems += [Problem(LINE_AFTER_CLOSE, framed.number) for framed in after[: ends[-1] + 1] if framed.line.text]
     for index, framed in enumerate(lines):
         # Phase 1 marked each ` * ` line `TEXT`; only those are header lines, the close line's text included.
         closes = index == close and (
@@ -492,6 +500,18 @@ def frame_page_object(lines: list[FramedLine], bullet_keys: frozenset[str]) -> F
         else:
             placed.append(_place_page_object_line(walk, framed))
     return Frame(placed, problems)
+
+
+def _star_lines_after(lines: list[FramedLine], close: int) -> list[FramedLine]:
+    """The ` * ` lines after the comment's close, up to the first line of code; a blank line between them ends
+    nothing."""
+    found: list[FramedLine] = []
+    for framed in lines[close + 1 :]:
+        if framed.role is not Role.OUTSIDE:
+            found.append(framed)
+        elif framed.line.text:
+            break
+    return found
 
 
 def _place_page_object_line(walk: _HeaderWalk, framed: FramedLine) -> FramedLine:

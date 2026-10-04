@@ -28,6 +28,7 @@ from living_doc_utilities.authoring import identity
 from living_doc_utilities.authoring.feature_header import parse_feature_header
 from living_doc_utilities.authoring.framing import (
     KEY_OUTSIDE_FRAME,
+    LINE_AFTER_CLOSE,
     NO_FRAME,
     UNTERMINATED_FRAME,
     Problem,
@@ -556,11 +557,17 @@ def test_a_scenario_files_sections_are_its_gherkin_keyword_lines():
             SourceFormat.FEATURE_HEADER,
             [Problem(KEY_OUTSIDE_FRAME, 4)],
         ),
+        (
+            "/* ===\n * LIVING DOC — FEAT-1 · S\n * route: /s */\n * owners: T\n * === */\n\nexport class P {}\n",
+            SourceFormat.PAGE_OBJECT,
+            [Problem(LINE_AFTER_CLOSE, 4), Problem(LINE_AFTER_CLOSE, 5)],
+        ),
     ],
-    ids=["fh_no_frame", "fh_unterminated", "po_no_frame", "po_unterminated", "fh_key_outside"],
+    ids=["fh_no_frame", "fh_unterminated", "po_no_frame", "po_unterminated", "fh_key_outside", "po_line_after_close"],
 )
 def test_the_frame_reports_structural_problems_only(text, fmt, expected):
-    """No frame, an unterminated frame and a key outside the frame are reported - never a missing required key."""
+    """No frame, an unterminated frame, a key outside the frame and a line after an early close are reported -
+    never a missing required key."""
     _, frame = normalize_framed(text, fmt, "DocumentedUserStory" if fmt is SourceFormat.FEATURE_HEADER else "DocumentedFeature")
 
     assert frame.problems == expected

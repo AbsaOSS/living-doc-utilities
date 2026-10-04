@@ -26,8 +26,8 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 - Each parser returns `(parsed, warnings)` and never raises on malformed input; every information-losing skip is a coded warning → `tests/authoring/test_warning_coverage.py::test_information_losing_skip_produces_a_coded_warning_and_no_log_record`
   - Why: a caller always has a structured way to see what was lost.
 - Every authored line no field reads is reported, one warning per line → `authoring/accounting.py`
-  - A line that breaks its header's format is `AUTHORING_ERROR`: a line with no comment marker inside the header, a second line under a single-value key, a header that never closes, a key outside the header → `tests/authoring/test_accounting.py::test_a_line_with_text_and_no_comment_marker_inside_a_feature_header_is_not_read`
-  - Any other unread line no more specific code covers is `AUTHORING_WARNING`: text in no section, a key or `##` heading written twice (the later one wins), a value continued after a blank line, a code block inside a criterion → `tests/authoring/test_accounting.py::test_a_key_written_twice_reports_the_earlier_value`
+  - A line that breaks its header's format is `AUTHORING_ERROR`: a line with no comment marker inside the header, a second line under a single-value key, a header that never closes, a key below the header, a PageObject header line between an early `*/` and the header's real end → `tests/authoring/test_accounting.py::test_a_line_with_text_and_no_comment_marker_inside_a_feature_header_is_not_read`
+  - Any other unread line no more specific code covers is `AUTHORING_WARNING`: text in no section, a key or `##` heading written twice (only the first is read; every line of the later one is reported), a value continued after a blank line, a code block inside a criterion, a line of a dropped criterion → `tests/authoring/test_accounting.py::test_a_key_written_twice_reads_the_first_value_and_reports_the_later_one`
   - Both are warnings: parsing goes on, and a format check decides what fails it ([codes](../contracts/errors.md#codes)) → `tests/authoring/test_accounting.py::test_both_authoring_codes_are_warnings_so_a_parser_never_stops`
   - An HTML comment, and the prose a cross-reference header may open with, are not content and are not reported → `tests/authoring/test_accounting.py::test_issue_body_text_before_the_first_heading_is_reported_but_an_html_comment_is_not`
 - A warning about a line names its 1-based input line (`line_no=`) and the line or its text (`line=`); the caller, which knows the file, adds the file → `tests/authoring/test_accounting.py::test_every_line_warning_of_a_broken_header_names_its_input_line`
@@ -126,6 +126,8 @@ Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a f
 
 - The header runs from the first `# ===` rule to the last; it holds `# key: value` lines, and `# key:` lines with an indented bullet list → `authoring/framing.py::frame_feature_header`
   - Nothing outside it is read: not a line above the first rule or below the last → `authoring/framing.py::frame_feature_header`
+  - A key below the last rule, above `Feature:`, is `AUTHORING_ERROR` → `tests/authoring/test_accounting.py::test_a_key_below_the_closing_rule_is_reported`
+  - A comment above the first rule is no header line and is not reported: Gherkin's `# language:` sits on line 1 → `tests/authoring/test_accounting.py::test_a_comment_above_the_opening_rule_is_no_header_line_and_is_not_reported`
   - A header with only one rule never closes. It is still read, up to its last comment line before a tag or `Feature:`, and is reported as `AUTHORING_ERROR` → `tests/authoring/test_framing.py::test_a_feature_header_with_one_rule_is_read_to_its_last_comment_line_and_reported`
 - The title is the first line after the opening rule: `LIVING DOC — <id> · <title>` → `authoring/framing.py::Frame.title`
   - A header with no title there is `MISSING_ENTITY_ID`, whatever a later line reads like → `tests/authoring/test_framing.py::test_a_feature_header_title_is_the_line_after_the_opening_rule_not_any_line_reading_like_one`
@@ -158,6 +160,9 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 - The comment ends at its first line that ends in `*/`; a `*/` inside a value does not end it → `authoring/framing.py::frame_page_object`
   - A key written on that last line is still read, without the comment's `*/` → `tests/authoring/test_framing.py::test_a_key_on_the_closing_line_is_still_read_without_the_close`
   - With no line ending in `*/` the comment never closes, and nothing in it is read → `tests/authoring/test_framing.py::test_an_unclosed_page_object_comment_leaves_its_lines_as_written`
+  - It is reported as `AUTHORING_ERROR`, saying that nothing in it is read → `tests/authoring/test_accounting.py::test_an_unclosed_page_object_comment_is_reported_as_read_nowhere`
+  - A value ending in `*/` closes the comment early when a later ` * ` line, before any code, closes it again: the header's real end is there, and each line up to it is `AUTHORING_ERROR` → `tests/authoring/test_accounting.py::test_header_lines_up_to_the_real_end_after_a_comment_that_closed_early_are_reported`
+  - With no later close, the header ends where the comment did, and nothing after it is reported → `tests/authoring/test_accounting.py::test_a_comment_closed_by_a_value_with_no_later_close_ends_the_header_there`
 - A `===` rule ends the open key; a blank ` *` line ends nothing → `tests/authoring/test_accounting.py::test_a_blank_star_line_in_a_notes_list_ends_nothing`
 - A line inside the comment without ` * ` is not read and is `AUTHORING_ERROR`, as a `.feature` line without `#` is → `tests/authoring/test_accounting.py::test_a_page_object_line_without_its_star_is_reported`
 

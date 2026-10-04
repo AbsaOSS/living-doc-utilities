@@ -26,7 +26,7 @@ from typing import Any, Optional
 from living_doc_utilities.authoring.ac_grammar import parse_frame_criteria
 from living_doc_utilities.authoring.accounting import (
     at_title,
-    duplicate_sections,
+    first_occurrences,
     missing_title,
     scalar_lines,
     structural_warnings,
@@ -93,12 +93,11 @@ class _ParsedKeys:
 
 
 def _read_keys(frame: Frame, key_specs: dict[str, _SectionSpec], entity_id: str) -> _ParsedKeys:
-    """Each key section of the frame, looked up in `key_specs`. A later occurrence of a key replaces an earlier
-    one, which is reported; a scalar key's further lines are read by its value's type (`accounting.scalar_lines`)."""
+    """Each key section of the frame, looked up in `key_specs`; a key written twice has left the frame already
+    (`accounting.first_occurrences`). A scalar key's further lines are read by its value's type
+    (`accounting.scalar_lines`)."""
     result = _ParsedKeys()
-    keys = sections(frame)
-    result.warnings.extend(duplicate_sections(keys, entity_id))
-    for section in keys:
+    for section in sections(frame):
         spec = key_specs.get(section.name)
         if spec is None:
             result.unrecognised.append((section.name, section.opener.number))
@@ -138,6 +137,8 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
         return None, at_title(id_warnings, frame)
 
     warnings: list[ContractWarning] = structural_warnings(frame, entity_id)
+    frame, repeated = first_occurrences(frame, entity_id)
+    warnings.extend(repeated)
     key_specs = _KEYS_BY_TYPE[entity_type]
     keys = _read_keys(frame, key_specs, entity_id)
     warnings.extend(keys.warnings)

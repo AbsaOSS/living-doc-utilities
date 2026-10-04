@@ -26,7 +26,15 @@ from typing import Optional
 
 from pydantic import ValidationError
 
-from living_doc_utilities.authoring.framing import Frame, IndentedLine, Role, criterion_blocks, indented
+from living_doc_utilities.authoring.accounting import report
+from living_doc_utilities.authoring.framing import (
+    CriterionBlock,
+    Frame,
+    IndentedLine,
+    Role,
+    criterion_blocks,
+    indented,
+)
 from living_doc_utilities.authoring.normalize import (
     _BULLET_RE,
     _WORD_SEP_RE,
@@ -55,6 +63,8 @@ _COMMENT_LEADER_RE = re.compile(r"^[#*]+ ?")
 
 _AC_HEADER_RE = re.compile(r"^AC:(?P<id>\S*)\s*\((?P<inner>.*)\)\s*$")
 _AC_PREFIX_RE = re.compile(r"^AC:")
+# The input line a warning's context names.
+_LINE_NO_RE = re.compile(r"\bline_no=(\d+)")
 
 # Hard AC-block boundary like a fresh "AC:" header; else the last AC absorbs the banner and the scenario body.
 _SECTION_BANNER_RE = re.compile(r"^=+$")
@@ -473,6 +483,7 @@ def parse_frame_criteria(frame: Frame, entity_id: str) -> tuple[list[AcceptanceC
         header_m = _AC_HEADER_RE.match(_COMMENT_LEADER_RE.sub("", block.header.rendered).strip())
         if header_m is None:
             warnings.append(_malformed_header(entity_id, block.header.rendered, block.header.number))
+            warnings.extend(_dropped_lines(frame, block, entity_id, []))
             continue
         lines = [
             (_COMMENT_LEADER_RE.sub("", framed.rendered), framed.number)
@@ -487,7 +498,23 @@ def parse_frame_criteria(frame: Frame, entity_id: str) -> tuple[list[AcceptanceC
             block.header.rendered,
             block.header.number,
         )
-        if acceptance_criterion is not None:
-            results.append(acceptance_criterion)
         warnings.extend(ac_warnings)
+        if acceptance_criterion is None:
+            warnings.extend(_dropped_lines(frame, block, entity_id, ac_warnings))
+        else:
+            results.append(acceptance_criterion)
     return results, warnings
+
+
+def _dropped_lines(
+    frame: Frame, block: CriterionBlock, entity_id: str, named: list[ContractWarning]
+) -> list[ContractWarning]:
+    """Each line of a dropped criterion's block that no other warning names: one warning per line, so none of its
+    lines is lost unnamed. A code line is reported as a code block already, and a structural problem by the frame."""
+    numbers = {problem.line for problem in frame.problems}
+    numbers |= {int(m.group(1)) for warning in named if (m := _LINE_NO_RE.search(warning.context or ""))}
+    return [
+        report(Code.AUTHORING_WARNING, "Line of a dropped acceptance criterion is not read.", entity_id, framed)
+        for framed in block.lines
+        if framed.line.text and framed.role is not Role.CODE and framed.number not in numbers
+    ]

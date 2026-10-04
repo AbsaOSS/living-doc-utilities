@@ -26,8 +26,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from living_doc_utilities.authoring.accounting import (
+    UNCLOSED_COMMENT,
     at_title,
-    duplicate_sections,
+    first_occurrences,
     missing_title,
     scalar_lines,
     structural_warnings,
@@ -133,7 +134,7 @@ def _read_keys(keys: list[Section], known_keys: set[str], entity_id: str) -> _Re
     """Each known key's raw lines - the key's own value first, then every line of its section - plus the
     unrecognised keys. The lines keep their indent, so a bullet key's list can be read from them; a scalar key's
     further lines are read by its value's type (`accounting.scalar_lines`), and `_joined` collapses them."""
-    result = _ReadKeys(warnings=duplicate_sections(keys, entity_id))
+    result = _ReadKeys()
     for key in keys:
         if key.name not in known_keys:
             result.unrecognised.append((key.name, key.opener.number))
@@ -162,7 +163,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
 
     title = _extract_title(frame)
     if title is None:
-        return None, [missing_title(frame, "PageObject"), *structural_warnings(frame, "")]
+        return None, [missing_title(frame, "PageObject"), *structural_warnings(frame, "", UNCLOSED_COMMENT)]
 
     entity_id, id_warnings = derive_entity_id(title)
     if entity_id is None:
@@ -170,6 +171,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
 
     # `parent-feat:` picks the key set, so it is read from the frame's key sections like any other key: a
     # note's wrapped line may say `parent-feat:` and is still only that note's text (#168).
+    frame, repeated = first_occurrences(frame, entity_id)
     keys = sections(frame)
     is_cross_reference = any(key.name == "parent-feat" for key in keys)
     known_keys = _CROSS_REFERENCE_KEYS if is_cross_reference else _FULL_HEADER_KEYS
@@ -178,7 +180,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     values = {key: _joined(lines) for key, lines in raw_values.items() if key not in _BULLET_KEYS}
 
     # A cross-reference header may open with prose before its first key; the canon allows it.
-    warnings: list[ContractWarning] = structural_warnings(frame, entity_id) + read.warnings
+    warnings: list[ContractWarning] = structural_warnings(frame, entity_id) + repeated + read.warnings
     warnings.extend(unplaced_lines(frame, entity_id, skip_intro=is_cross_reference))
     for key, number in read.unrecognised:
         warnings.append(

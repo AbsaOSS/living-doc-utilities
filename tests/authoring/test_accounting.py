@@ -74,6 +74,17 @@ def test_a_key_below_the_closing_rule_is_reported():
     assert _codes_and_lines(text, warnings) == [("AUTHORING_ERROR", "# notes:")]
 
 
+def test_a_comment_above_the_opening_rule_is_no_header_line_and_is_not_reported():
+    """The header starts at its opening rule, so a key-shaped comment above it - Gherkin's `# language:`, which
+    must sit on line 1 - is no header line: it is neither read nor reported."""
+    text = "# language: en\n" + _us_header("# status: active\n")
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and entity.state == "active"
+    assert warnings == []
+
+
 def test_a_feature_file_with_no_header_says_no_header_was_found():
     """A `.feature` file with no `# ===` rule above `Feature:` has no header: nothing is read, and the report says
     that no header was found rather than that a title line is missing."""
@@ -95,6 +106,52 @@ def test_a_header_with_one_rule_is_read_and_reported_as_never_closed():
 
     assert entity is not None and entity.state == "active"
     assert _codes_and_lines(text, warnings) == [("AUTHORING_ERROR", "# =====")]
+
+
+def test_header_lines_up_to_the_real_end_after_a_comment_that_closed_early_are_reported():
+    """A value ending in `*/` closes the comment there, yet a later ` * ` line before any code closes it again: that
+    is the header's real end, so each line up to it is reported, across a blank line too."""
+    text = (
+        "/* =====\n * LIVING DOC — FEAT-042 · Account Setup Wizard\n * =====\n * route: /setup */\n\n"
+        " * page-object: AccountSetupWizardPage.ts\n * ===== */\n\nexport class P {}\n"
+    )
+
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.page_ref.route == "/setup"
+    assert result.page_ref.page_object == ""
+    assert _codes_and_lines(text, warnings) == [
+        ("AUTHORING_ERROR", "* page-object: AccountSetupWizardPage.ts"),
+        ("AUTHORING_ERROR", "* ===== */"),
+    ]
+
+
+def test_a_comment_closed_by_a_value_with_no_later_close_ends_the_header_there():
+    """With no later ` * ` line closing the comment again, the header ends where the comment did: what follows is
+    no header line, and nothing is reported. Such a file is no valid TypeScript, and TypeScript reports it."""
+    text = (
+        "/* =====\n * LIVING DOC — FEAT-042 · Account Setup Wizard\n * =====\n * route: /setup */\n"
+        " * page-object: AccountSetupWizardPage.ts\n\nexport class P {}\n"
+    )
+
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.page_ref.route == "/setup"
+    assert result.page_ref.page_object == ""
+    assert warnings == []
+
+
+def test_an_unclosed_page_object_comment_is_reported_as_read_nowhere():
+    """A PageObject comment with no `*/` is no valid TypeScript, and nothing in it is read: the report says so,
+    not that it was read up to its last comment line as an unclosed `.feature` header is."""
+    text = "/* =====\n * LIVING DOC — FEAT-042 · Account Setup Wizard\n * route: /setup\n\nexport class P {}\n"
+
+    result, warnings = parse_page_object(text)
+
+    assert result is None
+    assert [(w.code, w.message) for w in warnings if w.code == Code.AUTHORING_ERROR.name] == [
+        ("AUTHORING_ERROR", "The header comment is never closed with '*/': nothing in it is read.")
+    ]
 
 
 @pytest.mark.parametrize(
@@ -146,14 +203,88 @@ def test_a_cross_reference_headers_opening_prose_is_canon_and_not_reported():
     assert warnings == []
 
 
-def test_a_key_written_twice_reports_the_earlier_value():
-    """The later value wins, as it always did; the earlier one is reported instead of vanishing."""
+def test_a_key_written_twice_reads_the_first_value_and_reports_the_later_one():
+    """Only the first occurrence of a key is read (owner, 2026-10-04); the later one is reported, not used."""
     text = _us_header("# status: active\n# status: deprecated\n")
 
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
 
-    assert entity is not None and entity.state == "deprecated"
-    assert _codes_and_lines(text, warnings) == [("AUTHORING_WARNING", "# status: active")]
+    assert entity is not None and entity.state == "active"
+    assert _codes_and_lines(text, warnings) == [("AUTHORING_WARNING", "# status: deprecated")]
+
+
+def test_every_line_of_a_repeated_bullet_key_is_reported():
+    """A repeated key's items are its value too: each is reported on its own line, so none is lost unnamed."""
+    text = _po(" * notes:\n *   - First note.\n * notes:\n *   - Second note.\n *     wrapped.\n")
+
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.entity is not None
+    assert result.entity.notes == ["First note."]
+    assert _codes_and_lines(text, warnings) == [
+        ("AUTHORING_WARNING", "* notes:"),
+        ("AUTHORING_WARNING", "*   - Second note."),
+        ("AUTHORING_WARNING", "*     wrapped."),
+    ]
+
+
+def test_criteria_under_a_repeated_acceptance_criteria_key_are_not_read_and_are_reported():
+    """In a `.feature` header the criteria under a key belong to it, so a repeated `acceptance_criteria:` takes its
+    criteria along: they are reported line by line, and only the first key's criteria are read."""
+    text = _us_header(
+        "# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     - First.\n"
+        "# acceptance_criteria:\n#   AC:US-001-02 (v1.0.0 - active)\n#     - Second.\n"
+    )
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
+    assert _codes_and_lines(text, warnings) == [
+        ("AUTHORING_WARNING", "# acceptance_criteria:"),
+        ("AUTHORING_WARNING", "#   AC:US-001-02 (v1.0.0 - active)"),
+        ("AUTHORING_WARNING", "#     - Second."),
+    ]
+
+
+def test_every_line_of_a_dropped_criterion_is_reported_and_the_next_criterion_is_read():
+    """A criterion the grammar drops - here an unknown state - takes its block's lines with it: each is reported on
+    its own line, beside the criterion's `MALFORMED_AC`, and the next criterion is read."""
+    text = _us_header(
+        "# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - bogus)\n#     - First.\n#       wrapped.\n"
+        "#   AC:US-001-02 (v1.0.0 - active)\n#     - Second.\n"
+    )
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and [ac.id for ac in entity.acceptance_criteria] == ["US-001-02"]
+    assert _codes_and_lines(text, warnings) == [
+        ("MALFORMED_AC", "#   AC:US-001-01 (v1.0.0 - bogus)"),
+        ("AUTHORING_WARNING", "#     - First."),
+        ("AUTHORING_WARNING", "#       wrapped."),
+    ]
+
+
+def test_a_dropped_criterions_line_already_reported_is_not_reported_twice():
+    """A block line the grammar named already keeps its one warning; a dropped criterion adds none for it."""
+    text = _us_header("# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     prose with no bullet\n")
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and entity.acceptance_criteria == []
+    assert [w.code for w in warnings] == [Code.UNPARSED_AC_LINE.name, Code.MALFORMED_AC.name]
+
+
+def test_every_line_of_a_dropped_issue_body_criterion_is_reported():
+    """The issue body's criteria are bounded by the same frame: a dropped one's lines are reported too."""
+    body = "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 - bogus)\n\n- First.\n"
+
+    entity, warnings = parse_issue_body(body, "US-001 · S", "DocumentedUserStory")
+
+    assert entity is not None and entity.acceptance_criteria == []
+    assert _codes_and_lines(body, warnings) == [
+        ("MALFORMED_AC", "### AC:US-001-01 (v1.0.0 - bogus)"),
+        ("AUTHORING_WARNING", "- First."),
+    ]
 
 
 def test_a_line_at_the_keys_own_level_under_a_scalar_key_is_reported():
@@ -214,14 +345,17 @@ def test_issue_body_text_before_the_first_heading_is_reported_but_an_html_commen
     assert _codes_and_lines(body, warnings) == [("AUTHORING_WARNING", "Some intro text.")]
 
 
-def test_a_heading_written_twice_reports_the_earlier_section():
-    """The later `## Notes` wins; the earlier one is reported instead of vanishing."""
+def test_a_heading_written_twice_reads_the_first_section_and_reports_every_line_of_the_later_one():
+    """Only the first `## Notes` is read; the later heading and each of its lines are reported."""
     body = "## Status\n\nactive\n\n## Notes\n\n- First note.\n\n## Notes\n\n- Second note.\n"
 
     entity, warnings = parse_issue_body(body, "US-001 · S", "DocumentedUserStory")
 
-    assert entity is not None and entity.notes == ["Second note."]
-    assert _codes_and_lines(body, warnings) == [("AUTHORING_WARNING", "## Notes")]
+    assert entity is not None and entity.notes == ["First note."]
+    assert _codes_and_lines(body, warnings) == [
+        ("AUTHORING_WARNING", "## Notes"),
+        ("AUTHORING_WARNING", "- Second note."),
+    ]
 
 
 def test_prose_in_the_criteria_section_outside_every_criterion_is_reported():

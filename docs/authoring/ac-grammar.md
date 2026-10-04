@@ -116,6 +116,8 @@ A criterion is skipped with a `MALFORMED_AC` warning when → `authoring/ac_gram
 - the block has no description bullet;
 - in a scenario file, an `@AC:` tag has an invalid criterion id, an empty segment, a segment that is not `<param>:<value>`, `aspect` given twice, or an `aspect` value that contains `:` ([Parsers, scenarios](parsers.md#scenarios)).
 
+In a parser, each line of a dropped criterion's block is reported too, one `AUTHORING_WARNING` per line, unless another warning already names it → `tests/authoring/test_accounting.py::test_every_line_of_a_dropped_criterion_is_reported_and_the_next_criterion_is_read`
+
 ## Legacy descoped criteria
 
 - `AC:<id> (v<x.y.z> - descoped)` is converted to a version-less `planned` criterion, with a `LEGACY_AC_STATE` warning → `authoring/ac_grammar.py::_build_ac`

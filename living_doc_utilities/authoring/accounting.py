@@ -20,9 +20,12 @@ A line that breaks the header format is `AUTHORING_ERROR`; any other unread line
 is `AUTHORING_WARNING`. Both are warnings - a parser never stops - and each names its input line and its text.
 """
 
+from typing import Optional
+
 from living_doc_utilities.authoring.framing import (
     CRITERION_HEADER_AS_TEXT,
     KEY_OUTSIDE_FRAME,
+    LINE_AFTER_CLOSE,
     LINE_WITHOUT_MARKER,
     NO_FRAME,
     UNTERMINATED_FRAME,
@@ -43,11 +46,17 @@ _PROBLEMS = {
     ),
     KEY_OUTSIDE_FRAME: (Code.AUTHORING_ERROR, "A header key outside the header is not read."),
     LINE_WITHOUT_MARKER: (Code.AUTHORING_ERROR, "A line inside the header without its comment marker is not read."),
+    LINE_AFTER_CLOSE: (
+        Code.AUTHORING_ERROR,
+        "A header line after a '*/' that closed the comment early is not read; the header's real end comes later.",
+    ),
     CRITERION_HEADER_AS_TEXT: (
         Code.AUTHORING_WARNING,
         "An 'AC:' line inside a criterion is read as text: it is not at the criteria's indent, or it continues an item.",
     ),
 }
+# A PageObject comment with no `*/` is no valid TypeScript, and nothing in it is read.
+UNCLOSED_COMMENT = "The header comment is never closed with '*/': nothing in it is read."
 
 
 def line_context(entity_id: str, number: int, text: str) -> str:
@@ -77,13 +86,16 @@ def at_title(warnings: list[ContractWarning], frame: Frame) -> list[ContractWarn
     return [warning.model_copy(update={"context": f"{warning.context} line_no={number}"}) for warning in warnings]
 
 
-def structural_warnings(frame: Frame, entity_id: str) -> list[ContractWarning]:
-    """The frame's structural problems, each reported on the line it names."""
+def structural_warnings(frame: Frame, entity_id: str, unclosed: str = "") -> list[ContractWarning]:
+    """The frame's structural problems, each reported on the line it names. `unclosed`, when given, replaces the
+    message for a header that never closes, for a format that reads nothing of it."""
     raw_by_number = {framed.number: framed.raw for framed in frame.lines}
     warnings = []
     for problem in frame.problems:
         if problem.kind in _PROBLEMS:
             code, message = _PROBLEMS[problem.kind]
+            if problem.kind == UNTERMINATED_FRAME and unclosed:
+                message = unclosed
             context = line_context(entity_id, problem.line, raw_by_number.get(problem.line, ""))
             warnings.append(ContractWarning(code=code.name, message=message, context=context))
     return warnings
@@ -174,18 +186,29 @@ def scalar_lines(section: Section, single_value: bool, entity_id: str) -> tuple[
     return values, warnings
 
 
-def duplicate_sections(found: list[Section], entity_id: str) -> list[ContractWarning]:
-    """A key or `##` heading written twice: the later one wins, and the earlier one is reported."""
-    return [
-        report(
-            Code.AUTHORING_WARNING,
-            f"'{section.name}' appears again later; this value was not used.",
-            entity_id,
-            section.opener,
-        )
-        for index, section in enumerate(found)
-        if any(later.name == section.name for later in found[index + 1 :])
-    ]
+def first_occurrences(frame: Frame, entity_id: str) -> tuple[Frame, list[ContractWarning]]:
+    """A key or `##` heading written twice: only its first occurrence is read. A later one runs to the next key,
+    heading or rule, so a `.feature` header's criteria under it are its too; each of its lines is reported and
+    leaves the frame, so no field, criterion or other check reads it."""
+    seen: set[str] = set()
+    repeated: Optional[str] = None
+    lines: list[FramedLine] = []
+    warnings: list[ContractWarning] = []
+    for framed in frame.lines:
+        # An issue body's `## AC:` heading is a criterion, not a section that can repeat.
+        if framed.role in (Role.HEADING, Role.KEY) and framed.section is not None and not framed.criterion:
+            repeated = framed.section if framed.section in seen else None
+            seen.add(framed.section)
+        elif framed.role in (Role.RULE, Role.TITLE):
+            repeated = None
+        if repeated is None or framed.role is Role.OUTSIDE:
+            lines.append(framed)
+            continue
+        if framed.line.text:
+            message = f"'{repeated}' appears earlier; only the first one is read, so this line is not."
+            warnings.append(report(Code.AUTHORING_WARNING, message, entity_id, framed))
+        lines.append(framed._replace(role=Role.OUTSIDE, section=None, item_text=False, criterion=False))
+    return Frame(lines, frame.problems), warnings
 
 
 def nesting_github_reads_as_siblings(lines: list[FramedLine], entity_id: str, field_name: str) -> list[ContractWarning]:

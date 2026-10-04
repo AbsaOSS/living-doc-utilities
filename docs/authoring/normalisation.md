@@ -27,7 +27,7 @@ Read before: [Authoring](../authoring.md) · Next: [Acceptance-criterion grammar
   - A line deeper than an open bullet item's marker is that item's text: never a key, an `AC:` header or a section's end → `authoring/framing.py::BulletItemTracker`
   - A banner's title is the first line after its opening rule, whatever it reads like → `authoring/framing.py::Frame.title`
   - The parser of the format reads the same frame, so the two cannot disagree about where a section runs ([Parsers](parsers.md#common-behaviour)) → `authoring/framing.py::sections`
-- The frame reports structural problems only: no frame found, a frame never closed, a key above `Feature:` outside the frame → `authoring/framing.py::Problem`
+- The frame reports structural problems only: no frame found, a frame never closed, a key between the header's end and `Feature:`, a line inside the header without its comment marker, an `AC:` line in a criterion block that is read as text, a ` * ` line between a PageObject comment's early `*/` and the header's real end → `authoring/framing.py::Problem`
   - Why: which fields are required is checked above the parser; the parsers stay lenient.
 - It rewrites a header only when the header names an entity: its title, found by position, carries an entity id → `authoring/framing.py::names_an_entity`
   - Why: an entity exists only with an id, and only then does a parser read the header; with no header there is nothing to normalise.

@@ -28,7 +28,7 @@ from pydantic import ValidationError
 
 from living_doc_utilities.authoring.ac_grammar import parse_frame_criteria
 from living_doc_utilities.authoring.accounting import (
-    duplicate_sections,
+    first_occurrences,
     nesting_github_reads_as_siblings,
     structural_warnings,
     unplaced_lines,
@@ -338,9 +338,8 @@ def _read_sections(
     heading line, and a warning for each heading that maps to no field and each line no field reads."""
     fields: dict[str, Any] = {}
     field_lines: dict[str, int] = {}
-    found = sections(frame)
-    warnings: list[ContractWarning] = duplicate_sections(found, entity_id)
-    for section in found:
+    warnings: list[ContractWarning] = []
+    for section in sections(frame):
         heading_text = section.opener.line.text.lstrip("# ").strip()
         content = [framed.rendered for framed in section.lines]
         numbers = [framed.number for framed in section.lines]
@@ -382,13 +381,15 @@ def parse_issue_body(
 ) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
     """Parses a GitHub issue body into a `ParsedEntity`. `title`'s entity-id prefix becomes
     `entity_id`; returns `(None, [MISSING_ENTITY_ID])` when the title has no parseable id."""
-    normalized_title, _title_changes = normalize_title(title)
+    normalized_title, _ = normalize_title(title)
     entity_id, id_warnings = derive_entity_id(normalized_title)
     if entity_id is None:
         return None, id_warnings
 
     _, frame = normalize_framed(text, SourceFormat.ISSUE_BODY, entity_type)
-    fields, field_lines, warnings = _read_sections(frame, _SECTIONS_BY_TYPE[entity_type], entity_id)
+    frame, warnings = first_occurrences(frame, entity_id)
+    fields, field_lines, section_warnings = _read_sections(frame, _SECTIONS_BY_TYPE[entity_type], entity_id)
+    warnings.extend(section_warnings)
     warnings.extend(structural_warnings(frame, entity_id))
 
     # The frame bounds every criterion: an item's own text is never one, whatever it reads like (`D20`).
