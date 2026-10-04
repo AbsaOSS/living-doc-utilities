@@ -18,6 +18,8 @@
 
 import inspect
 
+import pytest
+
 from living_doc_utilities.authoring import normalize as normalize_module
 from living_doc_utilities.authoring.normalize import (
     TYPE_PROFILES,
@@ -143,19 +145,73 @@ def test_fence_flags_over_indented_closer_does_not_close_the_fence():
     assert compute_fence_flags(lines) == [True, True, True, True]
 
 
+def _header(body: str) -> str:
+    """`body` inside a `.feature` header that names an entity: only such a header is normalised."""
+    return f"# =====\n# LIVING DOC — US-001 · Customer Login\n# =====\n{body}# =====\n"
+
+
 def test_feature_header_rule_6_is_recorded_per_line_with_its_before_and_after():
     """A tab-indented `.feature` header line is rewritten and recorded as a `whitespace` change on that line."""
-    result = normalize("# business_value:\n#\t- one\n", SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+    result = normalize(_header("# business_value:\n#\t- one\n"), SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
 
-    assert result.lines == ["# business_value:", "# - one", ""]
+    assert result.lines[3:5] == ["# business_value:", "# - one"]
     assert [(c.line, c.rule, c.before, c.after) for c in result.changes] == [
-        (2, normalize_module.RULE_WHITESPACE, "#\t- one", "# - one")
+        (5, normalize_module.RULE_WHITESPACE, "#\t- one", "# - one")
     ]
 
 
+def test_a_text_with_no_header_is_not_normalised():
+    """With no rule above `Feature:` there is no header, so nothing is rewritten and no change is recorded."""
+    text = "# status: In Review\n# rationale:\n#   * Checked client-side.\n\nFeature: S\n"
+
+    result = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedFunctionality")
+
+    assert result.text == text
+    assert result.changes == []
+
+
+def test_a_header_whose_title_names_no_entity_is_not_normalised():
+    """A header exists only when its title carries an entity id, as a parser reads one; without it nothing moves."""
+    text = "# =====\n# LIVING DOC — Customer Login\n# =====\n# status: Active\n# =====\n\nFeature: S\n"
+
+    result = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+
+    assert result.text == text
+    assert result.changes == []
+
+
+@pytest.mark.parametrize(
+    "text, fmt, entity_type, outside",
+    [
+        (
+            "#\tabove\n" + _header("# status: Active\n") + "\nFeature: S\n#\tin the body\n",
+            SourceFormat.FEATURE_HEADER,
+            "DocumentedUserStory",
+            ["#\tabove", "#\tin the body"],
+        ),
+        (
+            "/* =====\n * LIVING DOC — FEAT-001 · Login Page\n * =====\n * notes:\n *   • a\n * ===== */\n"
+            "export class P {\n  /**\n   *\tA JSDoc line.\n   */\n}\n",
+            SourceFormat.PAGE_OBJECT,
+            "DocumentedFeature",
+            ["   *\tA JSDoc line."],
+        ),
+    ],
+    ids=["feature_header", "page_object"],
+)
+def test_a_line_outside_the_header_is_never_rewritten_not_even_its_tabs(text, fmt, entity_type, outside):
+    """Only the header is normalised: a comment line above it, in the Gherkin body or in a JSDoc block keeps even its
+    tabs, while the header itself is normalised."""
+    result = normalize(text, fmt, entity_type)
+
+    assert all(line in result.lines for line in outside)
+    assert result.changes and all(change.after not in outside for change in result.changes)
+
+
 def test_feature_header_wrapped_bullet_line_is_never_rewritten_as_a_key_or_an_ac_header():
-    """A line deeper than an open item's `- ` is item text: its `status:` and `AC:` look-alikes keep their case."""
-    text = (
+    """A line deeper than an open item's `- ` is item text, and a key-shaped line deeper than the key level is
+    content: their `status:` and `AC:` look-alikes keep their case."""
+    text = _header(
         "# business_value:\n"
         "#   - Old accounts carry\n"
         "#     status: Deprecated\n"
@@ -164,34 +220,37 @@ def test_feature_header_wrapped_bullet_line_is_never_rewritten_as_a_key_or_an_ac
     )
     result = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
 
-    assert result.lines[2:4] == ["#     status: Deprecated", "#     AC:US-001-09 (V1.0 - Active)"]
-    assert result.lines[4] == "#   status: active"
-    assert [c.line for c in result.changes] == [5]
+    assert result.lines[5:7] == ["#     status: Deprecated", "#     AC:US-001-09 (V1.0 - Active)"]
+    assert result.lines[7] == "#   status: Active"
+    assert result.changes == []
 
 
-def test_feature_header_criterion_header_keeps_its_authors_indent_when_rewritten():
-    """Rule 3 fixes a header's state casing where the author put it: flush stays flush, the canon's indent 2 stays 2."""
-    text = "# AC:US-001-01 (v1.0.0 - Active)\n# - d1\n#\n#   AC:US-001-02 (v1.0.0 - Active)\n#     - d2\n"
+@pytest.mark.parametrize("indent", ["", "  "], ids=["flush", "canon_indent_2"])
+def test_feature_header_criterion_header_keeps_its_authors_indent_when_rewritten(indent):
+    """Rule 3 fixes a header's state casing where the author put it: flush stays flush, the canon's indent 2 stays 2.
+    Every header of one file sits at that file's criterion level."""
+    text = _header(f"# {indent}AC:US-001-01 (v1.0.0 - Active)\n# {indent}  - d1\n#\n# {indent}AC:US-001-02 (v1.0.0 - Active)\n")
     result = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
 
-    assert result.lines[:5] == [
-        "# AC:US-001-01 (v1.0.0 - active)",
-        "# - d1",
+    assert result.lines[3:7] == [
+        f"# {indent}AC:US-001-01 (v1.0.0 - active)",
+        f"# {indent}  - d1",
         "#",
-        "#   AC:US-001-02 (v1.0.0 - active)",
-        "#     - d2",
+        f"# {indent}AC:US-001-02 (v1.0.0 - active)",
     ]
     assert [(c.line, c.rule) for c in result.changes] == [
-        (1, normalize_module.RULE_STATE_CASING),
         (4, normalize_module.RULE_STATE_CASING),
+        (7, normalize_module.RULE_STATE_CASING),
     ]
 
 
 def test_feature_header_split_description_sits_one_level_below_its_header():
     """Rule 7 puts an inline description on a bullet two spaces deeper than its header, wherever the header is."""
-    result = normalize("# AC:US-001-01 (v1.0.0 - active) - desc\n", SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+    result = normalize(
+        _header("# AC:US-001-01 (v1.0.0 - active) - desc\n"), SourceFormat.FEATURE_HEADER, "DocumentedUserStory"
+    )
 
-    assert result.lines[:2] == ["# AC:US-001-01 (v1.0.0 - active)", "#   - desc"]
+    assert result.lines[3:5] == ["# AC:US-001-01 (v1.0.0 - active)", "#   - desc"]
 
 
 def test_issue_body_rule_6_is_recorded_on_the_line_alongside_the_bullet_marker_rule():

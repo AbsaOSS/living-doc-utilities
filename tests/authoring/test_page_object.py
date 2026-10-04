@@ -147,7 +147,7 @@ def test_deprecated_at_on_a_full_header_is_ignored_authored_key():
     assert result is not None and result.entity is not None
     assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
     assert warnings[0].message == "Feature has no deprecation date"
-    assert warnings[0].context == "entity_id='FEAT-044' key='deprecated_at:'"
+    assert warnings[0].context == "entity_id='FEAT-044' line_no=7 key='deprecated_at:'"
 
 
 def test_deprecated_at_on_a_cross_reference_header_is_ignored_authored_key():
@@ -264,11 +264,13 @@ def test_full_header_only_key_on_a_cross_reference_header_is_an_unrecognised_key
     ]
 
 
-def test_an_indented_key_outside_a_bullet_item_is_still_a_key():
-    """A key indented deeper than its neighbours opens no item, so it is read as a key, not as the last value's text."""
+def test_a_key_indented_deeper_than_the_key_level_is_a_second_line_of_the_key_above():
+    """A key sits at the key level: one indented deeper is a further line of the key above. `route:` takes a single
+    value, so the line is an `AUTHORING_ERROR` and is not read; the route stays whole."""
     header = _FULL_HEADER.replace(" * owners:                Platform Team", " *   owners:              Platform Team")
     result, warnings = parse_page_object(header)
 
-    assert warnings == []
-    assert result.entity.owners == ["Platform Team"]
+    assert [w.code for w in warnings] == ["AUTHORING_ERROR"]
+    assert "'route:' takes a single value" in warnings[0].message
+    assert result.entity.owners == []
     assert result.page_ref.route == "/app/accounts/setup"

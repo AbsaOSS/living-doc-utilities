@@ -22,10 +22,18 @@ cross-reference header (`parent-feat:` present) only describes its own page.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
-from living_doc_utilities.authoring.framing import Frame, Section, opening_value, sections
+from living_doc_utilities.authoring.accounting import (
+    at_title,
+    duplicate_sections,
+    missing_title,
+    scalar_lines,
+    structural_warnings,
+    unplaced_lines,
+)
+from living_doc_utilities.authoring.framing import Frame, Section, opening_value, sections, without_comment_close
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEYS as _ISSUE_BODY_IGNORED_AUTHORED_KEYS
 from living_doc_utilities.authoring.issue_body import (
@@ -72,22 +80,29 @@ _CROSS_REFERENCE_KEYS = {
     "purpose",
     "page-object",
     "functionalities",
+    "notes",
     "status",
     "deprecated_at",
 }
 # The keys whose value is a bullet list, whose items' wrapped lines are never read as a key and whose
 # dropped text is reported. Declared in `normalize.py`, which frames the header by them, so the normaliser
 # and this parser cannot disagree about which key holds a list. `notes:` is the canon's only one; its
-# authored key is also its contract field, unlike the hyphenated keys above. A cross-reference header
-# carries no note: it describes a page, and a note is Feature-level, so `notes:` there is unknown.
+# authored key is also its contract field, unlike the hyphenated keys above. A full header's notes are its
+# Feature's; a cross-reference header's notes are its page's own (`PageRef.notes`), never merged into the Feature's.
 _BULLET_KEYS = PO_BULLET_KEYS
+# Keys whose value is one token - a surface type, a route, a file, an id: a further line is an AUTHORING_ERROR and
+# is not read. Text and id lists may wrap.
+_SINGLE_VALUE_KEYS = frozenset(
+    {"surface_type", "route", "page-object", "parent-feat", "status", "deprecated_at", "superseded_by"}
+)
 
 
 @dataclass
 class PageObjectResult:
     """One PageObject file's parse result. `entity` is only populated for a full header; a
     cross-reference header instead carries `parent_feat`, the Feature id its `page_ref`
-    belongs to - the collector appends `page_ref` onto that Feature's `pages` list."""
+    belongs to - the collector appends `page_ref`, with the page's own notes, onto that
+    Feature's `pages` list."""
 
     page_ref: PageRef
     entity: Optional[ParsedEntity] = None
@@ -102,18 +117,36 @@ def _extract_title(frame: Frame) -> Optional[str]:
     return re.sub(r"\s*\[cross-reference]\s*$", "", title)
 
 
-def _read_keys(keys: list[Section], known_keys: set[str]) -> tuple[dict[str, list[str]], list[str]]:
+@dataclass
+class _ReadKeys:
+    """`_read_keys`' result: each known key's raw lines, a bullet key's lines' input numbers, each key's own
+    line number, the unrecognised keys with theirs, and the warnings for lines no field reads."""
+
+    raw_values: dict[str, list[str]] = field(default_factory=dict)
+    numbers: dict[str, list[int]] = field(default_factory=dict)
+    key_lines: dict[str, int] = field(default_factory=dict)
+    unrecognised: list[tuple[str, int]] = field(default_factory=list)
+    warnings: list[ContractWarning] = field(default_factory=list)
+
+
+def _read_keys(keys: list[Section], known_keys: set[str], entity_id: str) -> _ReadKeys:
     """Each known key's raw lines - the key's own value first, then every line of its section - plus the
-    unrecognised key names. The lines keep their indent, so a bullet key's list can be read from them;
-    `_joined` collapses a scalar key's lines back into one value."""
-    raw_values: dict[str, list[str]] = {}
-    unrecognised: list[str] = []
+    unrecognised keys. The lines keep their indent, so a bullet key's list can be read from them; a scalar key's
+    further lines are read by its value's type (`accounting.scalar_lines`), and `_joined` collapses them."""
+    result = _ReadKeys(warnings=duplicate_sections(keys, entity_id))
     for key in keys:
-        if key.name in known_keys:
-            raw_values[key.name] = [opening_value(key.opener)] + [framed.line.raw.rstrip() for framed in key.lines]
+        if key.name not in known_keys:
+            result.unrecognised.append((key.name, key.opener.number))
+            continue
+        result.key_lines[key.name] = key.opener.number
+        if key.name in _BULLET_KEYS:
+            lines = [opening_value(key.opener)] + [framed.line.raw.rstrip() for framed in key.lines]
+            result.numbers[key.name] = [key.opener.number] + [framed.number for framed in key.lines]
         else:
-            unrecognised.append(key.name)
-    return raw_values, unrecognised
+            lines, key_warnings = scalar_lines(key, key.name in _SINGLE_VALUE_KEYS, entity_id)
+            result.warnings.extend(key_warnings)
+        result.raw_values[key.name] = [without_comment_close(line) for line in lines]
+    return result
 
 
 def _joined(lines: list[str]) -> str:
@@ -129,45 +162,42 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
 
     title = _extract_title(frame)
     if title is None:
-        return None, [
-            ContractWarning(
-                code=Code.MISSING_ENTITY_ID.name,
-                message="PageObject banner carries no 'LIVING DOC — ...' title line.",
-                context="title=''",
-            )
-        ]
+        return None, [missing_title(frame, "PageObject"), *structural_warnings(frame, "")]
 
     entity_id, id_warnings = derive_entity_id(title)
     if entity_id is None:
-        return None, id_warnings
+        return None, at_title(id_warnings, frame)
 
     # `parent-feat:` picks the key set, so it is read from the frame's key sections like any other key: a
     # note's wrapped line may say `parent-feat:` and is still only that note's text (#168).
     keys = sections(frame)
     is_cross_reference = any(key.name == "parent-feat" for key in keys)
     known_keys = _CROSS_REFERENCE_KEYS if is_cross_reference else _FULL_HEADER_KEYS
-    raw_values, unrecognised = _read_keys(keys, known_keys)
+    read = _read_keys(keys, known_keys, entity_id)
+    raw_values = read.raw_values
     values = {key: _joined(lines) for key, lines in raw_values.items() if key not in _BULLET_KEYS}
 
-    warnings: list[ContractWarning] = []
-    for key in unrecognised:
+    # A cross-reference header may open with prose before its first key; the canon allows it.
+    warnings: list[ContractWarning] = structural_warnings(frame, entity_id) + read.warnings
+    warnings.extend(unplaced_lines(frame, entity_id, skip_intro=is_cross_reference))
+    for key, number in read.unrecognised:
         warnings.append(
             ContractWarning(
                 code=Code.IGNORED_AUTHORED_KEY.name,
                 message=f"'{key}:' is not a field this contract carries.",
-                context=f"entity_id={entity_id!r}",
+                context=f"entity_id={entity_id!r} line_no={number}",
             )
         )
     for key, lines in raw_values.items():
         if key in _BULLET_KEYS:
-            warnings.extend(bullet_field_warnings(entity_id, key, lines))
+            warnings.extend(bullet_field_warnings(entity_id, key, lines, read.numbers[key]))
     for key, reason in IGNORED_AUTHORED_KEYS.items():
         if key in values:
             warnings.append(
                 ContractWarning(
                     code=Code.IGNORED_AUTHORED_KEY.name,
                     message=reason,
-                    context=f"entity_id={entity_id!r} key='{key}:'",
+                    context=f"entity_id={entity_id!r} line_no={read.key_lines[key]} key='{key}:'",
                 )
             )
 
@@ -179,6 +209,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
             owners=split_id_list(values.get("owners")),
             purpose=values.get("purpose", ""),
             functionalities=split_id_list(values.get("functionalities")),
+            notes=extract_bullets(raw_values.get("notes", [])),
         )
         return PageObjectResult(page_ref=page_ref, entity=None, parent_feat=values.get("parent-feat")), warnings
 

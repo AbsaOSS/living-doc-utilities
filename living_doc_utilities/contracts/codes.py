@@ -100,6 +100,9 @@ class Code(Enum):
     HTML_CONTENT_DROPPED = CodeKind.WARNING, Emitter.COLLECTOR
     DUPLICATE_AC_SOURCE = CodeKind.WARNING, Emitter.COLLECTOR
     EXCLUDED_STATE = CodeKind.WARNING, Emitter.COLLECTOR
+    AUTHORING_WARNING = CodeKind.WARNING, Emitter.COLLECTOR
+    # A warning too: a parser never stops. The name marks a line that breaks the header format.
+    AUTHORING_ERROR = CodeKind.WARNING, Emitter.COLLECTOR
 
     # --- Generators ---
     TEMPLATE_KEY_MISSING = CodeKind.ERROR, Emitter.GENERATOR

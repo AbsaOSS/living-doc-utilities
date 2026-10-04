@@ -64,6 +64,8 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 | `HTML_CONTENT_DROPPED` | warning | collector | Azure DevOps HTML conversion dropped content ([kinds](../authoring/urls-and-html.md#html-to-markdown-conversion)) | one warning per call, with counts |
 | `DUPLICATE_AC_SOURCE` | warning | collector | Azure DevOps: a criterion in both the description and a dedicated field | reported |
 | `EXCLUDED_STATE` | warning | collector | Azure DevOps: a work item in an excluded state | item not emitted |
+| `AUTHORING_WARNING` | warning | collector | an authored line no field reads and no more specific code covers ([Parsers](../authoring/parsers.md#common-behaviour)) | line not read |
+| `AUTHORING_ERROR` | warning | collector | an authored line that breaks its header's format: no comment marker inside the header, a second line under a single-value key, an unclosed header, a key outside it ([Parsers](../authoring/parsers.md#common-behaviour)) | line not read; parsing goes on |
 | `TEMPLATE_KEY_MISSING` | error | generator | a template misses a required key | run fails |
 | `URL_FETCH_REFUSED` | warning | generator | the renderer refused to fetch an image or URL outside the template's own directory | logged; not fatal |
 

@@ -105,12 +105,14 @@ def test_unrecognised_key_produces_ignored_authored_key():
 
 
 def test_missing_title_line_produces_missing_entity_id():
-    """A `.feature` header with no parseable title line yields no entity and a `MISSING_ENTITY_ID` warning."""
+    """A `.feature` header with no parseable title line yields no entity and a `MISSING_ENTITY_ID` warning; one
+    with a single rule is never closed, which is reported too."""
     text = "# =============================================================================\n# not a title\n"
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
 
     assert entity is None
-    assert [w.code for w in warnings] == ["MISSING_ENTITY_ID"]
+    assert [w.code for w in warnings] == ["MISSING_ENTITY_ID", "AUTHORING_ERROR"]
+    assert all("line_no=1" in w.context for w in warnings)
 
 
 def test_title_without_an_entity_id_produces_missing_entity_id_naming_the_title():
@@ -255,7 +257,7 @@ def test_text_on_a_bullet_keys_own_line_is_dropped_with_unparsed_bullet_line():
 
     assert entity.preconditions == ["account is active", "MFA is enrolled"]
     assert [(w.code, w.context) for w in warnings] == [
-        (Code.UNPARSED_BULLET_LINE.name, "entity_id='US-001' field='preconditions'")
+        (Code.UNPARSED_BULLET_LINE.name, "entity_id='US-001' field='preconditions' line_no=5")
     ]
     assert "'The customer is signed in.'" in warnings[0].message
 
@@ -294,7 +296,7 @@ def test_prose_on_a_rationale_keys_own_line_is_dropped_with_unparsed_bullet_line
 
     assert entity.rationale is None
     assert [(w.code, w.context) for w in warnings] == [
-        (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale'")
+        (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale' line_no=5")
     ]
     assert "'Keeps the audit trail intact.'" in warnings[0].message
 
@@ -318,8 +320,9 @@ def test_a_wrapped_bullet_line_reading_like_a_key_is_that_items_text():
     ]
 
 
-def test_an_indented_key_after_the_bullet_item_has_closed_is_still_a_key():
-    """A key indented to the item's own `- ` column is not deeper than it, so the item closes and the key is read."""
+def test_a_key_shaped_line_deeper_than_the_key_level_is_content_not_a_key():
+    """A key sits at the key level: one indented to the item's own `- ` column is the item's text (the flat layout),
+    not a key, so no state is read from it."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-001 · Sample\n"
@@ -333,8 +336,8 @@ def test_an_indented_key_after_the_bullet_item_has_closed_is_still_a_key():
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
 
     assert warnings == []
-    assert entity.state == "deprecated"
-    assert entity.business_value == ["Fewer support calls."]
+    assert entity.state is None
+    assert entity.business_value == ["Fewer support calls. status: deprecated"]
 
 
 def test_a_wrapped_bullet_line_reading_like_an_ac_header_is_not_a_criterion():
@@ -424,7 +427,7 @@ def test_a_flush_header_keeps_every_criterion_when_a_rule_rewrites_its_headers()
 def test_a_header_deeper_than_the_previous_criterions_items_is_their_text_with_a_warning():
     """Items shallower than their own header break the canon: the next header, deeper than them, is their text.
 
-    Nothing is lost silently: the swallowed criterion's own bullet is reported."""
+    Nothing is lost silently: the header read as text is reported, and so is the swallowed criterion's bullet."""
     text = _us_header(
         "# acceptance_criteria:\n"
         "#  AC:US-001-01 (v1.0.0 - active)\n"
@@ -436,12 +439,13 @@ def test_a_header_deeper_than_the_previous_criterions_items_is_their_text_with_a
 
     assert [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
     assert [(w.code, w.context.split(" line=")[1]) for w in warnings] == [
-        (Code.UNPARSED_AC_LINE.name, "'- Three wrong passwords lock the account.'")
+        (Code.AUTHORING_WARNING.name, "'#  AC:US-001-02 (v1.0.0 - active)'"),
+        (Code.UNPARSED_AC_LINE.name, "'- Three wrong passwords lock the account.'"),
     ]
 
 
-def test_a_blank_line_closes_a_bullet_item_so_a_deeper_key_is_read():
-    """A blank comment line ends the open item: a `status:` below it, even one deeper than the `- `, is a key."""
+def test_a_blank_line_ends_nothing_so_a_deeper_line_after_it_is_the_items_text():
+    """A blank comment line is layout: the item stays open, so a `status:` deeper than its `- ` is its text."""
     text = (
         "# =============================================================================\n"
         "# LIVING DOC — US-001 · Sample\n"
@@ -456,5 +460,5 @@ def test_a_blank_line_closes_a_bullet_item_so_a_deeper_key_is_read():
     entity, warnings = parse_feature_header(text, "DocumentedUserStory")
 
     assert warnings == []
-    assert entity.business_value == ["Fewer support calls."]
-    assert entity.state == "deprecated"
+    assert entity.business_value == ["Fewer support calls. status: deprecated"]
+    assert entity.state is None

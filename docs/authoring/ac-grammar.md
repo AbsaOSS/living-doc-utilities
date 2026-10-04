@@ -41,10 +41,12 @@ It accepts only the canonical form that [normalisation](normalisation.md) produc
 
 ## Block
 
-A criterion's block is the lines after its header → `authoring/ac_grammar.py::parse_acceptance_criteria`.
+A criterion's block is the lines after its header. In a parser the frame bounds it, so the grammar finds no boundary itself → `authoring/ac_grammar.py::parse_frame_criteria`.
 
-- It ends at the next `AC:` line, a `===` banner line, or a Markdown `##` to `######` heading.
+- In a parser it ends where the [frame](parsers.md#common-behaviour) ends it: at the next criterion header, at a key at the key level or a `# ===` rule in a `.feature` header, at any heading in an issue body → `authoring/framing.py::criterion_blocks`
+- Over bare text, `parse_acceptance_criteria` finds the blocks itself: a block ends at the next `AC:` line, a `===` banner line, or a Markdown `##` to `######` heading → `authoring/ac_grammar.py::parse_acceptance_criteria`
   - An `AC:` line deeper than the open bullet item's `- ` is that item's wrapped text and ends nothing → `tests/authoring/test_ac_grammar.py::test_a_line_wrapped_deeper_than_a_criterion_item_is_never_an_ac_header`
+- A criterion with nothing under its header is dropped with `MALFORMED_AC`, "has no description line"; the other criteria are read (`D22`) → `tests/authoring/test_ac_grammar.py::test_a_criterion_with_nothing_under_its_header_is_reported_and_the_rest_is_read`
 - Each line keeps its indent: only the comment leader (`#`, `###`, `*`) and one following space are removed → `authoring/ac_grammar.py::parse_acceptance_criteria`
   - Why: what a block line belongs to is read from its indent ([Extensions](#extensions)).
 - Blank lines are skipped, not treated as an end.

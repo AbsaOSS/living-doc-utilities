@@ -179,8 +179,9 @@ def test_the_title_is_the_frames_and_both_readers_take_it_from_there():
     assert result.entity.title == "FEAT-042 · Account Setup Wizard"
 
 
-def test_a_base_level_line_quoting_the_title_after_the_title_is_a_keys_text():
-    """No line's prose ends a key: a later `LIVING DOC — …` line continues the open value like any other line."""
+def test_a_base_level_line_quoting_the_title_after_the_title_is_no_title_and_fits_no_level():
+    """No line's prose ends a key or makes a title: a later `LIVING DOC — …` line at the key's own level is no
+    continuation of its value either, so it is reported and not read."""
     text = _PAGE_OBJECT.replace(
         " * page-object:           AccountSetupWizardPage.ts\n",
         " * page-object:           AccountSetupWizardPage.ts\n * LIVING DOC — FEAT-002 · Quoted\n",
@@ -188,8 +189,12 @@ def test_a_base_level_line_quoting_the_title_after_the_title_is_a_keys_text():
 
     result, warnings = parse_page_object(text)
 
-    assert result is not None and warnings == []
-    assert result.page_ref.page_object == "AccountSetupWizardPage.ts LIVING DOC — FEAT-002 · Quoted"
+    assert result is not None and result.entity is not None
+    assert result.entity.entity_id == "FEAT-042"
+    assert result.page_ref.page_object == "AccountSetupWizardPage.ts"
+    assert [(w.code, w.context) for w in warnings] == [
+        ("AUTHORING_WARNING", "entity_id='FEAT-042' line_no=7 line='* LIVING DOC — FEAT-002 · Quoted'")
+    ]
 
 
 def test_the_identity_module_no_longer_offers_a_title_predicate():
@@ -237,8 +242,9 @@ def test_the_canon_banner_and_a_bare_close_both_end_the_frame(close):
     assert warnings == []
 
 
-def test_a_key_on_the_closing_line_is_still_read():
-    """The close ends the frame after its own line: a key written on it is a header key, as it always was."""
+def test_a_key_on_the_closing_line_is_still_read_without_the_close():
+    """The close ends the frame after its own line: a key written on it is a header key, as it always was, and its
+    value does not take the comment's `*/`."""
     text = _PAGE_OBJECT.replace(
         " * ============================================================================= */\n", " * route: /setup */\n"
     )
@@ -246,7 +252,7 @@ def test_a_key_on_the_closing_line_is_still_read():
     result, _ = parse_page_object(text)
 
     assert result is not None
-    assert result.page_ref.route == "/setup */"
+    assert result.page_ref.route == "/setup"
 
 
 # --- one frame: the normaliser and the parser agree by construction -------------------------------------
@@ -298,6 +304,198 @@ def test_a_tab_right_after_the_comment_marker_is_read_at_the_indent_of_its_rewri
     assert warnings == []
     assert entity is not None
     assert entity.business_value == ["one\n - two"]
+
+
+def test_a_blank_line_without_a_comment_marker_in_a_feature_header_closes_nothing():
+    """A blank line without `#` is no header line: the list goes on after it, as a Markdown list does, for both
+    readers."""
+    text = _us_header("# status: active\n# business_value:\n#   - First.\n\n#   • Second.\n")
+
+    normalized = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert "#   - Second." in normalized.lines
+    assert warnings == []
+    assert entity is not None
+    assert entity.business_value == ["First.", "Second."]
+
+
+def test_a_blank_comment_line_in_a_feature_header_ends_nothing_either():
+    """`#` alone is layout like a blank line: the list goes on after it, so its second item is read."""
+    text = _us_header("# status: active\n# business_value:\n#   - First.\n#\n#   - Second.\n")
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity is not None
+    assert entity.business_value == ["First.", "Second."]
+
+
+def test_a_line_without_the_star_marker_inside_the_header_comment_closes_nothing_and_is_reported():
+    """A comment line without ` * ` is no header line: it is not read but reported, and the next `•` is its own
+    note for both readers."""
+    text = _PAGE_OBJECT.replace(
+        " *   • The wizard shares", "   wrapped without star\n *   • The wizard shares"
+    )
+
+    normalized = normalize(text, SourceFormat.PAGE_OBJECT, "DocumentedFeature")
+    result, warnings = parse_page_object(text)
+
+    assert " *   - The wizard shares one URL with its step files." in normalized.lines
+    assert [(w.code, w.context) for w in warnings] == [
+        ("AUTHORING_ERROR", "entity_id='FEAT-042' line_no=9 line='wrapped without star'")
+    ]
+    assert result is not None and result.entity is not None
+    assert result.entity.notes == _NOTES
+
+
+def test_an_unclosed_page_object_comment_leaves_its_lines_as_written():
+    """With no `*/` the comment never ends, so no parser reads it and the normaliser rewrites none of its lines."""
+    text = "/* ===\n * LIVING DOC — FEAT-001 · Login\n * notes:\n *   • a\n"
+
+    normalized, frame = normalize_framed(text, SourceFormat.PAGE_OBJECT, "DocumentedFeature")
+
+    assert " *   • a" in normalized.lines
+    assert frame.problems[0].kind == UNTERMINATED_FRAME
+
+
+def test_a_feature_header_with_one_rule_is_read_to_its_last_comment_line_and_reported():
+    """A `.feature` header that never closes is still read, up to its last comment line before a tag or `Feature:`,
+    so its entity and state load; the missing closing rule is reported."""
+    text = "# =====\n# LIVING DOC — US-001 · Sample\n# status: Active\n\n@US_ID:US-001\nFeature: Sample\n"
+
+    normalized, frame = normalize_framed(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert "# status: active" in normalized.lines
+    assert [problem.kind for problem in frame.problems] == [UNTERMINATED_FRAME]
+    assert entity is not None and entity.state == "active"
+    assert [(w.code, w.context) for w in warnings] == [
+        ("AUTHORING_ERROR", "entity_id='US-001' line_no=1 line='# ====='")
+    ]
+
+
+def test_a_notes_items_wrapped_line_on_a_cross_reference_header_is_that_notes_text():
+    """A cross-reference header's `notes:` items are items: a wrapped line reading `route:` is that note's text and
+    never replaces the header's real route."""
+    text = (
+        "/* ===\n * LIVING DOC — FEAT-042 · W [cross-reference]\n * ===\n * parent-feat: FEAT-042\n"
+        " * route: /a\n * notes:\n *   - a note that wraps\n *     route: /b\n * === */\n"
+    )
+
+    result, warnings = parse_page_object(text)
+
+    assert result is not None
+    assert result.page_ref.route == "/a"
+    assert result.page_ref.notes == ["a note that wraps route: /b"]
+    assert warnings == []
+
+
+# --- criterion blocks: the frame alone bounds them -------------------------------------------------------
+
+
+def test_a_key_at_the_key_level_ends_a_criterion_block_and_is_read():
+    """`notes:` and `status:` belong to the entity: after the criteria, at the key level, both are read."""
+    text = _us_header(
+        "# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     - desc\n"
+        "# status: deprecated\n# notes:\n#   - A note after the criteria.\n"
+    )
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity is not None
+    assert [(ac.id, ac.description) for ac in entity.acceptance_criteria] == [("US-001-01", "desc")]
+    assert entity.state == "deprecated"
+    assert entity.notes == ["A note after the criteria."]
+
+
+def test_a_rule_inside_the_header_ends_a_criterion_block_and_the_last_rule_ends_the_header():
+    """A `# ===` rule is an optional end of a block; the last one ends the header."""
+    text = _us_header(
+        "# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     - desc\n# =====\n# status: active\n"
+    )
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity is not None and entity.state == "active"
+
+
+def test_an_ac_line_off_the_criterion_level_is_text_and_reported():
+    """The first `AC:` line sets the criterion level; one at another indent is no header, and it is reported."""
+    text = _us_header(
+        "# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     - desc\n"
+        "#    AC:US-001-02 (v1.0.0 - active)\n"
+    )
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
+    assert [w.code for w in warnings][:1] == ["AUTHORING_WARNING"]
+    assert "line_no=7 line='#    AC:US-001-02 (v1.0.0 - active)'" in warnings[0].context
+
+
+def test_an_ac_line_on_a_criterion_items_text_in_an_issue_body_is_reported():
+    """An `AC:` line deeper than a criterion item's `- ` continues that item, so it is no header; it is reported."""
+    body = "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 - active)\n\n- d1\n  AC:US-001-02 (v1.0.0 - active)\n"
+
+    entity, warnings = parse_issue_body(body, "US-001 · S", "DocumentedUserStory")
+
+    assert entity is not None
+    assert [(ac.id, ac.description) for ac in entity.acceptance_criteria] == [
+        ("US-001-01", "d1 AC:US-001-02 (v1.0.0 - active)")
+    ]
+    assert [(w.code, w.context) for w in warnings] == [
+        ("AUTHORING_WARNING", "entity_id='US-001' line_no=6 line='AC:US-001-02 (v1.0.0 - active)'")
+    ]
+
+
+def test_a_rule_line_inside_an_issue_body_criterion_is_its_text_not_its_end():
+    """Only the frame ends a criterion: a `=====` line in an issue-body criterion is no boundary, so the lines after
+    it are still read (the rule line itself wraps onto the description, as any unmarked line does)."""
+    body = (
+        "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 - active)\n\n- Valid credentials land on the dashboard.\n"
+        "=====\n- Aspect: usability\n"
+    )
+
+    entity, warnings = parse_issue_body(body, "US-001 · S", "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity is not None
+    assert entity.acceptance_criteria[0].aspect == ["usability"]
+    assert entity.acceptance_criteria[0].description == "Valid credentials land on the dashboard. ====="
+
+
+def test_a_heading_indented_up_to_three_spaces_ends_a_criterion_as_commonmark_reads_it():
+    """CommonMark allows a heading three spaces in: the frame ends the criterion there, so nothing after it is lost."""
+    body = (
+        "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 - active)\n\n- d\nmore text\n"
+        "  ## Notes\n- A note.\n"
+    )
+
+    entity, warnings = parse_issue_body(body, "US-001 · S", "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity is not None
+    assert entity.acceptance_criteria[0].description == "d more text"
+    assert entity.notes == ["A note."]
+
+
+def test_a_heading_deeper_than_a_criterion_items_marker_is_that_items_text():
+    """Under an open item, an indented heading is the item's content, as CommonMark nests it; the next `- ` stays in
+    the criterion and, naming no field, is reported."""
+    body = (
+        "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 - active)\n\n- After login the dashboard shows the\n"
+        "  ## Notes\n- A note.\n"
+    )
+
+    entity, warnings = parse_issue_body(body, "US-001 · S", "DocumentedUserStory")
+
+    assert entity is not None and entity.notes == []
+    assert entity.acceptance_criteria[0].description == "After login the dashboard shows the ## Notes"
+    assert [w.code for w in warnings] == ["UNPARSED_AC_LINE"]
+    assert "line_no=7 line='- A note.'" in warnings[0].context
 
 
 # --- what the frame holds --------------------------------------------------------------------------------

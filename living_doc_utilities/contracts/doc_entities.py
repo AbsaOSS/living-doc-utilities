@@ -41,6 +41,9 @@ class PageRef(ContractModel):
     purpose: str
     # A cross-reference page may scope functionalities to a subset; empty means it inherits the Feature's full list.
     functionalities: list[str] = Field(default_factory=list)
+    # A cross-reference page's own human context, one entry per bullet: it stays with the page and is never merged
+    # into its Feature's `notes`. The primary page has none; the full header's notes are the Feature's own.
+    notes: list[str] = Field(default_factory=list)
 
 
 class EntityContent(ContractModel):

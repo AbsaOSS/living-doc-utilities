@@ -63,16 +63,21 @@ def _parse_ac_tag(tag: str) -> AcLink | None:
     return AcLink(id=ac_id, aspect=aspect)
 
 
-def _tags_to_ac_links(tags: list[str]) -> tuple[list[AcLink], list[ContractWarning]]:
+def _tags_to_ac_links(tags: list[tuple[str, int]]) -> tuple[list[AcLink], list[ContractWarning]]:
+    """Each `@AC:` tag of `(tag, input line number)` pairs as a link; a malformed one is reported on its line."""
     links: list[AcLink] = []
     warnings: list[ContractWarning] = []
-    for tag in tags:
+    for tag, number in tags:
         if not tag.startswith(_AC_TAG_PREFIX):
             continue
         link = _parse_ac_tag(tag)
         if link is None:
             warnings.append(
-                ContractWarning(code=Code.MALFORMED_AC.name, message="'@AC:' tag is malformed.", context=f"tag={tag!r}")
+                ContractWarning(
+                    code=Code.MALFORMED_AC.name,
+                    message="'@AC:' tag is malformed.",
+                    context=f"tag={tag!r} line_no={number}",
+                )
             )
             continue
         links.append(link)
@@ -84,13 +89,13 @@ def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenari
     _, frame = normalize_framed(text, SourceFormat.SCENARIO_FILE, entity_type)
     warnings: list[ContractWarning] = []
     scenarios: list[ParsedScenario] = []
-    pending_tags: list[str] = []
+    pending_tags: list[tuple[str, int]] = []
 
     for framed in frame.lines:
         if framed.role in (Role.BLANK, Role.COMMENT):
             continue
         if framed.role is Role.TAG:
-            pending_tags.extend(_TAG_TOKEN_RE.findall(framed.line.text))
+            pending_tags.extend((tag, framed.number) for tag in _TAG_TOKEN_RE.findall(framed.line.text))
             continue
         if framed.role is not Role.HEADING or framed.section != SCENARIO:
             # `Feature:`, `Background:` or any other construct (Rule:, a step, Examples:, ...) drops pending tags.
@@ -100,7 +105,9 @@ def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenari
         ac_links, ac_warnings = _tags_to_ac_links(pending_tags)
         warnings.extend(ac_warnings)
         scenarios.append(
-            ParsedScenario(title=opening_value(framed).strip(), tags=pending_tags, acceptance_criteria=ac_links)
+            ParsedScenario(
+                title=opening_value(framed).strip(), tags=[tag for tag, _ in pending_tags], acceptance_criteria=ac_links
+            )
         )
         pending_tags = []
 

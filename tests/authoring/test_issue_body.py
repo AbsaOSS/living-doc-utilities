@@ -323,7 +323,7 @@ def test_prose_only_rationale_is_dropped_with_unparsed_bullet_line():
 
     assert entity.rationale is None
     assert [(w.code, w.context) for w in warnings] == [
-        (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale'")
+        (Code.UNPARSED_BULLET_LINE.name, "entity_id='FUNC-001' field='rationale' line_no=7")
     ]
     assert "'Keeps the audit trail intact.'" in warnings[0].message
 
@@ -392,7 +392,7 @@ def test_a_line_shallower_than_its_lists_item_level_is_misindented_and_dropped()
     assert [(w.code, w.context) for w in warnings] == [
         (
             Code.MISINDENTED_LINE.name,
-            "entity_id='US-001' field='preconditions' line='- The login screen is reachable.'",
+            "entity_id='US-001' field='preconditions' line_no=4 line='- The login screen is reachable.'",
         )
     ]
 

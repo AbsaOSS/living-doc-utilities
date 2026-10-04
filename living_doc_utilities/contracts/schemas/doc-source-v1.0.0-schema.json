@@ -709,6 +709,13 @@
           },
           "title": "Functionalities",
           "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
         }
       },
       "required": [
@@ -1030,6 +1037,7 @@
               "features[].owners[]",
               "features[].pages[].functionalities[]",
               "features[].pages[].is_primary",
+              "features[].pages[].notes[]",
               "features[].pages[].owners[]",
               "features[].pages[].page_object",
               "features[].pages[].purpose",
@@ -1083,6 +1091,7 @@
               "functionalities[].owners[]",
               "functionalities[].pages[].functionalities[]",
               "functionalities[].pages[].is_primary",
+              "functionalities[].pages[].notes[]",
               "functionalities[].pages[].owners[]",
               "functionalities[].pages[].page_object",
               "functionalities[].pages[].purpose",
@@ -1136,6 +1145,7 @@
               "user_stories[].owners[]",
               "user_stories[].pages[].functionalities[]",
               "user_stories[].pages[].is_primary",
+              "user_stories[].pages[].notes[]",
               "user_stories[].pages[].owners[]",
               "user_stories[].pages[].page_object",
               "user_stories[].pages[].purpose",

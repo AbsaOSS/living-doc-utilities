@@ -26,7 +26,7 @@ from typing import Optional
 
 from pydantic import ValidationError
 
-from living_doc_utilities.authoring.framing import IndentedLine, indented
+from living_doc_utilities.authoring.framing import Frame, IndentedLine, Role, criterion_blocks, indented
 from living_doc_utilities.authoring.normalize import (
     _BULLET_RE,
     _WORD_SEP_RE,
@@ -151,6 +151,8 @@ class _ExtensionReader:
         self.warnings: list[ContractWarning] = []
         self._is_legacy_descoped = is_legacy_descoped
         self._context = context
+        # The input line being read, which every warning names.
+        self._number = 0
         self._content_level: Optional[int] = None
         self._sublist: Optional[_SubList] = None
         # Indent of an unknown bare key (e.g. `notes:`) or of a dropped misindented line, with the code
@@ -168,7 +170,9 @@ class _ExtensionReader:
         else:
             message = "Acceptance-criterion block line could not be assigned to any known field."
         self.warnings.append(
-            ContractWarning(code=code.name, message=message, context=f"{self._context} line={line.text!r}")
+            ContractWarning(
+                code=code.name, message=message, context=f"{self._context} line_no={self._number} line={line.text!r}"
+            )
         )
 
     def _skip_deeper_than(self, line: IndentedLine, code: Code) -> None:
@@ -191,8 +195,9 @@ class _ExtensionReader:
         else:
             setattr(self.result, self._continuation, f"{current}{fragment}".strip())
 
-    def read(self, line: IndentedLine, following: Optional[IndentedLine]) -> None:
-        """Reads one non-blank block line; `following` is the next non-blank one, if any."""
+    def read(self, line: IndentedLine, following: Optional[IndentedLine], number: int = 0) -> None:
+        """Reads one non-blank block line, input line `number`; `following` is the next non-blank one, if any."""
+        self._number = number
         if self._skip is not None:
             if line.indent > self._skip[0]:
                 self._warn(self._skip[1], line)
@@ -295,30 +300,40 @@ class _ExtensionReader:
 
 
 def _parse_extensions(
-    block_lines: list[str], is_legacy_descoped: bool, context: str
+    block_lines: list[tuple[str, int]], is_legacy_descoped: bool, context: str
 ) -> tuple[_Extensions, list[ContractWarning]]:
+    """Reads a block's `(line, input line number)` pairs; an empty block reads as no extension at all (`D22`)."""
     reader = _ExtensionReader(is_legacy_descoped, context)
-    lines = [line for line in map(indented, block_lines) if line.text]
-    for line, following in zip(lines, [*lines[1:], None], strict=True):
-        reader.read(line, following)
+    lines = [(line, number) for line, number in ((indented(raw), number) for raw, number in block_lines) if line.text]
+    followers = [*(line for line, _ in lines[1:]), None][: len(lines)]
+    for (line, number), following in zip(lines, followers, strict=True):
+        reader.read(line, following, number)
     return reader.result, reader.warnings
 
 
+def _malformed_header(entity_id: str, raw_header_line: str, number: int) -> ContractWarning:
+    return ContractWarning(
+        code=Code.MALFORMED_AC.name,
+        message="Acceptance-criterion header is malformed.",
+        context=f"entity={entity_id!r} line_no={number} header={raw_header_line.strip()!r}",
+    )
+
+
 def _build_ac(
-    entity_id: str, raw_id: str, raw_inner: str, block_lines: list[str], raw_header_line: str
+    entity_id: str, raw_id: str, raw_inner: str, block_lines: list[tuple[str, int]], raw_header_line: str, number: int
 ) -> tuple[Optional[AcceptanceCriterion], list[ContractWarning]]:
-    context = f"entity={entity_id!r} header={raw_header_line.strip()!r}"
+    """One criterion from its header's id and paren content and its block's `(line, number)` pairs; `number` is
+    the header's input line, named by every warning about the criterion as a whole."""
+    context = f"entity={entity_id!r} line_no={number} header={raw_header_line.strip()!r}"
+    # A warning about one block line names that line's own number instead.
+    block_context = f"entity={entity_id!r} header={raw_header_line.strip()!r}"
     warnings: list[ContractWarning] = []
 
     id_valid = bool(raw_id) and _AC_ID_RE.match(raw_id) is not None
     state, version, removal_planned = _parse_header_inner(raw_inner.strip())
 
     if not id_valid or state is None:
-        warnings.append(
-            ContractWarning(
-                code=Code.MALFORMED_AC.name, message="Acceptance-criterion header is malformed.", context=context
-            )
-        )
+        warnings.append(_malformed_header(entity_id, raw_header_line, number))
         return None, warnings
 
     is_legacy_descoped = state == _LEGACY_DESCOPED_STATE
@@ -345,7 +360,7 @@ def _build_ac(
         version = None
         removal_planned = None
 
-    extensions, ext_warnings = _parse_extensions(block_lines, is_legacy_descoped, context)
+    extensions, ext_warnings = _parse_extensions(block_lines, is_legacy_descoped, block_context)
     warnings.extend(ext_warnings)
 
     try:
@@ -365,13 +380,14 @@ def _build_ac(
         first = exc.errors()[0]
         field_path = ".".join(str(part) for part in first["loc"])
         detail = f"{field_path}: {first['msg']}" if field_path else first["msg"]
-        warnings.append(
-            ContractWarning(
-                code=Code.MALFORMED_AC.name,
-                message=f"Acceptance criterion failed validation: {detail}",
-                context=context,
-            )
+        # A criterion with no `- ` line under its header has no description: said in words, not the model's.
+        missing_description = field_path == "description" and extensions.description is None
+        message = (
+            "Acceptance criterion has no description line."
+            if missing_description
+            else f"Acceptance criterion failed validation: {detail}"
         )
+        warnings.append(ContractWarning(code=Code.MALFORMED_AC.name, message=message, context=context))
         return None, warnings
 
     return acceptance_criterion, warnings
@@ -411,18 +427,12 @@ def parse_acceptance_criteria(
 
         header_m = _AC_HEADER_RE.match(stripped_line)
         if header_m is None:
-            warnings.append(
-                ContractWarning(
-                    code=Code.MALFORMED_AC.name,
-                    message="Acceptance-criterion header is malformed.",
-                    context=f"entity={entity_id!r} header={raw_lines[index].strip()!r}",
-                )
-            )
+            warnings.append(_malformed_header(entity_id, raw_lines[index], index + 1))
             index += 1
             continue
 
         # A blank line is skipped, not a terminator (issue-body AC headings get one blank line before bullets).
-        block: list[str] = []
+        block: list[tuple[str, int]] = []
         # Marker indent of the block's open bullet item: a deeper line is its text, even one reading "AC:...".
         item_indent: Optional[int] = None
         cursor = index + 1
@@ -437,17 +447,47 @@ def parse_acceptance_criteria(
             if _MD_SECTION_HEADING_RE.match(raw_lines[cursor]):
                 break
             if candidate.text != "":
-                block.append(cleaned_lines[cursor])
+                block.append((cleaned_lines[cursor], cursor + 1))
                 if _BULLET_RE.match(candidate.text):
                     item_indent = candidate.indent
             cursor += 1
 
         acceptance_criterion, ac_warnings = _build_ac(
-            entity_id, header_m.group("id"), header_m.group("inner"), block, raw_lines[index]
+            entity_id, header_m.group("id"), header_m.group("inner"), block, raw_lines[index], index + 1
         )
         if acceptance_criterion is not None:
             results.append(acceptance_criterion)
         warnings.extend(ac_warnings)
         index = cursor
 
+    return results, warnings
+
+
+def parse_frame_criteria(frame: Frame, entity_id: str) -> tuple[list[AcceptanceCriterion], list[ContractWarning]]:
+    """Every criterion the frame bounds, read by this grammar. The frame alone decides where a block starts and
+    ends (`framing.criterion_blocks`), so nothing here looks for a boundary. A fenced code line in a block is
+    not read; `parse_acceptance_criteria` is the same grammar over bare text, which finds its own blocks."""
+    results: list[AcceptanceCriterion] = []
+    warnings: list[ContractWarning] = []
+    for block in criterion_blocks(frame):
+        header_m = _AC_HEADER_RE.match(_COMMENT_LEADER_RE.sub("", block.header.rendered).strip())
+        if header_m is None:
+            warnings.append(_malformed_header(entity_id, block.header.rendered, block.header.number))
+            continue
+        lines = [
+            (_COMMENT_LEADER_RE.sub("", framed.rendered), framed.number)
+            for framed in block.lines
+            if framed.role is not Role.CODE
+        ]
+        acceptance_criterion, ac_warnings = _build_ac(
+            entity_id,
+            header_m.group("id"),
+            header_m.group("inner"),
+            lines,
+            block.header.rendered,
+            block.header.number,
+        )
+        if acceptance_criterion is not None:
+            results.append(acceptance_criterion)
+        warnings.extend(ac_warnings)
     return results, warnings

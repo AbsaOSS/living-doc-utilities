@@ -37,7 +37,9 @@ from living_doc_utilities.authoring.framing import (
     frame_page_object,
     frame_scenario_file,
     indented,
+    names_an_entity,
     opening_value,
+    opens_criterion,
 )
 from living_doc_utilities.authoring.identity import _ENTITY_ID_RE
 from living_doc_utilities.contracts.common import DocType
@@ -289,10 +291,8 @@ def _whitespace(framed: FramedLine) -> set[str]:
 
 
 def _criterion_header(framed: FramedLine, text: str) -> Optional["re.Match[str]"]:
-    """`text` read as a criterion header: only on a criterion block's line, never on a bullet item's text."""
-    if not framed.criterion or framed.item_text:
-        return None
-    return _AC_HEADER_FULL_RE.match(text)
+    """`text` read as a criterion header: only on the line the frame placed as one."""
+    return _AC_HEADER_FULL_RE.match(text) if opens_criterion(framed) else None
 
 
 def _rewrite_bullet(content: str) -> tuple[str, set[str]]:
@@ -395,7 +395,7 @@ _COMMENT_PREFIX_RE = re.compile(r"^# ?")
 _PO_LINE_RE = re.compile(r"^(?P<lead>\s*\*[ ]?)(?P<content>.*)$")
 
 
-def _prepared(raw: str, prefix: str, role: Role, tab_stop: int = 0) -> FramedLine:
+def _prepared(raw: str, prefix: str, role: Role, number: int, tab_stop: int = 0) -> FramedLine:
     """`raw` split after its `prefix`, with rule 6 at `tab_stop` on the rest when it has text (0: rule 6 off).
     A tab right after a bare marker becomes the marker's own space, as the rewritten line reads (`#\\tx` is
     `# x`): every reader of the normalised text, the criterion grammar included, sees the indent the frame saw."""
@@ -404,7 +404,7 @@ def _prepared(raw: str, prefix: str, role: Role, tab_stop: int = 0) -> FramedLin
         content = _fix_indentation_whitespace(content, tab_stop)
         if prefix and not prefix.endswith(" ") and content.startswith(" "):
             prefix, content = prefix + " ", content[1:]
-    return FramedLine(raw, prefix, indented(content), role)
+    return FramedLine(raw, prefix, indented(content), role, number=number)
 
 
 def _prepare(lines: list[str], fmt: SourceFormat) -> list[FramedLine]:
@@ -412,23 +412,28 @@ def _prepare(lines: list[str], fmt: SourceFormat) -> list[FramedLine]:
     indent after it, so every placement the frame makes reads an indent already in spaces. A whitespace-only
     line, a fenced code block's line, a line that is no comment of the header format and a scenario file
     stay as written; `TEXT` and `OUTSIDE` are placeholders the frame replaces."""
+    numbered = list(enumerate(lines, start=1))
     if fmt in (SourceFormat.ISSUE_BODY, SourceFormat.HTML_MARKDOWN):
         fenced = compute_fence_flags(lines)
         return [
-            _prepared(raw, "", Role.CODE) if code else _prepared(raw, "", Role.TEXT, tab_stop=4)
-            for raw, code in zip(lines, fenced, strict=True)
+            _prepared(raw, "", Role.CODE, number) if code else _prepared(raw, "", Role.TEXT, number, tab_stop=4)
+            for (number, raw), code in zip(numbered, fenced, strict=True)
         ]
     if fmt == SourceFormat.FEATURE_HEADER:
-        return [
-            _prepared(raw, marker.group(0), Role.TEXT, tab_stop=1) if marker else _prepared(raw, "", Role.OUTSIDE)
-            for raw, marker in ((raw, _COMMENT_PREFIX_RE.match(raw)) for raw in lines)
-        ]
-    if fmt == SourceFormat.PAGE_OBJECT:
-        return [
-            _prepared(raw, marker.group("lead"), Role.TEXT, tab_stop=1) if marker else _prepared(raw, "", Role.OUTSIDE)
-            for raw, marker in ((raw, _PO_LINE_RE.match(raw)) for raw in lines)
-        ]
-    return [_prepared(raw, "", Role.TEXT) for raw in lines]
+        marker_re = _COMMENT_PREFIX_RE
+    elif fmt == SourceFormat.PAGE_OBJECT:
+        marker_re = _PO_LINE_RE
+    else:
+        return [_prepared(raw, "", Role.TEXT, number) for number, raw in numbered]
+    prepared = []
+    for number, raw in numbered:
+        marker = marker_re.match(raw)
+        if marker is None:
+            prepared.append(_prepared(raw, "", Role.OUTSIDE, number))
+        else:
+            prefix = marker.group("lead") if fmt == SourceFormat.PAGE_OBJECT else marker.group(0)
+            prepared.append(_prepared(raw, prefix, Role.TEXT, number, tab_stop=1))
+    return prepared
 
 
 # --- phase 3: every other rule, per line, by the section the frame put it in -------------------------------
@@ -468,11 +473,19 @@ def _rewrite_markdown(lines: list[FramedLine], profile: frozenset[str], changes:
     return out
 
 
+def _as_written(framed: FramedLine) -> FramedLine:
+    """`framed` exactly as the input wrote it: a line outside the header, which `normalize` never rewrites."""
+    return framed._replace(prefix="", line=indented(framed.raw))
+
+
 def _rewrite_feature_header(
     lines: list[FramedLine], profile: frozenset[str], changes: list[Change]
 ) -> list[FramedLine]:
     out: list[FramedLine] = []
     for framed in lines:
+        if framed.role is Role.OUTSIDE:
+            out.append(_as_written(framed))
+            continue
         content, ws_fired = framed.line.raw, _whitespace(framed)
         if framed.role is Role.TITLE:
             _emit_title(out, changes, framed)
@@ -529,6 +542,9 @@ def _rewrite_page_object(lines: list[FramedLine], changes: list[Change]) -> list
     that is ever rewritten; every other ` * key: value` metadata line passes through untouched."""
     out: list[FramedLine] = []
     for framed in lines:
+        if framed.role is Role.OUTSIDE:
+            out.append(_as_written(framed))
+            continue
         if framed.role is Role.TITLE:
             _emit_title(out, changes, framed)
             continue
@@ -574,13 +590,21 @@ def normalize_framed(text: str, fmt: SourceFormat, entity_type: DocType) -> tupl
         rewritten = _rewrite_markdown(frame.lines, profile, changes)
     elif fmt == SourceFormat.FEATURE_HEADER:
         frame = frame_feature_header(_prepare(lines, fmt), profile)
-        rewritten = _rewrite_feature_header(frame.lines, profile, changes)
+        rewritten = (
+            _rewrite_feature_header(frame.lines, profile, changes)
+            if names_an_entity(frame)
+            else [_as_written(framed) for framed in frame.lines]
+        )
     elif fmt == SourceFormat.SCENARIO_FILE:
         frame = frame_scenario_file(_prepare(lines, fmt))
         rewritten = _rewrite_scenario_file(frame.lines, changes)
     elif fmt == SourceFormat.PAGE_OBJECT:
         frame = frame_page_object(_prepare(lines, fmt), PO_BULLET_KEYS)
-        rewritten = _rewrite_page_object(frame.lines, changes)
+        rewritten = (
+            _rewrite_page_object(frame.lines, changes)
+            if names_an_entity(frame)
+            else [_as_written(framed) for framed in frame.lines]
+        )
     else:
         raise ValueError(f"unknown SourceFormat: {fmt!r}")
 

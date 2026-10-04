@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
+from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize
 from living_doc_utilities.contracts.codes import Code
 
@@ -473,3 +474,27 @@ def test_sub_list_state_resets_between_criterion_blocks():
     assert warnings == []
     assert acs[0].preconditions == ["An account exists."]
     assert (acs[1].preconditions, acs[1].aspect) == ([], ["security"])
+
+
+# --- D22: a criterion with nothing under its header -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 - active)\n",
+        "## Acceptance Criteria\n\n### AC:US-001-01 (v1.0.0 - active)\n\n### AC:US-001-02 (v1.0.0 - active)\n\n- d\n",
+    ],
+    ids=["alone", "before_a_valid_one"],
+)
+def test_a_criterion_with_nothing_under_its_header_is_reported_and_the_rest_is_read(body):
+    """`D22`: an empty criterion block no longer raises; that criterion is dropped with `MALFORMED_AC` naming the
+    missing description, and every other criterion is read."""
+    entity, warnings = parse_issue_body(body, "US-001 · S", "DocumentedUserStory")
+
+    assert entity is not None
+    assert [ac.id for ac in entity.acceptance_criteria] == (["US-001-02"] if "US-001-02" in body else [])
+    assert [(w.code, w.message) for w in warnings] == [
+        (Code.MALFORMED_AC.name, "Acceptance criterion has no description line.")
+    ]
+    assert "line_no=3" in warnings[0].context
