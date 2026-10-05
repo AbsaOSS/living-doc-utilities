@@ -165,6 +165,7 @@
     # =====
     # LIVING DOC — FUNC-001 · Validate Password Strength
     # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 — active)
     #     - Returns valid=false when the candidate password fails a complexity rule.
     # =====
@@ -172,6 +173,7 @@
     # =====
     # LIVING DOC — FUNC-001 · Validate Password Strength
     # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 - active)
     #     - Returns valid=false when the candidate password fails a complexity rule.
     # =====
@@ -231,6 +233,7 @@
     # =====
     # LIVING DOC — US-001 · Customer Login
     # =====
+    # acceptance_criteria:
     # AC:US-001-01 (v1.0.0 - Active)
     # - Valid credentials land on the dashboard.
     # =====
@@ -238,6 +241,7 @@
     # =====
     # LIVING DOC — US-001 · Customer Login
     # =====
+    # acceptance_criteria:
     # AC:US-001-01 (v1.0.0 - active)
     # - Valid credentials land on the dashboard.
     # =====
@@ -279,6 +283,7 @@
     # =====
     # LIVING DOC — FUNC-001 · Validate Password Strength
     # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-02 (1.0.0 - active)
     #     - Returns valid=true when the candidate password satisfies every rule.
     # =====
@@ -286,6 +291,7 @@
     # =====
     # LIVING DOC — FUNC-001 · Validate Password Strength
     # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-02 (v1.0.0 - active)
     #     - Returns valid=true when the candidate password satisfies every rule.
     # =====
@@ -446,12 +452,14 @@
     # =====
     # LIVING DOC — FUNC-001 · Validate Password Strength
     # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 - active) - rejects a weak password
     # =====
   expected: |
     # =====
     # LIVING DOC — FUNC-001 · Validate Password Strength
     # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 - active)
     #     - rejects a weak password
     # =====

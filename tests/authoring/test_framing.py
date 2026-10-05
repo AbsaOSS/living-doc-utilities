@@ -441,6 +441,32 @@ def test_a_rule_inside_the_header_ends_a_criterion_block_and_the_last_rule_ends_
     assert entity is not None and entity.state == "active"
 
 
+def test_an_ac_header_outside_the_criteria_key_is_no_criterion_and_the_keys_after_it_are_read():
+    """The canon writes every criterion under `acceptance_criteria:`, so that key's section bounds them. Without
+    it an `AC:` line is text and `AUTHORING_ERROR`, and the keys after it still sit at the key level."""
+    text = _us_header("#   AC:US-001-01 (v1.0.0 - active)\n#     - desc\n# status: active\n# notes:\n#   - a note\n")
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None
+    assert entity.acceptance_criteria == []
+    assert entity.state == "active" and entity.notes == ["a note"]
+    assert [w.code for w in warnings] == ["AUTHORING_ERROR", "AUTHORING_WARNING"]
+    assert "line_no=4 line='#   AC:US-001-01 (v1.0.0 - active)'" in warnings[0].context
+    assert "line_no=5 line='#     - desc'" in warnings[1].context
+
+
+def test_a_line_a_structural_problem_names_is_reported_once():
+    """Two accountings cover the same line - the frame's problem and the unread-line sweep - so the problem's
+    own warning wins and the line is never reported twice."""
+    text = _us_header("#   AC:US-001-01 (v1.0.0 - active)\n# status: active\n")
+
+    _, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert [w.code for w in warnings] == ["AUTHORING_ERROR"]
+    assert sum("line_no=4 " in (w.context or "") for w in warnings) == 1
+
+
 def test_an_ac_line_off_the_criterion_level_is_text_and_reported():
     """The first `AC:` line sets the criterion level; one at another indent is no header, and it is reported."""
     text = _us_header(

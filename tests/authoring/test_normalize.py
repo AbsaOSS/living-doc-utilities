@@ -229,28 +229,33 @@ def test_feature_header_wrapped_bullet_line_is_never_rewritten_as_a_key_or_an_ac
 def test_feature_header_criterion_header_keeps_its_authors_indent_when_rewritten(indent):
     """Rule 3 fixes a header's state casing where the author put it: flush stays flush, the canon's indent 2 stays 2.
     Every header of one file sits at that file's criterion level."""
-    text = _header(f"# {indent}AC:US-001-01 (v1.0.0 - Active)\n# {indent}  - d1\n#\n# {indent}AC:US-001-02 (v1.0.0 - Active)\n")
+    text = _header(
+        "# acceptance_criteria:\n"
+        f"# {indent}AC:US-001-01 (v1.0.0 - Active)\n# {indent}  - d1\n#\n# {indent}AC:US-001-02 (v1.0.0 - Active)\n"
+    )
     result = normalize(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
 
-    assert result.lines[3:7] == [
+    assert result.lines[4:8] == [
         f"# {indent}AC:US-001-01 (v1.0.0 - active)",
         f"# {indent}  - d1",
         "#",
         f"# {indent}AC:US-001-02 (v1.0.0 - active)",
     ]
     assert [(c.line, c.rule) for c in result.changes] == [
-        (4, normalize_module.RULE_STATE_CASING),
-        (7, normalize_module.RULE_STATE_CASING),
+        (5, normalize_module.RULE_STATE_CASING),
+        (8, normalize_module.RULE_STATE_CASING),
     ]
 
 
 def test_feature_header_split_description_sits_one_level_below_its_header():
     """Rule 7 puts an inline description on a bullet two spaces deeper than its header, wherever the header is."""
     result = normalize(
-        _header("# AC:US-001-01 (v1.0.0 - active) - desc\n"), SourceFormat.FEATURE_HEADER, "DocumentedUserStory"
+        _header("# acceptance_criteria:\n# AC:US-001-01 (v1.0.0 - active) - desc\n"),
+        SourceFormat.FEATURE_HEADER,
+        "DocumentedUserStory",
     )
 
-    assert result.lines[3:5] == ["# AC:US-001-01 (v1.0.0 - active)", "#   - desc"]
+    assert result.lines[4:6] == ["# AC:US-001-01 (v1.0.0 - active)", "#   - desc"]
 
 
 def test_issue_body_rule_6_is_recorded_on_the_line_alongside_the_bullet_marker_rule():

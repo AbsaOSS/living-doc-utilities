@@ -121,6 +121,7 @@ KEY_OUTSIDE_FRAME = "key_outside_frame"  # a `.feature` key line between the hea
 LINE_WITHOUT_MARKER = "line_without_marker"  # a line with text inside the frame that lacks the comment marker
 CRITERION_HEADER_AS_TEXT = "criterion_header_as_text"  # an `AC:` line in a criterion block read as text, not a header
 LINE_AFTER_CLOSE = "line_after_close"  # a ` * ` line between a PageObject comment's early close and its real end
+CRITERION_OUTSIDE_KEY = "criterion_outside_key"  # an `AC:` header outside the criteria key's section, so no criterion
 
 
 class Problem(NamedTuple):
@@ -277,13 +278,19 @@ def frame_issue_body(lines: list[FramedLine], bullet_sections: frozenset[str]) -
 
 # --- the headers: key sections inside a banner --------------------------------------------------------------
 
+# The key the canon writes every acceptance criterion under; its section bounds them, as `acceptance_criteria:`
+# sits at the key level and each `AC:` header one level deeper (`AbsaOSS/living-doc` § Indentation).
+CRITERIA_KEY = "acceptance_criteria"
+
 
 class _HeaderWalk:
     """Places a header's body lines one by one: which key's section each is in, and whether it is an open
     bullet item's text. A rule ends the open key, a key line opens the next, and a blank line ends nothing."""
 
-    def __init__(self, bullet_sections: frozenset[str]) -> None:
+    def __init__(self, bullet_sections: frozenset[str], criteria_key: str = CRITERIA_KEY) -> None:
         self._bullet_sections = bullet_sections
+        # The key whose section holds the criteria: an `AC:` header anywhere else is no criterion header.
+        self._criteria_key = criteria_key
         self._items = BulletItemTracker()
         self._section: Optional[str] = None
         self.criterion = False
@@ -299,6 +306,11 @@ class _HeaderWalk:
         if self._key_level is None:
             return not self.criterion
         return line.indent <= self._key_level
+
+    def in_criteria(self) -> bool:
+        """Whether the walk sits where criteria live: in the criteria key's section, or in a block it opened.
+        The canon writes every criterion under `acceptance_criteria:`, so an `AC:` line elsewhere is text."""
+        return self.criterion or self._section == self._criteria_key
 
     def is_criterion_level(self, line: IndentedLine) -> bool:
         """Whether an `AC:` line sits where the header's criteria start: the first one sets the level."""
@@ -361,10 +373,11 @@ _AC_PREFIX_RE = re.compile(r"^AC:")
 def frame_feature_header(lines: list[FramedLine], bullet_sections: frozenset[str]) -> Frame:
     """Places a `.feature` file's lines. The frame runs from the first `# ===` rule above `Feature:` to the last;
     its title is the first line after the opening rule. Inside it every line with text is a header line: a
-    `key:` line at the key level opens that key's section, and an `AC:` header at the criterion level opens a
-    criterion block that runs to the next `AC:` header, key or rule. Neither is read on an open bullet item's
-    text. A blank line without `#` is no header line and closes nothing, as a blank line in a Markdown list does
-    not. With no rule at all there is no header; nothing outside the frame is read."""
+    `key:` line at the key level opens that key's section, and an `AC:` header inside `CRITERIA_KEY`'s section,
+    at the criterion level, opens a criterion block that runs to the next `AC:` header, key or rule. An `AC:`
+    header outside that section is text and is reported, so the key always bounds the criteria. Neither is read
+    on an open bullet item's text. A blank line without `#` is no header line and closes nothing, as a blank line
+    in a Markdown list does not. With no rule at all there is no header; nothing outside the frame is read."""
     end = next((i for i, framed in enumerate(lines) if _FEATURE_LINE_RE.match(framed.raw.strip())), len(lines))
     rules = [i for i in range(end) if _FH_RULE_RE.match(lines[i].raw)]
     problems: list[Problem] = []
@@ -432,10 +445,13 @@ def _place_header_line(walk: _HeaderWalk, framed: FramedLine) -> FramedLine:
     if is_rule:
         return walk.rule(framed)
     if looks_like_header:
-        if walk.is_criterion_level(framed.line):
-            return walk.criterion_header(framed)
-        if walk.criterion:
-            walk.problems.append(Problem(CRITERION_HEADER_AS_TEXT, framed.number))
+        if walk.in_criteria():
+            if walk.is_criterion_level(framed.line):
+                return walk.criterion_header(framed)
+            if walk.criterion:
+                walk.problems.append(Problem(CRITERION_HEADER_AS_TEXT, framed.number))
+        else:
+            walk.problems.append(Problem(CRITERION_OUTSIDE_KEY, framed.number))
         return walk.text(framed)
     # A key at the key level opens its section, and ends a criterion block; a deeper key-shaped line is content.
     key_m = _FH_KEY_RE.match(text) if walk.is_key_level(framed.line) else None

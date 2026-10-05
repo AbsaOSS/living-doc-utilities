@@ -24,6 +24,7 @@ from typing import Optional
 
 from living_doc_utilities.authoring.framing import (
     CRITERION_HEADER_AS_TEXT,
+    CRITERION_OUTSIDE_KEY,
     KEY_OUTSIDE_FRAME,
     LINE_AFTER_CLOSE,
     LINE_WITHOUT_MARKER,
@@ -53,6 +54,10 @@ _PROBLEMS = {
     CRITERION_HEADER_AS_TEXT: (
         Code.AUTHORING_WARNING,
         "An 'AC:' line inside a criterion is read as text: it is not at the criteria's indent, or it continues an item.",
+    ),
+    CRITERION_OUTSIDE_KEY: (
+        Code.AUTHORING_ERROR,
+        "An 'AC:' header outside 'acceptance_criteria:' is no criterion: write it under that key.",
     ),
 }
 # A PageObject comment with no `*/` is no valid TypeScript, and nothing in it is read.
@@ -107,14 +112,17 @@ def unplaced_lines(
     """Every line with text that no field reads: one in no section (before the first key or `##` heading, or
     after a rule), one in the criteria section outside every criterion, and a code block inside a criterion.
     An HTML comment renders as nothing, so it holds no authored content; `skip_intro` spares the prose a
-    cross-reference header may open with."""
+    cross-reference header may open with. A line a structural problem already names is left to that warning."""
     warnings: list[ContractWarning] = []
     seen_section = False
     in_html_comment = False
+    named = {problem.line for problem in frame.problems}
     for framed in frame.lines:
         text = framed.line.text
         if in_html_comment or text.startswith("<!--"):
             in_html_comment = "-->" not in text
+            continue
+        if framed.number in named:
             continue
         if framed.role in (Role.HEADING, Role.KEY):
             seen_section = True
@@ -150,8 +158,8 @@ def unplaced_lines(
 
 def scalar_lines(section: Section, single_value: bool, entity_id: str) -> tuple[list[str], list[ContractWarning]]:
     """A scalar key's value lines and what its other lines cost. A deeper line continues the value - unless the
-    key takes a single value, when it is an `AUTHORING_ERROR` and not read; after a blank line it continues the
-    value with an `AUTHORING_WARNING`. A line not deeper than the key fits no level and is not read."""
+    key takes a single value, when it is an `AUTHORING_ERROR` and not read; a part after a blank line continues
+    the value and is reported once, on its first line. A line not deeper than the key fits no level and is not read."""
     values = [opening_value(section.opener)]
     warnings: list[ContractWarning] = []
     key = section.name
@@ -174,6 +182,8 @@ def scalar_lines(section: Section, single_value: bool, entity_id: str) -> tuple[
             )
         else:
             if after_blank:
+                # The first line after the blank one carries the warning: the part is reported once, not per line.
+                after_blank = False
                 warnings.append(
                     report(
                         Code.AUTHORING_WARNING,

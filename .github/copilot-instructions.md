@@ -82,7 +82,7 @@ Contract-sensitive outputs — downstream repos depend on these exactly:
 - Must keep every code in `contracts/codes.ALL_CODES` and the acceptance-criterion canonical header form (`AC:<id> (v<x.y.z> - <state>)`, `AC:<id> (planned)`) stable.
 - Must keep `get_action_input()` env-var mapping and `set_action_output()`'s `name=value\n` line format stable.
 - Must keep `safe_call_decorator`'s log message texts stable, and Must keep it re-raising — a caller relies on a failed fetch surfacing as an exception, never as `None`.
-- Must treat any change to a public signature or to a contract as a breaking change that needs a `pyproject.toml` version bump — a contract or public-API change bumps the minor version, a parser or helper fix bumps the patch version.
+- Must treat any change to a public signature or to a contract as a breaking change that needs a `pyproject.toml` version bump **measured against the newest release tag** — a contract or public-API change bumps the minor version, a parser or helper fix bumps the patch version. While `pyproject.toml` already names a version ahead of that tag, that version is unreleased and nothing consumes it: every further change lands inside it and owes no second bump (today `0.5.0` against `v0.4.0`, `DEC-41`). The next bump is owed once the current version is published.
 - Must treat `contracts/schemas/*.json` as generated output, never hand-edited — a `contracts/` model change and its regenerated schema (`make schemas`) land in the same commit.
 
 ## Coding guidelines

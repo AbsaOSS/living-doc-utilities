@@ -392,6 +392,26 @@ def test_a_text_value_wraps_silently_and_continues_after_a_blank_line_with_a_war
     assert _codes_and_lines(after_blank, blank_warnings) == [("AUTHORING_WARNING", "*          a new account.")]
 
 
+def test_one_blank_line_in_a_text_value_is_reported_once_not_on_every_line_after_it():
+    """The warning names the part the blank line starts: the lines wrapping after it are ordinary continuation,
+    so one blank line costs one warning however long the rest of the value is."""
+    text = _po(
+        " * purpose: Multi-step wizard for creating\n"
+        " *\n"
+        " *          a new account,\n"
+        " *          confirming its email address,\n"
+        " *          and closing on the summary step.\n"
+    )
+
+    result, warnings = parse_page_object(text)
+
+    assert result is not None
+    assert result.page_ref.purpose == (
+        "Multi-step wizard for creating a new account, confirming its email address, and closing on the summary step."
+    )
+    assert _codes_and_lines(text, warnings) == [("AUTHORING_WARNING", "*          a new account,")]
+
+
 def test_an_id_list_may_wrap():
     """A long id list continues on a deeper line, as text does."""
     text = _po(" * functionalities: FUNC-005,\n *                  FUNC-006\n")
