@@ -22,9 +22,19 @@ cross-reference header (`parent-feat:` present) only describes its own page.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
+from living_doc_utilities.authoring.accounting import (
+    UNCLOSED_COMMENT,
+    at_title,
+    first_occurrences,
+    missing_title,
+    scalar_lines,
+    structural_warnings,
+    unplaced_lines,
+)
+from living_doc_utilities.authoring.framing import Frame, Section, opening_value, sections, without_comment_close
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import IGNORED_AUTHORED_KEYS as _ISSUE_BODY_IGNORED_AUTHORED_KEYS
 from living_doc_utilities.authoring.issue_body import (
@@ -33,22 +43,10 @@ from living_doc_utilities.authoring.issue_body import (
     extract_bullets,
     split_id_list,
 )
-from living_doc_utilities.authoring.normalize import (
-    _PO_LINE_RE,
-    PO_BULLET_KEYS,
-    BulletItemTracker,
-    SourceFormat,
-    indented,
-    normalize,
-    po_section_break,
-)
+from living_doc_utilities.authoring.normalize import PO_BULLET_KEYS, SourceFormat, normalize_framed
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.doc_entities import PageRef
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-_GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*(?P<val>.*)$")
-_COMMENT_OPEN_RE = re.compile(r"^\s*/\*")
-_COMMENT_CLOSE_RE = re.compile(r".*\*/\s*$")
 
 # Glossary keys that map to no field, dropped for the same reason issue_body drops them (declared once, reused here).
 IGNORED_AUTHORED_KEYS = {
@@ -83,100 +81,73 @@ _CROSS_REFERENCE_KEYS = {
     "purpose",
     "page-object",
     "functionalities",
+    "notes",
     "status",
     "deprecated_at",
 }
-# Every key either header shape can carry, used only to find `parent-feat:` before the shape is known.
-_ANY_HEADER_KEYS = _FULL_HEADER_KEYS | _CROSS_REFERENCE_KEYS
 # The keys whose value is a bullet list, whose items' wrapped lines are never read as a key and whose
-# dropped text is reported. Declared in `normalize.py`, which has to know them to apply rule 1, so the
-# normaliser and this parser cannot disagree about which key holds a list. `notes:` is the canon's only
-# one; its authored key is also its contract field, unlike the hyphenated keys above. A cross-reference
-# header carries no note: it describes a page, and a note is Feature-level, so `notes:` there is unknown.
+# dropped text is reported. Declared in `normalize.py`, which frames the header by them, so the normaliser
+# and this parser cannot disagree about which key holds a list. `notes:` is the canon's only one; its
+# authored key is also its contract field, unlike the hyphenated keys above. A full header's notes are its
+# Feature's; a cross-reference header's notes are its page's own (`PageRef.notes`), never merged into the Feature's.
 _BULLET_KEYS = PO_BULLET_KEYS
+# Keys whose value is one token - a surface type, a route, a file, an id: a further line is an AUTHORING_ERROR and
+# is not read. Text and id lists may wrap.
+_SINGLE_VALUE_KEYS = frozenset(
+    {"surface_type", "route", "page-object", "parent-feat", "status", "deprecated_at", "superseded_by"}
+)
 
 
 @dataclass
 class PageObjectResult:
     """One PageObject file's parse result. `entity` is only populated for a full header; a
     cross-reference header instead carries `parent_feat`, the Feature id its `page_ref`
-    belongs to - the collector appends `page_ref` onto that Feature's `pages` list."""
+    belongs to - the collector appends `page_ref`, with the page's own notes, onto that
+    Feature's `pages` list."""
 
     page_ref: PageRef
     entity: Optional[ParsedEntity] = None
     parent_feat: Optional[str] = None
 
 
-def _header_comment_lines(lines: list[str]) -> list[str]:
-    """The file's leading `/* ... */` block comment - the Living Doc header - and nothing
-    past its closing `*/`. A later JSDoc block can't be mistaken for header fields."""
-    start = next((i for i, ln in enumerate(lines) if _COMMENT_OPEN_RE.match(ln)), None)
-    if start is None:
-        return []
-    end = next((i for i in range(start, len(lines)) if _COMMENT_CLOSE_RE.match(lines[i])), None)
-    if end is None:
-        return []
-    return lines[start : end + 1]
-
-
-def _content_lines(lines: list[str]) -> list[str]:
-    contents = []
-    for raw in _header_comment_lines(lines):
-        line_m = _PO_LINE_RE.match(raw)
-        if line_m:
-            contents.append(line_m.group("content").rstrip())
-    return contents
-
-
-def _extract_title(contents: list[str]) -> Optional[str]:
-    title = extract_living_doc_title(contents)
+def _extract_title(frame: Frame) -> Optional[str]:
+    title = None if frame.title is None else extract_living_doc_title([frame.title.line.raw])
     if title is None:
         return None
     # Strip an optional "[cross-reference]" suffix - cosmetic; parent-feat: is the authoritative format signal.
     return re.sub(r"\s*\[cross-reference]\s*$", "", title)
 
 
-def _parse_keys(contents: list[str], known_keys: set[str]) -> tuple[dict[str, list[str]], list[str]]:
-    """Each present key's raw lines - the key's own value first, then every line that continued it -
-    plus the unrecognised key names. The lines keep their indent, so a bullet key's list can be read
-    from them; `_joined` collapses a scalar key's lines back into one value."""
-    key_re = re.compile(
-        r"^(?P<key>"
-        + "|".join(re.escape(k) for k in sorted(known_keys, key=len, reverse=True))
-        + r")\s*:\s*(?P<val>.*)$"
-    )
-    raw_values: dict[str, list[str]] = {}
-    current_key: Optional[str] = None
-    unrecognised: list[str] = []
-    items = BulletItemTracker()
+@dataclass
+class _ReadKeys:
+    """`_read_keys`' result: each known key's raw lines, a bullet key's lines' input numbers, each key's own
+    line number, the unrecognised keys with theirs, and the warnings for lines no field reads."""
 
-    for content in contents:
-        line = indented(content)
-        # Every line passes the tracker first, so a line that ends the key's section also closes its item.
-        if items.continues_item(line) and current_key is not None:
-            raw_values[current_key].append(content.rstrip())
+    raw_values: dict[str, list[str]] = field(default_factory=dict)
+    numbers: dict[str, list[int]] = field(default_factory=dict)
+    key_lines: dict[str, int] = field(default_factory=dict)
+    unrecognised: list[tuple[str, int]] = field(default_factory=list)
+    warnings: list[ContractWarning] = field(default_factory=list)
+
+
+def _read_keys(keys: list[Section], known_keys: set[str], entity_id: str) -> _ReadKeys:
+    """Each known key's raw lines - the key's own value first, then every line of its section - plus the
+    unrecognised keys. The lines keep their indent, so a bullet key's list can be read from them; a scalar key's
+    further lines are read by its value's type (`accounting.scalar_lines`), and `_joined` collapses them."""
+    result = _ReadKeys()
+    for key in keys:
+        if key.name not in known_keys:
+            result.unrecognised.append((key.name, key.opener.number))
             continue
-        if po_section_break(content, line.text):
-            current_key = None
-            continue
-
-        key_m = key_re.match(line.text)
-        if key_m:
-            current_key = key_m.group("key")
-            raw_values[current_key] = [key_m.group("val")]
-            continue
-
-        generic_m = _GENERIC_KEY_RE.match(line.text)
-        if generic_m and generic_m.group("key") not in known_keys:
-            unrecognised.append(generic_m.group("key"))
-            current_key = None
-            continue
-
-        if current_key is not None:
-            raw_values[current_key].append(content.rstrip())
-            items.read(line, current_key in _BULLET_KEYS)
-
-    return raw_values, unrecognised
+        result.key_lines[key.name] = key.opener.number
+        if key.name in _BULLET_KEYS:
+            lines = [opening_value(key.opener)] + [framed.line.raw.rstrip() for framed in key.lines]
+            result.numbers[key.name] = [key.opener.number] + [framed.number for framed in key.lines]
+        else:
+            lines, key_warnings = scalar_lines(key, key.name in _SINGLE_VALUE_KEYS, entity_id)
+            result.warnings.extend(key_warnings)
+        result.raw_values[key.name] = [without_comment_close(line) for line in lines]
+    return result
 
 
 def _joined(lines: list[str]) -> str:
@@ -188,51 +159,47 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     """Parses one PageObject file's living-doc header. Returns `(None, [MISSING_ENTITY_ID])`
     when the banner carries no parseable title/id.
     """
-    normalized = normalize(text, SourceFormat.PAGE_OBJECT, "DocumentedFeature")
-    contents = _content_lines(normalized.lines)
+    _, frame = normalize_framed(text, SourceFormat.PAGE_OBJECT, "DocumentedFeature")
 
-    title = _extract_title(contents)
+    title = _extract_title(frame)
     if title is None:
-        return None, [
-            ContractWarning(
-                code=Code.MISSING_ENTITY_ID.name,
-                message="PageObject banner carries no 'LIVING DOC — ...' title line.",
-                context="title=''",
-            )
-        ]
+        return None, [missing_title(frame, "PageObject"), *structural_warnings(frame, "", UNCLOSED_COMMENT)]
 
     entity_id, id_warnings = derive_entity_id(title)
     if entity_id is None:
-        return None, id_warnings
+        return None, at_title(id_warnings, frame)
 
-    # `parent-feat:` picks the key set, so it is read through `_parse_keys` like any other key rather than
-    # by scanning every line: a note's wrapped line may say `parent-feat:` and is still only that note's
-    # text (#168). Probing with both key sets keeps a bullet key open so its items cannot read as keys.
-    probe_values, _ = _parse_keys(contents, _ANY_HEADER_KEYS)
-    is_cross_reference = "parent-feat" in probe_values
+    # `parent-feat:` picks the key set, so it is read from the frame's key sections like any other key: a
+    # note's wrapped line may say `parent-feat:` and is still only that note's text (#168).
+    frame, repeated = first_occurrences(frame, entity_id)
+    keys = sections(frame)
+    is_cross_reference = any(key.name == "parent-feat" for key in keys)
     known_keys = _CROSS_REFERENCE_KEYS if is_cross_reference else _FULL_HEADER_KEYS
-    raw_values, unrecognised = _parse_keys(contents, known_keys)
+    read = _read_keys(keys, known_keys, entity_id)
+    raw_values = read.raw_values
     values = {key: _joined(lines) for key, lines in raw_values.items() if key not in _BULLET_KEYS}
 
-    warnings: list[ContractWarning] = []
-    for key in unrecognised:
+    # A cross-reference header may open with prose before its first key; the canon allows it.
+    warnings: list[ContractWarning] = structural_warnings(frame, entity_id) + repeated + read.warnings
+    warnings.extend(unplaced_lines(frame, entity_id, skip_intro=is_cross_reference))
+    for key, number in read.unrecognised:
         warnings.append(
             ContractWarning(
                 code=Code.IGNORED_AUTHORED_KEY.name,
                 message=f"'{key}:' is not a field this contract carries.",
-                context=f"entity_id={entity_id!r}",
+                context=f"entity_id={entity_id!r} line_no={number}",
             )
         )
     for key, lines in raw_values.items():
         if key in _BULLET_KEYS:
-            warnings.extend(bullet_field_warnings(entity_id, key, lines))
+            warnings.extend(bullet_field_warnings(entity_id, key, lines, read.numbers[key]))
     for key, reason in IGNORED_AUTHORED_KEYS.items():
         if key in values:
             warnings.append(
                 ContractWarning(
                     code=Code.IGNORED_AUTHORED_KEY.name,
                     message=reason,
-                    context=f"entity_id={entity_id!r} key='{key}:'",
+                    context=f"entity_id={entity_id!r} line_no={read.key_lines[key]} key='{key}:'",
                 )
             )
 
@@ -244,6 +211,7 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
             owners=split_id_list(values.get("owners")),
             purpose=values.get("purpose", ""),
             functionalities=split_id_list(values.get("functionalities")),
+            notes=extract_bullets(raw_values.get("notes", [])),
         )
         return PageObjectResult(page_ref=page_ref, entity=None, parent_feat=values.get("parent-feat")), warnings
 

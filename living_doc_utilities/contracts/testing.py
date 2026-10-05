@@ -189,6 +189,7 @@ def _entities() -> list[Entity]:
                 owners=["team-payments"],
                 purpose="The screen shown after a successful payment.",
                 functionalities=["FUNC-001"],
+                notes=["The confirmation screen is reached only through the payment step."],
             ),
         ],
     )

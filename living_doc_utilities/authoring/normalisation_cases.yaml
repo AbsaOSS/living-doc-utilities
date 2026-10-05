@@ -35,11 +35,19 @@
   format: feature_header
   entity_type: DocumentedFunctionality
   input: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
     # rationale:
     #   * Password strength is checked client-side for immediate feedback.
+    # =====
   expected: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
     # rationale:
     #   - Password strength is checked client-side for immediate feedback.
+    # =====
   note: A "*" bullet inside a bullet section becomes "-"; the "#" comment prefix stays.
 
 - id: rule1_bullet_marker_plus_not_in_scope_feature_header
@@ -47,11 +55,19 @@
   format: feature_header
   entity_type: DocumentedUserStory
   input: |
+    # =====
+    # LIVING DOC — US-001 · Customer Login
+    # =====
     # not_in_scope:
     #   + Social-identity (OAuth) sign-in.
+    # =====
   expected: |
+    # =====
+    # LIVING DOC — US-001 · Customer Login
+    # =====
     # not_in_scope:
     #   - Social-identity (OAuth) sign-in.
+    # =====
   note: A "+" bullet is also corrected, matching rule 1's marker set.
 
 - id: rule1_bullet_marker_bullet_dot_ac_block
@@ -74,6 +90,8 @@
   entity_type: DocumentedFeature
   input: |
     /* =============================================================================
+     * LIVING DOC — FEAT-001 · Login Page
+     * =====
      * page-object:           LoginPage.ts
      * notes:
      *   • The sign-in form markup comes from the shared identity template.
@@ -81,6 +99,8 @@
      * ============================================================================= */
   expected: |
     /* =============================================================================
+     * LIVING DOC — FEAT-001 · Login Page
+     * =====
      * page-object:           LoginPage.ts
      * notes:
      *   - The sign-in form markup comes from the shared identity template.
@@ -142,11 +162,21 @@
   format: feature_header
   entity_type: DocumentedFunctionality
   input: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 — active)
     #     - Returns valid=false when the candidate password fails a complexity rule.
+    # =====
   expected: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 - active)
     #     - Returns valid=false when the candidate password fails a complexity rule.
+    # =====
   note: An em-dash separator is corrected the same way as an en-dash.
 
 - id: rule3_state_casing_status_heading_issue_body
@@ -168,9 +198,17 @@
   format: feature_header
   entity_type: DocumentedFunctionality
   input: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
     # status:          In Review
+    # =====
   expected: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
     # status:          in_review
+    # =====
   note: "\"In Review\" collapses to \"in_review\" in a \"# status:\" value."
 
 - id: rule3_state_casing_ac_header_issue_body
@@ -192,11 +230,21 @@
   format: feature_header
   entity_type: DocumentedUserStory
   input: |
+    # =====
+    # LIVING DOC — US-001 · Customer Login
+    # =====
+    # acceptance_criteria:
     # AC:US-001-01 (v1.0.0 - Active)
     # - Valid credentials land on the dashboard.
+    # =====
   expected: |
+    # =====
+    # LIVING DOC — US-001 · Customer Login
+    # =====
+    # acceptance_criteria:
     # AC:US-001-01 (v1.0.0 - active)
     # - Valid credentials land on the dashboard.
+    # =====
   note: A rewritten header keeps its author's indent, so its bullets stay where they belong.
 
 - id: rule3_state_casing_removal_planned_keyword
@@ -232,11 +280,21 @@
   format: feature_header
   entity_type: DocumentedFunctionality
   input: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-02 (1.0.0 - active)
     #     - Returns valid=true when the candidate password satisfies every rule.
+    # =====
   expected: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-02 (v1.0.0 - active)
     #     - Returns valid=true when the candidate password satisfies every rule.
+    # =====
   note: A bare "1.0.0" gains the canonical leading "v".
 
 - id: rule4_version_form_capital_v_issue_body
@@ -331,24 +389,24 @@
   rule: whitespace
   format: page_object
   entity_type: DocumentedFeature
-  input: "/* =============================================================================\n *\tsurface_type:          UI\n * ============================================================================= */\n"
-  expected: "/* =============================================================================\n * surface_type:          UI\n * ============================================================================= */\n"
+  input: "/* =============================================================================\n * LIVING DOC — FEAT-001 · Login Page\n * =====\n *\tsurface_type:          UI\n * ============================================================================= */\n"
+  expected: "/* =============================================================================\n * LIVING DOC — FEAT-001 · Login Page\n * =====\n * surface_type:          UI\n * ============================================================================= */\n"
   note: A tab used to indent a field's value becomes a plain space; the value itself is untouched.
 
 - id: rule6_whitespace_tab_indentation_feature_header
   rule: whitespace
   format: feature_header
   entity_type: DocumentedUserStory
-  input: "# business_value:\n#\t- Fewer support calls.\n#\t\tA wrapped line.\n"
-  expected: "# business_value:\n# - Fewer support calls.\n#  A wrapped line.\n"
+  input: "# =====\n# LIVING DOC — US-001 · Customer Login\n# =====\n# business_value:\n#\t- Fewer support calls.\n#\t\tA wrapped line.\n# =====\n"
+  expected: "# =====\n# LIVING DOC — US-001 · Customer Login\n# =====\n# business_value:\n# - Fewer support calls.\n#  A wrapped line.\n# =====\n"
   note: Each tab or no-break space in a header line's indent becomes one space, so the relative levels stay.
 
 - id: rule6_whitespace_nbsp_indentation_feature_header
   rule: whitespace
   format: feature_header
   entity_type: DocumentedUserStory
-  input: "# business_value:\n#   - Fewer support calls.\n"
-  expected: "# business_value:\n#   - Fewer support calls.\n"
+  input: "# =====\n# LIVING DOC — US-001 · Customer Login\n# =====\n# business_value:\n#   - Fewer support calls.\n# =====\n"
+  expected: "# =====\n# LIVING DOC — US-001 · Customer Login\n# =====\n# business_value:\n#   - Fewer support calls.\n# =====\n"
   note: A no-break space in a header line's indent becomes one space.
 
 - id: rule6_whitespace_tab_indentation_issue_body
@@ -391,10 +449,20 @@
   format: feature_header
   entity_type: DocumentedFunctionality
   input: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 - active) - rejects a weak password
+    # =====
   expected: |
+    # =====
+    # LIVING DOC — FUNC-001 · Validate Password Strength
+    # =====
+    # acceptance_criteria:
     #   AC:FUNC-001-01 (v1.0.0 - active)
     #     - rejects a weak password
+    # =====
   note: Same split for a feature-header AC block, keeping the "#" comment prefix.
 
 - id: rule7_inline_ac_description_scenario_file_inline

@@ -24,7 +24,10 @@ The canonical forms come from `AbsaOSS/living-doc`'s [glossary](https://github.c
 
 - Every parser normalises a document's fields first and extracts them second, never the reverse → `authoring/normalize.py::normalize` · [normalisation](authoring/normalisation.md#where-normalisation-runs)
   - Why: a mis-cased or mis-dashed but well-formed header is corrected, not rejected.
-- The issue-body parser is the one exception: it derives the entity id from the (normalised) title before the body is normalised, and a title with no id skips body normalisation entirely; the feature-header and PageObject parsers normalise the whole document first, then extract the id → `authoring/issue_body.py::parse_issue_body`
+- The issue-body parser derives the entity id from the (normalised) title before the body is normalised, and a title with no id skips body normalisation entirely → `authoring/issue_body.py::parse_issue_body`
+  - The feature-header and PageObject parsers find the header first: only a header whose title names an entity is normalised and read, and nothing outside it → `authoring/framing.py::names_an_entity`
+- Where a section begins and ends is decided once, by position, before any rule rewrites a line or any parser reads one → `authoring/framing.py::Frame` · [normalisation](authoring/normalisation.md#where-normalisation-runs)
+  - Why: when the normaliser and the parser each found boundaries, they disagreed, and a note's text dropped data silently.
 - Normalisation never validates meaning; only `ac_grammar.py` knows the state vocabulary and the strict version shape → `tests/authoring/test_isolation.py::test_no_module_other_than_ac_grammar_validates_ac_state_or_version` · [grammar](authoring/ac-grammar.md)
   - Why: two layers that both tolerated variance would disagree about what is valid.
 - The parsers share one grammar instead of reimplementing it → `tests/authoring/test_normalize_first.py::test_feature_header_issue_body_and_scenario_import_ac_grammar` · [grammar](authoring/ac-grammar.md#header)

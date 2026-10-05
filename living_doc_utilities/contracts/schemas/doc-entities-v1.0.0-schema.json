@@ -709,6 +709,13 @@
           },
           "title": "Functionalities",
           "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
         }
       },
       "required": [
@@ -1030,6 +1037,7 @@
               "entities[].owners[]",
               "entities[].pages[].functionalities[]",
               "entities[].pages[].is_primary",
+              "entities[].pages[].notes[]",
               "entities[].pages[].owners[]",
               "entities[].pages[].page_object",
               "entities[].pages[].purpose",

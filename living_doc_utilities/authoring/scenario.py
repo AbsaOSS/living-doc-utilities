@@ -24,15 +24,14 @@ import re
 from dataclasses import dataclass, field
 
 from living_doc_utilities.authoring.ac_grammar import is_valid_ac_id
-from living_doc_utilities.authoring.normalize import _FEATURE_LINE_RE, SourceFormat, normalize
+from living_doc_utilities.authoring.framing import SCENARIO, Role, opening_value
+from living_doc_utilities.authoring.normalize import SourceFormat, normalize_framed
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.envelope import ContractWarning
 from living_doc_utilities.contracts.ui_tests import AcLink
 
 _TAG_TOKEN_RE = re.compile(r"@\S+")
-_SCENARIO_RE = re.compile(r"^Scenario(?:\s+Outline)?:\s*(?P<title>.*)$")
-_BACKGROUND_RE = re.compile(r"^Background:\s*.*$")
 _AC_TAG_PREFIX = "@AC:"
 _ASPECT_PARAM = "aspect"
 
@@ -64,16 +63,21 @@ def _parse_ac_tag(tag: str) -> AcLink | None:
     return AcLink(id=ac_id, aspect=aspect)
 
 
-def _tags_to_ac_links(tags: list[str]) -> tuple[list[AcLink], list[ContractWarning]]:
+def _tags_to_ac_links(tags: list[tuple[str, int]]) -> tuple[list[AcLink], list[ContractWarning]]:
+    """Each `@AC:` tag of `(tag, input line number)` pairs as a link; a malformed one is reported on its line."""
     links: list[AcLink] = []
     warnings: list[ContractWarning] = []
-    for tag in tags:
+    for tag, number in tags:
         if not tag.startswith(_AC_TAG_PREFIX):
             continue
         link = _parse_ac_tag(tag)
         if link is None:
             warnings.append(
-                ContractWarning(code=Code.MALFORMED_AC.name, message="'@AC:' tag is malformed.", context=f"tag={tag!r}")
+                ContractWarning(
+                    code=Code.MALFORMED_AC.name,
+                    message="'@AC:' tag is malformed.",
+                    context=f"tag={tag!r} line_no={number}",
+                )
             )
             continue
         links.append(link)
@@ -82,32 +86,28 @@ def _tags_to_ac_links(tags: list[str]) -> tuple[list[AcLink], list[ContractWarni
 
 def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenario], list[ContractWarning]]:
     """Parses every `Scenario:`/`Scenario Outline:` in a `.feature` file's Gherkin body."""
-    normalized = normalize(text, SourceFormat.SCENARIO_FILE, entity_type)
+    _, frame = normalize_framed(text, SourceFormat.SCENARIO_FILE, entity_type)
     warnings: list[ContractWarning] = []
     scenarios: list[ParsedScenario] = []
-    pending_tags: list[str] = []
+    pending_tags: list[tuple[str, int]] = []
 
-    for line in normalized.lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
+    for framed in frame.lines:
+        if framed.role in (Role.BLANK, Role.COMMENT):
             continue
-        if _FEATURE_LINE_RE.match(stripped) or _BACKGROUND_RE.match(stripped):
-            pending_tags = []
+        if framed.role is Role.TAG:
+            pending_tags.extend((tag, framed.number) for tag in _TAG_TOKEN_RE.findall(framed.line.text))
             continue
-        if stripped.startswith("@"):
-            pending_tags.extend(_TAG_TOKEN_RE.findall(stripped))
-            continue
-
-        scenario_m = _SCENARIO_RE.match(stripped)
-        if scenario_m is None:
-            # Any other construct (Rule:, a step, Examples:, ...) invalidates a pending tag block.
+        if framed.role is not Role.HEADING or framed.section != SCENARIO:
+            # `Feature:`, `Background:` or any other construct (Rule:, a step, Examples:, ...) drops pending tags.
             pending_tags = []
             continue
 
         ac_links, ac_warnings = _tags_to_ac_links(pending_tags)
         warnings.extend(ac_warnings)
         scenarios.append(
-            ParsedScenario(title=scenario_m.group("title").strip(), tags=pending_tags, acceptance_criteria=ac_links)
+            ParsedScenario(
+                title=opening_value(framed).strip(), tags=[tag for tag, _ in pending_tags], acceptance_criteria=ac_links
+            )
         )
         pending_tags = []
 

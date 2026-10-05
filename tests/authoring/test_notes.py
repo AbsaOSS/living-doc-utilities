@@ -230,8 +230,9 @@ def test_an_authored_notes_key_round_trips_through_the_page_object_parser():
     assert warnings == [], "a `notes:` key is a field now, not an IGNORED_AUTHORED_KEY"
 
 
-def test_a_note_on_a_cross_reference_page_object_header_is_an_unrecognised_key():
-    """A note is Feature-level, and a cross-reference header describes only its own page, so `notes:` is unknown."""
+def test_a_note_on_a_cross_reference_page_object_header_stays_with_its_page():
+    """A cross-reference header's notes are its page's own: they stay on its `PageRef`, with the page's other data,
+    and are never merged into the parent Feature's notes."""
     text = (
         "/* =============================================================================\n"
         " * LIVING DOC — FEAT-042 · Account Setup Wizard  [cross-reference]\n"
@@ -249,8 +250,9 @@ def test_a_note_on_a_cross_reference_page_object_header_is_an_unrecognised_key()
 
     assert result is not None
     assert result.entity is None
-    assert [w.code for w in warnings] == [Code.IGNORED_AUTHORED_KEY.name]
-    assert warnings[0].message == "'notes:' is not a field this contract carries."
+    assert warnings == []
+    assert result.parent_feat == "FEAT-042"
+    assert result.page_ref.notes == ["A note belongs on the primary file."]
 
 
 # --- a note is never interpreted ------------------------------------------------------
@@ -481,7 +483,7 @@ def test_page_object_notes_text_before_the_first_bullet_is_reported():
     assert result is not None and result.entity is not None
     assert [w.code for w in warnings] == [Code.UNPARSED_BULLET_LINE.name]
     assert "This sentence sits outside any bullet." in warnings[0].message
-    assert warnings[0].context == "entity_id='FEAT-042' field='notes'"
+    assert warnings[0].context == "entity_id='FEAT-042' field='notes' line_no=12"
     assert result.entity.notes == [
         "Step order is fixed; the review step cannot be skipped.",
         "The wizard shares one URL with its step files.",
@@ -499,7 +501,7 @@ def test_page_object_notes_line_shallower_than_its_list_is_reported_as_misindent
     assert result is not None and result.entity is not None
     assert [w.code for w in warnings] == [Code.MISINDENTED_LINE.name]
     assert warnings[0].context == (
-        "entity_id='FEAT-042' field='notes' line='- The wizard shares one URL with its step files.'"
+        "entity_id='FEAT-042' field='notes' line_no=14 line='- The wizard shares one URL with its step files.'"
     )
     assert result.entity.notes == ["Step order is fixed; the review step cannot be skipped."]
 
@@ -664,7 +666,7 @@ def test_a_note_quoting_a_whole_banner_title_is_still_a_note():
 
 
 def test_a_quoted_banner_title_in_a_note_does_not_stop_rule_one():
-    """The normaliser reads the same `po_section_break`, so the item after the quoting note is still
+    """The normaliser reads the same frame as the parser, so the item after the quoting note is still
     inside the list and its non-canonical marker is still corrected."""
     text = _PAGE_OBJECT_WITH_NOTES.replace(
         " *   - Step order is fixed; the review step cannot be skipped.\n",

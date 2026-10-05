@@ -15,7 +15,8 @@
 #
 
 """
-The authoring normalisation layer: `normalize` rewrites non-canonical formatting per source
-format, and `ac_grammar` parses the canonical acceptance-criterion header and extensions
-into `common.py::AcceptanceCriterion`. Pure text in, model and warnings out - no I/O.
+The authoring normalisation layer: `framing` decides every section boundary once, `normalize`
+rewrites non-canonical formatting per source format by it, and `ac_grammar` parses the canonical
+acceptance-criterion header and extensions into `common.py::AcceptanceCriterion`. Pure text in,
+model and warnings out - no I/O.
 """

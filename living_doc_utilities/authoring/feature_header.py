@@ -20,11 +20,20 @@
 `AC:<id> (v<version> - <state>)` blocks, parsed by `ac_grammar` alone.
 """
 
-import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
+from living_doc_utilities.authoring.ac_grammar import parse_frame_criteria
+from living_doc_utilities.authoring.accounting import (
+    at_title,
+    first_occurrences,
+    missing_title,
+    report,
+    scalar_lines,
+    structural_warnings,
+    unplaced_lines,
+)
+from living_doc_utilities.authoring.framing import Frame, opening_value, sections
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import (
     _EXTRACTORS,
@@ -35,21 +44,10 @@ from living_doc_utilities.authoring.issue_body import (
     _SectionSpec,
     bullet_field_warnings,
 )
-from living_doc_utilities.authoring.normalize import (
-    _FEATURE_LINE_RE,
-    BulletItemTracker,
-    SourceFormat,
-    _split_comment_prefix,
-    indented,
-    normalize,
-)
+from living_doc_utilities.authoring.normalize import SourceFormat, normalize_framed
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.envelope import ContractWarning
-
-_BANNER_RE = re.compile(r"^#\s*=+\s*$")
-_AC_HEADER_LOOKALIKE_RE = re.compile(r"^AC:\S+\s*\(")
-_GENERIC_KEY_RE = re.compile(r"^(?P<key>[a-zA-Z_][a-zA-Z0-9_]*):\s*(?P<val>.*)$")
 
 _COMMON_KEYS = {
     "source": _SectionSpec("source", _SectionKind.SCALAR),
@@ -62,6 +60,10 @@ _COMMON_KEYS = {
     "notes": _SectionSpec("notes", _SectionKind.BULLETS),
     "acceptance_criteria": _SectionSpec(None, _SectionKind.IGNORED),
 }
+
+# Scalar keys whose value is one token - a state, a date, an id, a URL: a further line is an AUTHORING_ERROR and
+# is not read. `deprecation_reason` is text, and may wrap.
+_SINGLE_VALUE_KEYS = frozenset({"source", "status", "deprecated_at", "superseded_by", "parent", "func_type"})
 
 _KEYS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
     "DocumentedUserStory": {
@@ -77,90 +79,57 @@ _KEYS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
 }
 
 
-def _strip_comment_prefix(line: str) -> str:
-    return _split_comment_prefix(line)[1]
-
-
-def _extract_header_block(lines: list[str]) -> list[str]:
-    """The banner brackets the whole header block but also reappears right after the title
-    line, so the block runs from the *first* banner to the *last*. Search is bounded to
-    before `Feature:`, else the scenario body's own banner-shaped comments would extend it."""
-    feature_idx = next((i for i, ln in enumerate(lines) if _FEATURE_LINE_RE.match(ln.strip())), len(lines))
-    banner_indices = [i for i, ln in enumerate(lines[:feature_idx]) if _BANNER_RE.match(ln)]
-    if len(banner_indices) < 2:
-        return []
-    return lines[banner_indices[0] + 1 : banner_indices[-1]]
-
-
 @dataclass
 class _ParsedKeys:
-    """`_parse_keys`' result: each field's value, each present key's raw lines (the key's own
-    line first, so the caller can report text a bullet field drops), the unrecognised key
-    names, and the indices of the header lines a bullet item consumed as its text."""
+    """`_read_keys`' result: each field's value, each present key's raw lines (the key's own line first, so the
+    caller can report text a bullet field drops) and their input line numbers, each field's key line, the
+    unrecognised keys with their lines, and the warnings for lines no field reads."""
 
     values: dict[str, Any] = field(default_factory=dict)
     raw_values: dict[str, list[str]] = field(default_factory=dict)
-    unrecognised: list[str] = field(default_factory=list)
-    item_text: set[int] = field(default_factory=set)
+    numbers: dict[str, list[int]] = field(default_factory=dict)
+    field_lines: dict[str, int] = field(default_factory=dict)
+    unrecognised: list[tuple[str, int]] = field(default_factory=list)
+    warnings: list[ContractWarning] = field(default_factory=list)
 
 
-def _parse_keys(header_lines: list[str], key_specs: dict[str, _SectionSpec]) -> _ParsedKeys:
-    key_re = re.compile(
-        r"^(?P<key>" + "|".join(re.escape(k) for k in sorted(key_specs, key=len, reverse=True)) + r"):\s*(?P<val>.*)$"
-    )
+def _read_keys(frame: Frame, key_specs: dict[str, _SectionSpec], entity_id: str) -> _ParsedKeys:
+    """Each key section of the frame, looked up in `key_specs`; a key written twice has left the frame already
+    (`accounting.first_occurrences`). A scalar key's further lines are read by its value's type
+    (`accounting.scalar_lines`)."""
     result = _ParsedKeys()
-    raw_values = result.raw_values
-    current_key: Optional[str] = None
-    # Once the first "AC:" header is seen, every following line belongs to that AC's own block until "====" closes it.
-    in_ac_block = False
-    items = BulletItemTracker()
-
-    for index, raw_line in enumerate(header_lines):
-        content = _strip_comment_prefix(raw_line)
-        line = indented(content)
-        # Every line passes the tracker first, so a line that ends the key's section also closes its item.
-        if items.continues_item(line) and current_key is not None:
-            raw_values[current_key].append(content.rstrip())
-            result.item_text.add(index)
+    for section in sections(frame):
+        spec = key_specs.get(section.name)
+        if spec is None:
+            result.unrecognised.append((section.name, section.opener.number))
             continue
-        if set(line.text) == {"="}:
-            current_key = None
-            in_ac_block = False
-            continue
-        if line.text == "":
-            current_key = None
-            continue
-        if _AC_HEADER_LOOKALIKE_RE.match(line.text):
-            current_key = None
-            in_ac_block = True
-            continue
-        if in_ac_block:
-            continue
-
-        key_m = key_re.match(line.text)
-        if key_m:
-            key = key_m.group("key")
-            if key_specs[key].kind == _SectionKind.IGNORED:
-                current_key = None
-                continue
-            current_key = key
-            raw_values[key] = [key_m.group("val")]
-            continue
-
-        generic_m = _GENERIC_KEY_RE.match(line.text)
-        if generic_m and generic_m.group("key") not in key_specs:
-            result.unrecognised.append(generic_m.group("key"))
-            current_key = None
-            continue
-
-        if current_key is not None:
-            raw_values[current_key].append(content.rstrip())
-            items.read(line, key_specs[current_key].kind in BULLET_KINDS)
+        if spec.field_name is not None:
+            result.field_lines[spec.field_name] = section.opener.number
+        if spec.kind == _SectionKind.SCALAR:
+            lines, warnings = scalar_lines(section, section.name in _SINGLE_VALUE_KEYS, entity_id)
+            result.raw_values[section.name] = lines
+            result.warnings.extend(warnings)
+        elif spec.kind != _SectionKind.IGNORED:
+            result.raw_values[section.name] = [opening_value(section.opener)] + [
+                framed.line.raw.rstrip() for framed in section.lines
+            ]
+            result.numbers[section.name] = [section.opener.number] + [framed.number for framed in section.lines]
+        elif opening_value(section.opener):
+            # `acceptance_criteria:` is structural: its criteria are read as the frame's criterion blocks, so text
+            # on the key's own line reaches no field. The lines under it are those blocks and are read.
+            result.warnings.append(
+                report(
+                    Code.AUTHORING_WARNING,
+                    f"'{section.name}:' carries no value of its own; this text was not read.",
+                    entity_id,
+                    section.opener,
+                )
+            )
 
     for key, spec in key_specs.items():
-        if key not in raw_values or spec.field_name is None:
+        if key not in result.raw_values or spec.field_name is None:
             continue
-        result.values[spec.field_name] = _EXTRACTORS[spec.kind](raw_values[key])
+        result.values[spec.field_name] = _EXTRACTORS[spec.kind](result.raw_values[key])
 
     return result
 
@@ -169,44 +138,41 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
     """Parses a User Story / Functionality `.feature` file's header block into a
     `ParsedEntity`. Returns `(None, [MISSING_ENTITY_ID])` when the `LIVING DOC — ...` title
     line is missing or carries no parseable id."""
-    normalized = normalize(text, SourceFormat.FEATURE_HEADER, entity_type)
-    header_lines = _extract_header_block(normalized.lines)
-
-    title = extract_living_doc_title(header_lines) or extract_living_doc_title(normalized.lines)
+    _, frame = normalize_framed(text, SourceFormat.FEATURE_HEADER, entity_type)
+    title = None if frame.title is None else extract_living_doc_title([frame.title.line.raw])
     if title is None:
-        return None, [
-            ContractWarning(
-                code=Code.MISSING_ENTITY_ID.name,
-                message="Feature-header banner carries no 'LIVING DOC — ...' title line.",
-                context="title=''",
-            )
-        ]
+        no_header = "No living-doc header found: no '# ===' rule above 'Feature:'."
+        return None, [missing_title(frame, "Feature-header", no_header), *structural_warnings(frame, "")]
 
     entity_id, id_warnings = derive_entity_id(title)
     if entity_id is None:
-        return None, id_warnings
+        return None, at_title(id_warnings, frame)
 
-    warnings: list[ContractWarning] = []
+    warnings: list[ContractWarning] = structural_warnings(frame, entity_id)
+    frame, repeated = first_occurrences(frame, entity_id)
+    warnings.extend(repeated)
     key_specs = _KEYS_BY_TYPE[entity_type]
-    keys = _parse_keys(header_lines, key_specs)
-    for key in keys.unrecognised:
+    keys = _read_keys(frame, key_specs, entity_id)
+    warnings.extend(keys.warnings)
+    warnings.extend(unplaced_lines(frame, entity_id))
+    for key, number in keys.unrecognised:
         warnings.append(
             ContractWarning(
                 code=Code.IGNORED_AUTHORED_KEY.name,
                 message=f"'{key}:' is not a field this contract carries.",
-                context=f"entity_id={entity_id!r}",
+                context=f"entity_id={entity_id!r} line_no={number}",
             )
         )
     for key, spec in key_specs.items():
         if spec.kind in BULLET_KINDS and key in keys.raw_values:
             assert spec.field_name is not None  # every bullet kind carries a field
-            warnings.extend(bullet_field_warnings(entity_id, spec.field_name, keys.raw_values[key]))
+            warnings.extend(bullet_field_warnings(entity_id, spec.field_name, keys.raw_values[key], keys.numbers[key]))
 
-    # A bullet item's own text is never a criterion, even when it reads like an "AC:" header: the grammar sees it blank.
-    header_text = "\n".join("#" if i in keys.item_text else line for i, line in enumerate(header_lines))
-    acceptance_criteria, ac_warnings = parse_acceptance_criteria(header_text, entity_id)
+    acceptance_criteria, ac_warnings = parse_frame_criteria(frame, entity_id)
     warnings.extend(ac_warnings)
 
-    parsed, build_warnings = _build_parsed_entity(entity_id, entity_type, title, acceptance_criteria, keys.values)
+    parsed, build_warnings = _build_parsed_entity(
+        entity_id, entity_type, title, acceptance_criteria, keys.values, keys.field_lines
+    )
     warnings.extend(build_warnings)
     return parsed, warnings

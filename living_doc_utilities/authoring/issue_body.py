@@ -26,18 +26,20 @@ from typing import Any, Callable, Optional
 
 from pydantic import ValidationError
 
-from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
+from living_doc_utilities.authoring.ac_grammar import parse_frame_criteria
+from living_doc_utilities.authoring.accounting import (
+    first_occurrences,
+    nesting_github_reads_as_siblings,
+    structural_warnings,
+    unplaced_lines,
+)
+from living_doc_utilities.authoring.framing import Frame, IndentedLine, indented, sections
 from living_doc_utilities.authoring.identity import derive_entity_id
 from living_doc_utilities.authoring.normalize import (
     _BULLET_RE,
-    _MD_HEADING_RE,
-    IndentedLine,
     ItemText,
     SourceFormat,
-    _slugify_section,
-    compute_fence_flags,
-    indented,
-    normalize,
+    normalize_framed,
     normalize_title,
 )
 from living_doc_utilities.contracts.codes import Code
@@ -101,7 +103,7 @@ _DEPRECATED_AT_SECTION = {"deprecated_at": _SectionSpec("deprecated_at", _Sectio
 # Entity-level human context; every entity type carries it, and nothing ever reads a note's text.
 _NOTES_SECTION = {"notes": _SectionSpec("notes", _SectionKind.BULLETS)}
 
-# heading slug (`normalize.py::_slugify_section`) -> spec, per entity type.
+# heading slug (`framing.py::_slugify_section`) -> spec, per entity type.
 _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
     "DocumentedUserStory": {
         "description": _SectionSpec("narrative", _SectionKind.PROSE),
@@ -143,35 +145,15 @@ _SECTIONS_BY_TYPE: dict[DocType, dict[str, _SectionSpec]] = {
 }
 
 
-# --- markdown H2 section splitting -----------------------------------------------------
-
-
-def _split_h2_sections(lines: list[str]) -> list[tuple[str, str, list[str]]]:
-    """Every exactly-`##` heading outside a fenced code block, as `(slug, heading_text,
-    content_lines)` - content runs up to (not including) the next such heading."""
-    fence_flags = compute_fence_flags(lines)
-    sections: list[tuple[str, str, list[str]]] = []
-    current: Optional[list[str]] = None
-    for line, fenced in zip(lines, fence_flags, strict=True):
-        if not fenced:
-            heading_m = _MD_HEADING_RE.match(line)
-            if heading_m and len(heading_m.group("hashes")) == 2:
-                current = []
-                sections.append((_slugify_section(heading_m.group("text")), heading_m.group("text").strip(), current))
-                continue
-        if current is not None:
-            current.append(line)
-    return sections
-
-
 # --- content extraction per section kind -----------------------------------------------
 
 
 @dataclass
 class _BulletList:
     items: list[str]
-    # Lines whose indent fits no level of the list, dropped (the lines deeper than such a line with it).
-    misindented: list[IndentedLine]
+    # Lines whose indent fits no level of the list, dropped (the lines deeper than such a line with it), each with
+    # its position in the list's lines.
+    misindented: list[tuple[int, IndentedLine]]
 
 
 def _read_bullets(lines: list[str]) -> _BulletList:
@@ -184,11 +166,11 @@ def _read_bullets(lines: list[str]) -> _BulletList:
     item_level: Optional[int] = None
     item_text: Optional[ItemText] = None
     dropped: Optional[int] = None
-    for line in map(indented, lines):
+    for index, line in enumerate(map(indented, lines)):
         if not line.text:
             continue
         if dropped is not None and line.indent > dropped:
-            result.misindented.append(line)
+            result.misindented.append((index, line))
             continue
         dropped = None
         bullet_m = _BULLET_RE.match(line.text)
@@ -201,11 +183,11 @@ def _read_bullets(lines: list[str]) -> _BulletList:
         if line.indent > item_level:
             fragment = item_text.fragment(line)
             if fragment is None:
-                result.misindented.append(line)
+                result.misindented.append((index, line))
             else:
                 result.items[-1] = f"{result.items[-1]}{fragment}".strip()
         elif line.indent < item_level:
-            result.misindented.append(line)
+            result.misindented.append((index, line))
             dropped = line.indent
         elif bullet_m:
             item_text = ItemText(line.indent)
@@ -222,41 +204,54 @@ def extract_bullets(lines: list[str]) -> list[str]:
     return _read_bullets(lines).items
 
 
-def unparsed_bullet_warning(entity_id: str, field_name: str, lines: list[str]) -> list[ContractWarning]:
+def _line_no(numbers: Optional[list[int]], index: int) -> str:
+    """` line_no=<n>` for the line at `index` of a field's lines, when their input numbers are known."""
+    return f" line_no={numbers[index]}" if numbers is not None else ""
+
+
+def unparsed_bullet_warning(
+    entity_id: str, field_name: str, lines: list[str], numbers: Optional[list[int]] = None
+) -> list[ContractWarning]:
     """`[UNPARSED_BULLET_LINE]` when a bullet-list field's already-normalised `lines` hold text
     before its first `- ` bullet, else `[]`: `extract_bullets` has no item to join that text onto,
     so it drops it. Shared by every parser with a bullet field - the one place this warning is built.
-    `field_name` is the contract field, never the authored key or heading."""
+    `field_name` is the contract field, never the authored key or heading; `numbers` are the lines' input
+    numbers, and the warning names the first dropped one."""
     dropped: list[str] = []
-    for raw in lines:
+    first: Optional[int] = None
+    for index, raw in enumerate(lines):
         stripped = raw.strip()
         if not stripped:
             continue
         if _BULLET_RE.match(stripped):
             break
+        first = index if first is None else first
         dropped.append(stripped)
-    if not dropped:
+    if first is None:
         return []
     return [
         ContractWarning(
             code=Code.UNPARSED_BULLET_LINE.name,
             message=f"'{field_name}' text outside a '- ' bullet was dropped: {' '.join(dropped)!r}.",
-            context=f"entity_id={entity_id!r} field={field_name!r}",
+            context=f"entity_id={entity_id!r} field={field_name!r}{_line_no(numbers, first)}",
         )
     ]
 
 
-def bullet_field_warnings(entity_id: str, field_name: str, lines: list[str]) -> list[ContractWarning]:
+def bullet_field_warnings(
+    entity_id: str, field_name: str, lines: list[str], numbers: Optional[list[int]] = None
+) -> list[ContractWarning]:
     """Every warning for text a bullet-list field's `lines` lose: `UNPARSED_BULLET_LINE` for text
     before the first bullet, then one `MISINDENTED_LINE` per line whose indent fits no level.
-    Shared by every parser with a bullet field; `field_name` is the contract field."""
-    warnings = unparsed_bullet_warning(entity_id, field_name, lines)
-    for line in _read_bullets(lines).misindented:
+    Shared by every parser with a bullet field; `field_name` is the contract field, and `numbers` the
+    lines' input numbers, which each warning names."""
+    warnings = unparsed_bullet_warning(entity_id, field_name, lines, numbers)
+    for index, line in _read_bullets(lines).misindented:
         warnings.append(
             ContractWarning(
                 code=Code.MISINDENTED_LINE.name,
                 message=f"'{field_name}' line at indent {line.indent} fits no level of its list and was dropped.",
-                context=f"entity_id={entity_id!r} field={field_name!r} line={line.text!r}",
+                context=f"entity_id={entity_id!r} field={field_name!r}{_line_no(numbers, index)} line={line.text!r}",
             )
         )
     return warnings
@@ -303,10 +298,13 @@ def _build_parsed_entity(
     title: str,
     acceptance_criteria: list[AcceptanceCriterion],
     fields: dict[str, Any],
+    field_lines: Optional[dict[str, int]] = None,
 ) -> tuple[ParsedEntity, list[ContractWarning]]:
     """Constructs a `ParsedEntity` from already-extracted field values; shared by
     `parse_issue_body` and `feature_header.py::parse_feature_header`. An authored `state` value
-    the reader mistyped becomes a warning, not an exception - pydantic validates eagerly."""
+    the reader mistyped becomes a warning, not an exception - pydantic validates eagerly. `field_lines`
+    maps a field to the input line its key or heading is on, which the warning names."""
+    lines = field_lines or {}
     try:
         return (
             ParsedEntity(
@@ -319,11 +317,12 @@ def _build_parsed_entity(
         for error in exc.errors():
             field_path = ".".join(str(part) for part in error["loc"])
             fields.pop(field_path, None)
+            line_no = f" line_no={lines[field_path]}" if field_path in lines else ""
             warnings.append(
                 ContractWarning(
                     code=Code.MALFORMED_STATUS.name,
                     message=f"Authored '{field_path}' value {error['input']!r} failed validation: {error['msg']}",
-                    context=f"entity_id={entity_id!r}",
+                    context=f"entity_id={entity_id!r}{line_no}",
                 )
             )
         parsed = ParsedEntity(
@@ -332,29 +331,26 @@ def _build_parsed_entity(
         return parsed, warnings
 
 
-def parse_issue_body(
-    text: str, title: str, entity_type: DocType
-) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
-    """Parses a GitHub issue body into a `ParsedEntity`. `title`'s entity-id prefix becomes
-    `entity_id`; returns `(None, [MISSING_ENTITY_ID])` when the title has no parseable id."""
-    normalized_title, _title_changes = normalize_title(title)
-    entity_id, id_warnings = derive_entity_id(normalized_title)
-    if entity_id is None:
-        return None, id_warnings
-
-    warnings: list[ContractWarning] = []
-    normalized = normalize(text, SourceFormat.ISSUE_BODY, entity_type)
-    spec_map = _SECTIONS_BY_TYPE[entity_type]
-
+def _read_sections(
+    frame: Frame, spec_map: dict[str, _SectionSpec], entity_id: str
+) -> tuple[dict[str, Any], dict[str, int], list[ContractWarning]]:
+    """Each `##` section of the frame, looked up by its slug in `spec_map`: the field values, each field's
+    heading line, and a warning for each heading that maps to no field and each line no field reads."""
     fields: dict[str, Any] = {}
-    for slug, heading_text, content in _split_h2_sections(normalized.lines):
-        spec = spec_map.get(slug)
+    field_lines: dict[str, int] = {}
+    warnings: list[ContractWarning] = []
+    for section in sections(frame):
+        heading_text = section.opener.line.text.lstrip("# ").strip()
+        content = [framed.rendered for framed in section.lines]
+        numbers = [framed.number for framed in section.lines]
+        at = f"line_no={section.opener.number}"
+        spec = spec_map.get(section.name)
         if spec is None:
             warnings.append(
                 ContractWarning(
                     code=Code.UNKNOWN_SECTION.name,
                     message=f"Unrecognised heading '## {heading_text}'.",
-                    context=f"entity_id={entity_id!r}",
+                    context=f"entity_id={entity_id!r} {at}",
                 )
             )
             continue
@@ -366,18 +362,42 @@ def parse_issue_body(
                 ContractWarning(
                     code=Code.IGNORED_AUTHORED_KEY.name,
                     message=IGNORED_AUTHORED_KEYS[spec.field_name],
-                    context=f"entity_id={entity_id!r} heading='## {heading_text}'",
+                    context=f"entity_id={entity_id!r} {at} heading='## {heading_text}'",
                 )
             )
             continue
         assert spec.field_name is not None  # every other kind carries a field
         fields[spec.field_name] = _EXTRACTORS[spec.kind](content)
+        field_lines[spec.field_name] = section.opener.number
         if spec.kind in BULLET_KINDS:
-            warnings.extend(bullet_field_warnings(entity_id, spec.field_name, content))
+            warnings.extend(bullet_field_warnings(entity_id, spec.field_name, content, numbers))
+            warnings.extend(nesting_github_reads_as_siblings(section.lines, entity_id, spec.field_name))
+    warnings.extend(unplaced_lines(frame, entity_id))
+    return fields, field_lines, warnings
 
-    acceptance_criteria, ac_warnings = parse_acceptance_criteria(normalized.text, entity_id)
+
+def parse_issue_body(
+    text: str, title: str, entity_type: DocType
+) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
+    """Parses a GitHub issue body into a `ParsedEntity`. `title`'s entity-id prefix becomes
+    `entity_id`; returns `(None, [MISSING_ENTITY_ID])` when the title has no parseable id."""
+    normalized_title, _ = normalize_title(title)
+    entity_id, id_warnings = derive_entity_id(normalized_title)
+    if entity_id is None:
+        return None, id_warnings
+
+    _, frame = normalize_framed(text, SourceFormat.ISSUE_BODY, entity_type)
+    frame, warnings = first_occurrences(frame, entity_id)
+    fields, field_lines, section_warnings = _read_sections(frame, _SECTIONS_BY_TYPE[entity_type], entity_id)
+    warnings.extend(section_warnings)
+    warnings.extend(structural_warnings(frame, entity_id))
+
+    # The frame bounds every criterion: an item's own text is never one, whatever it reads like (`D20`).
+    acceptance_criteria, ac_warnings = parse_frame_criteria(frame, entity_id)
     warnings.extend(ac_warnings)
 
-    parsed, build_warnings = _build_parsed_entity(entity_id, entity_type, normalized_title, acceptance_criteria, fields)
+    parsed, build_warnings = _build_parsed_entity(
+        entity_id, entity_type, normalized_title, acceptance_criteria, fields, field_lines
+    )
     warnings.extend(build_warnings)
     return parsed, warnings
