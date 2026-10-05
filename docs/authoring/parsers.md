@@ -141,6 +141,8 @@ Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a f
   - Why: a blank line inside a Markdown list does not end it either.
 - A line with text and no `#` inside the header is not read and is `AUTHORING_ERROR`; Gherkin rejects such a line above `Feature:` too → `tests/authoring/test_accounting.py::test_a_line_with_text_and_no_comment_marker_inside_a_feature_header_is_not_read`
 - An unknown key is `IGNORED_AUTHORED_KEY` → `authoring/feature_header.py::parse_feature_header`
+- `acceptance_criteria:` is structural: its criteria are the frame's criterion blocks, so text on the key's own line fills no field and is `AUTHORING_WARNING` → `tests/authoring/test_accounting.py::test_an_acceptance_criteria_keys_own_line_text_is_reported`
+  - Written bare, as the canon writes it, nothing is unread and nothing is reported → `tests/authoring/test_accounting.py::test_an_acceptance_criteria_key_written_bare_is_not_reported`
 
 Keys → `authoring/feature_header.py::_KEYS_BY_TYPE`:
 
@@ -165,6 +167,8 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
   - With no later close, the header ends where the comment did, and nothing after it is reported → `tests/authoring/test_accounting.py::test_a_comment_closed_by_a_value_with_no_later_close_ends_the_header_there`
 - A `===` rule ends the open key; a blank ` *` line ends nothing → `tests/authoring/test_accounting.py::test_a_blank_star_line_in_a_notes_list_ends_nothing`
 - A line inside the comment without ` * ` is not read and is `AUTHORING_ERROR`, as a `.feature` line without `#` is → `tests/authoring/test_accounting.py::test_a_page_object_line_without_its_star_is_reported`
+  - The frame runs from the `/*` line through the `*/` line, so both delimiter lines are header lines too: text written beside either one carries no marker, is not read and is reported → `tests/authoring/test_accounting.py::test_text_beside_the_closing_delimiter_is_reported`, `::test_text_beside_the_opening_delimiter_is_reported`
+  - Only what sits beside the delimiter counts, so the canon's `/* ===` and `=== */`, a bare ` */`, a key written on the closing line and a `/**` opening carry nothing of their own → `tests/authoring/test_accounting.py::test_a_delimiter_carries_no_authored_text_of_its_own`
 
 | Shape | When | Known keys | Result |
 |---|---|---|---|

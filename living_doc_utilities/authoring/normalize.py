@@ -344,14 +344,11 @@ def _record_title_dash(dm: "re.Match[str]", changes: list[Change]) -> str:
 
 
 def _emit_title(out: list[FramedLine], changes: list[Change], framed: FramedLine) -> None:
-    """Rules 5 and 5b on the banner's title line, which the frame found by position. The line is rewritten
-    only when it carries the banner's marker: a header with no title has some other line there, such as
-    an `AC:` header whose criterion id would read as an entity id."""
-    content = framed.line.raw
-    fired = _whitespace(framed)
-    if "LIVING DOC" in content:
-        content, title_changes = normalize_title(content)
-        fired |= {c.rule for c in title_changes}
+    """Rules 5 and 5b on the banner's title line, which the frame found by position. A rewriter runs only for
+    a header that names an entity (`framing.names_an_entity`), so this line always carries the
+    `LIVING DOC — <id>` form."""
+    content, title_changes = normalize_title(framed.line.raw)
+    fired = _whitespace(framed) | {c.rule for c in title_changes}
     _emit(out, changes, fired, framed, content)
 
 
@@ -582,8 +579,13 @@ def normalize_framed(text: str, fmt: SourceFormat, entity_type: DocType) -> tupl
     """`normalize`, plus the frame its rules were applied by, holding the rewritten lines. Every parser reads
     its sections here instead of finding a boundary itself; `Frame.problems` are its structural diagnostics."""
     profile = TYPE_PROFILES[entity_type]
-    lines, crlf_indices = _split_lines_lf(text)
+    # Rule 6 (whitespace): a leading byte-order mark is the encoding's, not the first character of the first
+    # line. Left in place it would keep that line from matching the opening rule, and the frame would start late.
+    without_bom = text.lstrip("﻿")
+    lines, crlf_indices = _split_lines_lf(without_bom)
     changes: list[Change] = []
+    if without_bom != text:
+        changes.append(Change(1, RULE_WHITESPACE, text.split("\n", 1)[0], lines[0]))
 
     if fmt in (SourceFormat.ISSUE_BODY, SourceFormat.HTML_MARKDOWN):
         frame = frame_issue_body(_prepare(lines, fmt), profile)

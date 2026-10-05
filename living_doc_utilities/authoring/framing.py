@@ -459,6 +459,23 @@ def without_comment_close(text: str) -> str:
     return _COMMENT_CLOSE_RE.sub("", text).rstrip()
 
 
+def _unread_header_text(framed: FramedLine, index: int, opening: int, close: int) -> bool:
+    """Whether a line of the frame carries authored text no field can reach: one without its ` * ` marker.
+    The frame runs from the `/*` line through the `*/` line, so both delimiters are lines of it too; on them
+    only what sits beside the delimiter and an optional `===` rule counts, so the canon's `/* ===`, a bare
+    ` */` and a one-line `/* === */` carry nothing. A line that keeps its marker is read, never reported."""
+    if framed.role is not Role.OUTSIDE or not framed.line.text:
+        return False
+    text = framed.line.text
+    if index == opening:
+        text = _COMMENT_OPEN_RE.sub("", text, count=1)
+    if index == close:
+        text = without_comment_close(text)
+    # A `/**` opening leaves its second star behind; it is the comment's, not something an author wrote.
+    rest = text.strip().lstrip("*").strip()
+    return bool(rest) and _PO_RULE_CONTENT_RE.match(rest) is None
+
+
 def frame_page_object(lines: list[FramedLine], bullet_keys: frozenset[str]) -> Frame:
     """Places a PageObject file's lines. The frame is the file's first `/* ... */` comment, from its opening
     line to the first line that ends in `*/`; its title is the first line after the opening one. Inside it
@@ -477,8 +494,8 @@ def frame_page_object(lines: list[FramedLine], bullet_keys: frozenset[str]) -> F
     placed: list[FramedLine] = []
     problems = [
         Problem(LINE_WITHOUT_MARKER, lines[index].number)
-        for index in range(opening + 1, close)
-        if lines[index].role is Role.OUTSIDE and lines[index].line.text
+        for index in range(opening, close + 1)
+        if _unread_header_text(lines[index], index, opening, close)
     ]
     # A value ending in `*/` closed the comment early when a later ` * ` line, before any code, closes it again: the
     # header's real end is there, and each line up to it is reported. With no later close the header ends here.

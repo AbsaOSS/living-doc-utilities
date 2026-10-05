@@ -140,6 +140,7 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 `whitespace` → `authoring/normalize.py::RULE_WHITESPACE`:
 
 - Rewrites: CRLF line endings to LF, in every format.
+- Rewrites: a leading byte-order mark away, in every format — it belongs to the encoding, and left in place it would keep the first line from matching the opening rule → `tests/authoring/test_framing.py::test_a_leading_byte_order_mark_does_not_move_the_frames_start`
 - Runs first, on every line that has text, before the frame is decided; a whitespace-only line stays as written → `authoring/normalize.py::_prepare`
 - Rewrites: each tab or non-breaking space in a line's leading indentation to one space, in a PageObject header and a `.feature` header → `authoring/normalize.py::_fix_indentation_whitespace`
   - The indent is counted after the comment marker and at most one space (`# `, ` * `).

@@ -28,6 +28,7 @@ from living_doc_utilities.authoring.accounting import (
     at_title,
     first_occurrences,
     missing_title,
+    report,
     scalar_lines,
     structural_warnings,
     unplaced_lines,
@@ -113,6 +114,17 @@ def _read_keys(frame: Frame, key_specs: dict[str, _SectionSpec], entity_id: str)
                 framed.line.raw.rstrip() for framed in section.lines
             ]
             result.numbers[section.name] = [section.opener.number] + [framed.number for framed in section.lines]
+        elif opening_value(section.opener):
+            # `acceptance_criteria:` is structural: its criteria are read as the frame's criterion blocks, so text
+            # on the key's own line reaches no field. The lines under it are those blocks and are read.
+            result.warnings.append(
+                report(
+                    Code.AUTHORING_WARNING,
+                    f"'{section.name}:' carries no value of its own; this text was not read.",
+                    entity_id,
+                    section.opener,
+                )
+            )
 
     for key, spec in key_specs.items():
         if key not in result.raw_values or spec.field_name is None:

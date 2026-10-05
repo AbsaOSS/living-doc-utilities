@@ -204,7 +204,8 @@ def first_occurrences(frame: Frame, entity_id: str) -> tuple[Frame, list[Contrac
         if repeated is None or framed.role is Role.OUTSIDE:
             lines.append(framed)
             continue
-        if framed.line.text:
+        # A line rule 7 split off an input line carries no `raw` of its own; that input line is reported once.
+        if framed.line.text and framed.raw:
             message = f"'{repeated}' appears earlier; only the first one is read, so this line is not."
             warnings.append(report(Code.AUTHORING_WARNING, message, entity_id, framed))
         lines.append(framed._replace(role=Role.OUTSIDE, section=None, item_text=False, criterion=False))

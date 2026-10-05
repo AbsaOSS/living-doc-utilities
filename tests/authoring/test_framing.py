@@ -39,6 +39,7 @@ from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.authoring.normalize import (
     RULE_BULLET_MARKER,
     RULE_STATE_CASING,
+    RULE_WHITESPACE,
     SourceFormat,
     normalize,
     normalize_framed,
@@ -374,6 +375,23 @@ def test_a_feature_header_with_one_rule_is_read_to_its_last_comment_line_and_rep
     assert [(w.code, w.context) for w in warnings] == [
         ("AUTHORING_ERROR", "entity_id='US-001' line_no=1 line='# ====='")
     ]
+
+
+def test_a_leading_byte_order_mark_does_not_move_the_frames_start():
+    """A BOM is the encoding's, not the first character of the first line. Left in place it would keep that line
+    from matching the opening rule, and the frame would start at the closing one - so the header is read as it is
+    written, and the strip is recorded as rule 6."""
+    text = "﻿" + _us_header("# status: active\n# source: https://example.org/x\n")
+
+    normalized, frame = normalize_framed(text, SourceFormat.FEATURE_HEADER, "DocumentedUserStory")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert normalized.lines[0] == "# ============================================================================="
+    assert [(c.line, c.rule) for c in normalized.changes] == [(1, RULE_WHITESPACE)]
+    assert frame.problems == []
+    assert warnings == []
+    assert entity is not None
+    assert (entity.entity_id, entity.state, entity.source) == ("US-001", "active", "https://example.org/x")
 
 
 def test_a_notes_items_wrapped_line_on_a_cross_reference_header_is_that_notes_text():

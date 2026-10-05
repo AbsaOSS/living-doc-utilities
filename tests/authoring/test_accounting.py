@@ -182,6 +182,69 @@ def test_a_page_object_line_without_its_star_is_reported():
     assert _codes_and_lines(text, warnings) == [("AUTHORING_ERROR", "continues here")]
 
 
+def test_text_beside_the_closing_delimiter_is_reported():
+    """The frame runs through the `*/` line, so that line is a header line too: text written on it without
+    ` * ` reaches no field and is reported, as any other unmarked line inside the header is."""
+    text = "/* =====\n * LIVING DOC — FEAT-042 · W\n * =====\n * route: /setup\n   purpose: lost text */\n"
+
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.page_ref.route == "/setup"
+    assert result.page_ref.purpose == ""
+    assert _codes_and_lines(text, warnings) == [("AUTHORING_ERROR", "purpose: lost text */")]
+
+
+def test_text_beside_the_opening_delimiter_is_reported():
+    """The frame starts on the `/*` line, so text written beside that delimiter is a header line's text with no
+    marker: it is not read, and it is reported."""
+    text = "/* surface_type: UI\n * =====\n * LIVING DOC — FEAT-042 · W\n * =====\n * route: /setup\n * ===== */\n"
+
+    _, warnings = parse_page_object(text)
+
+    assert ("AUTHORING_ERROR", "/* surface_type: UI") in _codes_and_lines(text, warnings)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "/* =====\n * LIVING DOC — FEAT-042 · W\n * =====\n * route: /setup\n * ===== */\n",
+        "/* =====\n * LIVING DOC — FEAT-042 · W\n * =====\n * route: /setup\n */\n",
+        "/* =====\n * LIVING DOC — FEAT-042 · W\n * =====\n * route: /setup\n *   */\n",
+        "/* =====\n * LIVING DOC — FEAT-042 · W\n * =====\n * route: /setup */\n",
+        "/** =====\n * LIVING DOC — FEAT-042 · W\n * =====\n * route: /setup\n * ===== */\n",
+    ],
+    ids=["canon_banner", "bare_close", "indented_bare_close", "key_on_the_close_line", "jsdoc_style_open"],
+)
+def test_a_delimiter_carries_no_authored_text_of_its_own(text):
+    """On the two delimiter lines only what sits beside the delimiter counts, so the canon's banner close, a bare
+    ` */`, a key written on the closing line and a `/**` opening are all read as before and none is reported."""
+    result, warnings = parse_page_object(text)
+
+    assert result is not None and result.page_ref.route == "/setup"
+    assert warnings == []
+
+
+def test_an_acceptance_criteria_keys_own_line_text_is_reported():
+    """`acceptance_criteria:` is structural - its criteria are the frame's criterion blocks - so text on the key's
+    own line fills no field. It is reported, and the criteria under the key are still read."""
+    text = _us_header("# acceptance_criteria: see the issue\n#   AC:US-001-01 (v1.0.0 - active)\n#     - d\n")
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
+    assert _codes_and_lines(text, warnings) == [("AUTHORING_WARNING", "# acceptance_criteria: see the issue")]
+
+
+def test_an_acceptance_criteria_key_written_bare_is_not_reported():
+    """The canon writes the key bare, with its criteria under it: nothing is unread, so nothing is reported."""
+    text = _us_header("# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     - d\n")
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
+    assert warnings == []
+
+
 # --- an unread line: AUTHORING_WARNING -------------------------------------------------------------------
 
 
@@ -211,6 +274,24 @@ def test_a_key_written_twice_reads_the_first_value_and_reports_the_later_one():
 
     assert entity is not None and entity.state == "active"
     assert _codes_and_lines(text, warnings) == [("AUTHORING_WARNING", "# status: deprecated")]
+
+
+def test_a_repeated_key_reports_each_input_line_once_and_never_an_empty_one():
+    """Rule 7 splits a criterion header's inline description onto a line of its own, which has no input line
+    behind it. The input line it came from is reported once, and no warning names an empty line."""
+    text = _us_header(
+        "# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     - d1\n"
+        "# acceptance_criteria:\n#   AC:US-001-02 (v1.0.0 - active) - inline desc\n"
+    )
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and [ac.id for ac in entity.acceptance_criteria] == ["US-001-01"]
+    assert _codes_and_lines(text, warnings) == [
+        ("AUTHORING_WARNING", "# acceptance_criteria:"),
+        ("AUTHORING_WARNING", "#   AC:US-001-02 (v1.0.0 - active) - inline desc"),
+    ]
+    assert all("line=''" not in warning.context for warning in warnings)
 
 
 def test_every_line_of_a_repeated_bullet_key_is_reported():
