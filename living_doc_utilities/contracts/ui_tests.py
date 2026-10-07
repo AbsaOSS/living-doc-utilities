@@ -30,10 +30,11 @@ CONTRACT_ID: Literal["ui-tests-v1.0.0"] = "ui-tests-v1.0.0"
 
 
 class AcLink(ContractModel):
-    """One `@AC:<id>[/<param>:<value>...]` scenario tag (living-doc's AC_TAG_RE): a scenario may
-    carry several, each pairing a specific acceptance criterion with the specific aspect of
-    it this scenario covers - or no aspect at all. Only `aspect` is stored; other parameters
-    are accepted by the parser and dropped."""
+    """One `@AC:<id>[/<param>:<value>]` scenario tag (living-doc's AC_TAG_RE): a scenario may
+    carry several, each pairing a specific acceptance criterion with the one declared value of
+    it this scenario covers. The tag's one parameter is `aspect` or the criterion's keyword
+    name; its value fills `aspect`, and the name is not stored. `aspect` is None for a bare
+    tag, which covers the whole criterion, every declared value."""
 
     id: str = Field(pattern=AC_ID_PATTERN)
     aspect: Optional[str] = None

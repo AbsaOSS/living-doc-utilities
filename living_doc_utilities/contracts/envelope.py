@@ -24,7 +24,7 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import Field, StringConstraints, model_validator
 
-from living_doc_utilities.contracts.common import ContractModel, DocType
+from living_doc_utilities.contracts.common import AC_ID_PATTERN, ContractModel, DocType
 
 # A collector's own project id: lowercase alphanumeric plus hyphen, starting alphanumeric.
 PROJECT_ID_PATTERN = r"^[a-z0-9][a-z0-9-]*$"
@@ -138,11 +138,20 @@ class Metadata(ContractModel):
 
 
 class ContractWarning(ContractModel):
-    """One entry of an artifact's top-level warnings[] array."""
+    """One entry of an artifact's top-level warnings[] array. Where it belongs is structured: each of
+    `entity_id`, `ac_id`, `line_no` and `path` is set only when its emitter knows it (`DEC-77`); `context`
+    keeps the free text."""
 
     code: str = Field(pattern=WARNING_CODE_PATTERN)
     message: str
     context: Optional[str] = None
+    entity_id: Optional[str] = None
+    # Set only when the criterion's id is valid; an invalid one stays in `context`, as written.
+    ac_id: Optional[str] = Field(default=None, pattern=AC_ID_PATTERN)
+    # The 1-based input line.
+    line_no: Optional[int] = Field(default=None, ge=1)
+    # The input file, relative to its scan root; `authoring` never knows it, a collector fills it.
+    path: Optional[str] = None
 
 
 def check_transform_source_inputs(metadata: Metadata) -> None:

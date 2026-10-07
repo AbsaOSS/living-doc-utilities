@@ -33,6 +33,7 @@ from living_doc_utilities.contracts import (
     stats,
     testing,
     ui_test_catalog,
+    ui_tests,
 )
 
 CONTRACTS = [(contract_id, spec.result_model, spec.record_roots) for contract_id, spec in registry.CONTRACTS.items()]
@@ -139,6 +140,57 @@ def test_full_sample_includes_a_targeted_and_a_backlog_planned_acceptance_criter
 
         assert any(ac.version is not None for ac in planned), f"{contract_id}: expected a targeted planned AC"
         assert any(ac.version is None for ac in planned), f"{contract_id}: expected a backlog planned AC"
+
+
+def test_full_sample_declares_each_criterion_s_variants_once():
+    """living-doc's "AC variants": no AC carries both `Aspect:` and a keyword; a keyword AC's `aspect` is its values."""
+    criteria = [ac for entities in _entities_by_contract().values() for entity in entities for ac in entity.acceptance_criteria]
+
+    for ac in criteria:
+        assert len(ac.placeholder_values) <= 1, ac.id
+        if ac.placeholder_values:
+            assert ac.aspect == next(iter(ac.placeholder_values.values())), ac.id
+    # Guards the check above from passing vacuously: both spellings occur.
+    assert any(ac.aspect and not ac.placeholder_values for ac in criteria)
+    assert any(ac.placeholder_values for ac in criteria)
+
+
+def test_coverage_matrix_full_sample_has_every_row_status_a_deprecated_row_and_an_unaveraged_root():
+    """Coverage-matrix's full_sample holds a covered, a 1-of-3 partially_covered, a not_covered and a deprecated row."""
+    sample = testing.full_sample(coverage_matrix.CONTRACT_ID)
+    rows = [row for entity in sample.entities for row in entity.acceptance_criteria]
+    partial = next(row for row in rows if row.status == "partially_covered")
+
+    assert {row.status for row in rows} == {"covered", "partially_covered", "not_covered"}
+    assert (partial.covered_aspects(), len(partial.aspects)) == (1, 3)
+    assert any(row.state == "deprecated" for row in rows)
+    assert [entity.summary.coverage_pct for entity in sample.entities] == [44.4, 100.0, None]
+    assert sample.summary.coverage_pct == 58.3
+
+
+def test_full_samples_agree_on_every_criterion_and_scenario_link():
+    """A generator joins the samples by criterion id: each coverage row names a criterion the entities hold, with
+    that criterion's aspects, each covered by exactly the scenarios that link it; the dropped criterion is in none."""
+    generator_sample = testing.full_sample(generator_ready.CONTRACT_ID)
+    criteria = {ac.id: ac for entity in generator_sample.content.entities for ac in entity.acceptance_criteria}
+    links = [
+        (link.id, link.aspect, scenario.scenario_id)
+        for scenario in testing.full_sample(ui_tests.CONTRACT_ID).scenarios
+        for link in scenario.acceptance_criteria
+    ]
+    rows = [row for entity in testing.full_sample(coverage_matrix.CONTRACT_ID).entities for row in entity.acceptance_criteria]
+    dropped = next(warning.ac_id for warning in generator_sample.warnings if warning.code == "MALFORMED_AC")
+
+    assert all(ac_id in criteria and (aspect is None or aspect in criteria[ac_id].aspect) for ac_id, aspect, _ in links)
+    for row in rows:
+        assert row.ac_id in criteria, row.ac_id
+        assert [aspect.aspect for aspect in row.aspects] == criteria[row.ac_id].aspect, row.ac_id
+        for aspect in row.aspects:
+            linking = [scn for ac_id, value, scn in links if ac_id == row.ac_id and value in (None, aspect.aspect)]
+            assert aspect.scenario_ids == linking, (row.ac_id, aspect.aspect)
+        if not row.aspects:
+            assert row.scenario_ids == [scn for ac_id, _, scn in links if ac_id == row.ac_id], row.ac_id
+    assert dropped not in criteria and dropped not in {row.ac_id for row in rows}
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +330,26 @@ SHOWN_PATH_CASES = [
         _RELEASE,
         hidden=("content.entities[].source_ref.native_type", "content.entities[].source_ref.tracker_state"),
     ),
+    # entity_id places a warning, under its entity or once for the document; it is not shown as text.
+    ShownPathCase(
+        "what_was_not_loaded",
+        _INNER,
+        shown=("warnings[].code", "warnings[].message", "warnings[].line_no", "warnings[].path"),
+        hidden=("warnings[].entity_id", "warnings[].ac_id", "warnings[].context"),
+    ),
+    ShownPathCase(
+        "what_was_not_loaded",
+        _RELEASE,
+        hidden=(
+            "warnings[].code",
+            "warnings[].message",
+            "warnings[].line_no",
+            "warnings[].path",
+            "warnings[].entity_id",
+            "warnings[].ac_id",
+            "warnings[].context",
+        ),
+    ),
 ]
 
 
@@ -290,6 +362,25 @@ def test_shown_paths_matches_the_rendering_table_row(case: ShownPathCase):
         assert path in shown, f"{case.row} ({case.view}): expected {path!r} shown"
     for path in case.hidden:
         assert path not in shown, f"{case.row} ({case.view}): expected {path!r} hidden"
+
+
+def test_shown_paths_release_view_shows_no_warning_path():
+    """The release view never shows what was not loaded from the input."""
+    assert not {path for path in testing.shown_paths(_CID, _RELEASE) if path.startswith("warnings[]")}
+
+
+def test_generator_ready_full_sample_carries_what_was_not_loaded():
+    """A dropped criterion with every location field, a criterion line, and a warning that names no entity, so a
+    generator renders a warning under its entity and one for the whole document."""
+    warnings = testing.full_sample(_CID).warnings
+    by_code = {warning.code: warning for warning in warnings}
+    malformed = by_code["MALFORMED_AC"]
+    entity_ids = {entity.entity_id for entity in testing.full_sample(_CID).content.entities}
+
+    assert [warning.code for warning in warnings] == ["MALFORMED_AC", "UNPARSED_AC_LINE", "MISSING_ENTITY_ID"]
+    assert None not in (malformed.entity_id, malformed.ac_id, malformed.line_no, malformed.path)
+    assert by_code["UNPARSED_AC_LINE"].entity_id in entity_ids
+    assert by_code["MISSING_ENTITY_ID"].entity_id is None and by_code["MISSING_ENTITY_ID"].line_no is not None
 
 
 def test_shown_paths_rejects_an_unsupported_contract():
@@ -312,6 +403,15 @@ def test_shown_paths_coverage_matrix_shows_aspect_breakdown_in_both_views_and_pl
     assert both <= inner and both <= release
     assert planned_summary <= inner
     assert not planned_summary & release
+
+
+def test_shown_paths_coverage_matrix_shows_every_coverage_summary_in_both_views():
+    """Each entity's and the matrix's coverage summary are shown in both views, like the per-aspect rows."""
+    fields = ("counted_acs", "covered_acs", "partially_covered_acs", "not_covered_acs", "coverage_pct")
+    summaries = {f"{owner}summary.{field}" for owner in ("entities[].", "") for field in fields}
+
+    for view in (_INNER, _RELEASE):
+        assert summaries <= testing.shown_paths(coverage_matrix.CONTRACT_ID, view)
 
 
 def test_shown_paths_ui_test_catalog_has_no_view_dependent_rows():

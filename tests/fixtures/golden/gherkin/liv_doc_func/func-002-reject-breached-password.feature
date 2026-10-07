@@ -1,6 +1,6 @@
 # Golden fixture. Copied verbatim from AbsaOSS/living-doc's
 # docs/examples/gherkin/liv_doc_func/func-002-reject-breached-password.feature at commit
-# b28820e5940ebc8ee2578fc2663e1464aca83a57 (canon HEAD; a Feature has no deprecated_at, PR #44).
+# a80649bd577e6bb135ad8772817bf383ef557d07 (canon HEAD; AC variant keyword as a spelling of Aspect, PR #48).
 # =============================================================================
 # LIVING DOC — FUNC-002 · Login Page - Reject Breached Password
 # =============================================================================

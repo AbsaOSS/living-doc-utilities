@@ -65,6 +65,7 @@ Named rules:
 - Collector output layout → collectors · [pipeline rules](contracts/pipeline-rules.md#collector-output-layout)
 - Rendering rules: the view filter selects records, the generator presents → `contracts/testing.py::shown_paths` · [rendering](contracts/rendering.md#fields-by-view)
 - Coverage is computed per aspect and backed by evidence → `contracts/coverage_matrix.py::AcCoverage` · [rendering](contracts/rendering.md#coverage)
+- Every entity and the whole matrix carry a coverage summary computed from the rows → `contracts/coverage_matrix.py::CoverageSummary` · [rendering](contracts/rendering.md#coverage-summary)
 - Errors and warnings: one registry, one page → `contracts/codes.py::ALL_CODES` · [errors](contracts/errors.md#codes)
 
 ## Pages
@@ -78,5 +79,5 @@ Read in this order; each page defines its facts once.
 | [Artifact rules](contracts/artifact-rules.md) | the contract table, R4 to R8, R11 stats, the envelope, reading and writing |
 | [Pipeline rules](contracts/pipeline-rules.md) | project scope, project id, output layout, R13 and retries |
 | [Component checks](contracts/component-checks.md) | R12 checks and helpers, R11 lineage and field loss |
-| [Rendering](contracts/rendering.md) | fields by view, coverage, planned work summary |
+| [Rendering](contracts/rendering.md) | fields by view, coverage, coverage summary, planned work summary |
 | [Errors and warnings](contracts/errors.md) | every code, the validation order |

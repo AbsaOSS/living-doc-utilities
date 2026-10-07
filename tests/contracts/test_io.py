@@ -343,6 +343,7 @@ def test_coverage_matrix_round_trips_through_write_and_read(tmp_path):
         document=factories.coverage_matrix_document(),
         entities=[factories.entity_coverage(entity_id="US-001")],
         planned_summary=factories.planned_summary(),
+        summary=factories.matrix_summary([factories.entity_coverage(entity_id="US-001")]),
     )
 
     io.write_artifact(result, destination)

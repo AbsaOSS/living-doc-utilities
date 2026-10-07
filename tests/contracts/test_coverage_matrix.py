@@ -30,6 +30,7 @@ from living_doc_utilities.contracts.coverage_matrix import (
     CountedState,
     CoverageMatrixResult,
     CoverageStatus,
+    CoverageSummary,
     Document,
     EntityCoverage,
 )
@@ -44,6 +45,7 @@ def _result(**overrides: Any) -> CoverageMatrixResult:
         "planned_summary": factories.planned_summary(),
     }
     fields.update(overrides)
+    fields.setdefault("summary", factories.matrix_summary(fields["entities"]))
     return CoverageMatrixResult(**fields)
 
 
@@ -120,6 +122,29 @@ def test_ac_coverage_rejects_not_covered_status_when_aspects_are_present():
     """An AcCoverage row can't be 'not_covered' while it still has covered aspects."""
     with pytest.raises(ValidationError, match="status must be 'covered'"):
         factories.ac_coverage(status="not_covered", aspects=[factories.aspect_coverage(status="covered")])
+
+
+def test_ac_coverage_with_aspects_none_covered_is_not_covered():
+    """`DEC-74`: an AcCoverage row whose aspects are all uncovered is 'not_covered', and 'partially_covered' is rejected."""
+    aspects = [factories.aspect_coverage(aspect=name, status="not_covered") for name in ("a", "b", "c")]
+
+    assert factories.ac_coverage(status="not_covered", aspects=aspects, scenario_ids=[]).status == "not_covered"
+    with pytest.raises(ValidationError, match="status must be 'not_covered'"):
+        factories.ac_coverage(status="partially_covered", aspects=aspects)
+
+
+def test_ac_coverage_with_aspects_some_covered_is_partially_covered():
+    """An AcCoverage row with one of three aspects covered is 'partially_covered', neither 'covered' nor 'not_covered'."""
+    aspects = [
+        factories.aspect_coverage(aspect="a", status="covered"),
+        factories.aspect_coverage(aspect="b", status="not_covered"),
+        factories.aspect_coverage(aspect="c", status="not_covered"),
+    ]
+
+    assert factories.ac_coverage(status="partially_covered", aspects=aspects).status == "partially_covered"
+    for status in ("covered", "not_covered"):
+        with pytest.raises(ValidationError, match="status must be 'partially_covered'"):
+            factories.ac_coverage(status=status, aspects=aspects)
 
 
 def test_ac_coverage_accepts_covered_status_when_every_aspect_is_covered():
@@ -200,6 +225,115 @@ def test_acceptance_criterion_id_must_belong_to_its_entity():
     """An EntityCoverage rejects an AcCoverage row whose ac_id doesn't belong to that entity."""
     with pytest.raises(ValidationError, match="does not belong to entity"):
         _result(entities=[factories.entity_coverage(entity_id="US-001", acceptance_criteria=[factories.ac_coverage(parent_id="US-002")])])
+
+
+# --- CoverageSummary (`DEC-74`) ------------------------------------------------------------------------------
+
+
+def _rows(*statuses: str) -> list:
+    """One row per status: 'covered' and 'not_covered' without aspects, 'partially_covered' as 1 of 3 aspects."""
+    rows = []
+    for seq, status in enumerate(statuses, start=1):
+        if status == "partially_covered":
+            aspects = [factories.aspect_coverage(aspect="a", status="covered")] + [
+                factories.aspect_coverage(aspect=name, status="not_covered") for name in ("b", "c")
+            ]
+            rows.append(factories.ac_coverage(seq=seq, status=status, aspects=aspects))
+        else:
+            scenario_ids = ["SCN-001"] if status == "covered" else []
+            rows.append(factories.ac_coverage(seq=seq, status=status, scenario_ids=scenario_ids))
+    return rows
+
+
+def test_summary_counts_each_status_and_weighs_a_partial_row_by_its_covered_aspects():
+    """1 + 0 + 1/3 over three rows is 44.4: a partially_covered row weighs its covered/declared aspects."""
+    summary = CoverageSummary.from_rows(_rows("covered", "not_covered", "partially_covered"))
+
+    assert summary == CoverageSummary(
+        counted_acs=3, covered_acs=1, partially_covered_acs=1, not_covered_acs=1, coverage_pct=44.4
+    )
+
+
+def test_summary_of_no_counted_row_has_no_percentage():
+    """With no counted row the counts are 0 and coverage_pct is None, never 0 or 100."""
+    assert CoverageSummary.from_rows([]) == CoverageSummary(
+        counted_acs=0, covered_acs=0, partially_covered_acs=0, not_covered_acs=0, coverage_pct=None
+    )
+
+
+def test_summary_rounds_half_up_once_from_the_exact_fraction():
+    """1 of 16 rows covered is exactly 6.25%, which rounds half up to 6.3 (a float `round` gives 6.2)."""
+    summary = CoverageSummary.from_rows(_rows("covered", *["not_covered"] * 15))
+
+    assert summary.coverage_pct == 6.3
+
+
+def test_summary_counts_a_deprecated_row():
+    """A deprecated row is counted like an active one."""
+    summary = CoverageSummary.from_rows([factories.ac_coverage(state="deprecated", status="covered")])
+
+    assert (summary.counted_acs, summary.covered_acs, summary.coverage_pct) == (1, 1, 100.0)
+
+
+@pytest.mark.parametrize("owner", ["entity", "root"])
+def test_summary_is_required_on_every_entity_and_on_the_matrix(owner):
+    """An EntityCoverage and a CoverageMatrixResult without `summary` are rejected."""
+    entity = factories.entity_coverage()
+    if owner == "entity":
+        data = entity.model_dump()
+        del data["summary"]
+        with pytest.raises(ValidationError, match="summary"):
+            EntityCoverage.model_validate(data)
+    else:
+        data = _result(entities=[entity]).model_dump()
+        del data["summary"]
+        with pytest.raises(ValidationError, match="summary"):
+            CoverageMatrixResult.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("counted_acs", 4),
+        ("covered_acs", 2),
+        ("partially_covered_acs", 0),
+        ("not_covered_acs", 0),
+        ("coverage_pct", 44.5),
+        ("coverage_pct", None),
+    ],
+)
+def test_an_entity_summary_that_disagrees_with_its_rows_is_rejected(field, value):
+    """Every summary field is recomputed from the entity's rows: a count or coverage_pct off by one step fails."""
+    rows = _rows("covered", "not_covered", "partially_covered")
+    summary = CoverageSummary.from_rows(rows).model_copy(update={field: value})
+
+    with pytest.raises(ValidationError, match="summary of entity 'US-001' must equal"):
+        factories.entity_coverage(acceptance_criteria=rows, summary=summary)
+
+
+def test_the_matrix_summary_weighs_every_row_not_the_entity_percentages():
+    """An entity with 1 covered row and one with 10 uncovered rows is 1/11 = 9.1%, not the 50.0 mean of 100 and 0."""
+    small = factories.entity_coverage(entity_id="US-001", acceptance_criteria=_rows("covered"))
+    large = factories.entity_coverage(
+        entity_id="US-002",
+        acceptance_criteria=[
+            factories.ac_coverage(parent_id="US-002", seq=seq, status="not_covered", scenario_ids=[])
+            for seq in range(1, 11)
+        ],
+    )
+    result = _result(entities=[small, large])
+
+    assert (small.summary.coverage_pct, large.summary.coverage_pct) == (100.0, 0.0)
+    assert result.summary.coverage_pct == 9.1
+    with pytest.raises(ValidationError, match="summary of the matrix must equal"):
+        _result(entities=[small, large], summary=result.summary.model_copy(update={"coverage_pct": 50.0}))
+
+
+@pytest.mark.parametrize("value", [-0.1, 100.1])
+def test_coverage_pct_is_bounded_to_a_percentage(value):
+    """coverage_pct outside 0-100 is rejected by its own field bounds."""
+    with pytest.raises(ValidationError):
+        CoverageSummary(counted_acs=1, covered_acs=1, partially_covered_acs=0, not_covered_acs=0, coverage_pct=value)
 
 
 def test_record_root_is_entities():

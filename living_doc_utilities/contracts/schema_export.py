@@ -113,12 +113,25 @@ def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -
     schema["$defs"][Stats.__name__]["properties"]["field_occupancy"]["propertyNames"] = {"enum": paths}
 
 
-# The no-aspects rules share these two blocks (`coverage_matrix.py::AcCoverage._check_status_matches_aspects`).
+# The status rules share these blocks (`coverage_matrix.py::AcCoverage._check_status_matches_aspects`).
 _AC_COVERAGE_NO_ASPECTS: dict[str, Any] = {"properties": {"aspects": {"maxItems": 0}}}
 _AC_COVERAGE_NOT_COVERED_ASPECT: dict[str, Any] = {
     "properties": {"status": {"const": "not_covered"}},
     "required": ["status"],
 }
+_AC_COVERAGE_COVERED_ASPECT: dict[str, Any] = {
+    "properties": {"status": {"const": "covered"}},
+    "required": ["status"],
+}
+
+
+def _ac_coverage_with_aspects(aspects: dict[str, Any], status: str) -> dict[str, Any]:
+    """With aspects present and matching `aspects`, the row's status is `status`."""
+    return {
+        "if": {"properties": {"aspects": {"minItems": 1, **aspects}}, "required": ["aspects"]},
+        "then": {"properties": {"status": {"const": status}}},
+    }
+
 
 # Each $defs model's model_validator rules as allOf if/then/else, so plain jsonschema rejects what pydantic does.
 _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
@@ -192,20 +205,13 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
             },
             "then": {"properties": {"scenario_ids": {"maxItems": 0}}},
         },
-        {
-            "if": {
-                "properties": {"aspects": {"minItems": 1}},
-                "not": {"properties": {"aspects": {"contains": _AC_COVERAGE_NOT_COVERED_ASPECT}}},
-            },
-            "then": {"properties": {"status": {"const": "covered"}}},
-        },
-        {
-            "if": {
-                "properties": {"aspects": {"minItems": 1, "contains": _AC_COVERAGE_NOT_COVERED_ASPECT}},
-                "required": ["aspects"],
-            },
-            "then": {"properties": {"status": {"const": "partially_covered"}}},
-        },
+        # with aspects: covered when every aspect is, not_covered when none is, partially_covered otherwise.
+        _ac_coverage_with_aspects({"not": {"contains": _AC_COVERAGE_NOT_COVERED_ASPECT}}, "covered"),
+        _ac_coverage_with_aspects({"not": {"contains": _AC_COVERAGE_COVERED_ASPECT}}, "not_covered"),
+        _ac_coverage_with_aspects(
+            {"allOf": [{"contains": _AC_COVERAGE_COVERED_ASPECT}, {"contains": _AC_COVERAGE_NOT_COVERED_ASPECT}]},
+            "partially_covered",
+        ),
     ],
 }
 
@@ -213,6 +219,7 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
 def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) -> None:
     """Applies _CROSS_FIELD_RULES to `schema`'s $defs, plus `source_inputs[]: minItems 1` (R7) for transforms.
     Unencoded, no JSON Schema keyword: `common.py::check_ac_ids_owned`, `coverage_matrix.py::PlannedSummary`,
+    `coverage_matrix.py::CoverageSummary` (recomputed by `EntityCoverage` and `CoverageMatrixResult`),
     `generator_ready.py::SelectionSummary` and `envelope.py::Source` (their model_validators are Pydantic-only)."""
     defs = schema.get("$defs", {})
 

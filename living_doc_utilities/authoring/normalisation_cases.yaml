@@ -669,3 +669,57 @@
     # parent:    FEAT-001
     # func_type: field_validation
   note: Scalar keys other than "status" are never rewritten (no state lives in them).
+
+- id: never_touched_ac_keyword_name_capitalised
+  rule: none
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: |
+    # acceptance_criteria:
+    #   AC:US-001-01 (v1.0.0 - active)
+    #     - Shows an error under the {field} input.
+    #     - Field: username, password
+  expected: |
+    # acceptance_criteria:
+    #   AC:US-001-01 (v1.0.0 - active)
+    #     - Shows an error under the {field} input.
+    #     - Field: username, password
+  note: >
+    A keyword's name keeps its authored case: normalize rewrites no name. The AC grammar
+    folds "Field" to "field", the slug of "{field}", so the bullet is the AC's keyword.
+
+- id: never_touched_ac_keyword_name_with_a_space
+  rule: none
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: |
+    # acceptance_criteria:
+    #   AC:US-001-01 (v1.0.0 - active)
+    #     - A {user-role} lands on their own dashboard.
+    #     - user role: customer, guest
+  expected: |
+    # acceptance_criteria:
+    #   AC:US-001-01 (v1.0.0 - active)
+    #     - A {user-role} lands on their own dashboard.
+    #     - user role: customer, guest
+  note: >
+    A space in a keyword's name is left as written; the AC grammar folds "user role" and
+    "{user-role}" to the one slug "user_role" (case, "-", "_" and space equal).
+
+- id: never_touched_ac_keyword_name_with_a_hyphen
+  rule: none
+  format: feature_header
+  entity_type: DocumentedUserStory
+  input: |
+    # acceptance_criteria:
+    #   AC:US-001-01 (v1.0.0 - active)
+    #     - A {User Role} lands on their own dashboard.
+    #     - user-role: customer, guest
+  expected: |
+    # acceptance_criteria:
+    #   AC:US-001-01 (v1.0.0 - active)
+    #     - A {User Role} lands on their own dashboard.
+    #     - user-role: customer, guest
+  note: >
+    The canon's kebab-case name: "user-role" and "{User Role}" fold to the same slug
+    "user_role" as the space form, so all three spellings name one keyword.

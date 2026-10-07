@@ -34,9 +34,9 @@ This page gives the overview, a usage tip, and the page to read next.
 Python 3.10 or later. Pin the version exactly, and add an extra only for the module that needs it:
 
 ```shell
-pip install "living-doc-utilities==0.5.0"          # contracts, authoring, github.utils, inputs
-pip install "living-doc-utilities[github]==0.5.0"  # adds the GitHub rate limiter and decorators
-pip install "living-doc-utilities[html]==0.5.0"    # adds the HTML sanitiser
+pip install "living-doc-utilities==0.6.0"          # contracts, authoring, github.utils, inputs
+pip install "living-doc-utilities[github]==0.6.0"  # adds the GitHub rate limiter and decorators
+pip install "living-doc-utilities[html]==0.6.0"    # adds the HTML sanitiser
 ```
 
 ```python

@@ -17,7 +17,10 @@
 """US-001's and FUNC-001's `.feature` headers match their issue-body golden entities plus one optional extension."""
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
+from living_doc_utilities.authoring.scenario import parse_scenarios
 from tests.authoring.golden.helpers import load_expected, read_fixture
+
+_FUNC_001_RULES = ["minimum-length", "character-classes", "no-username"]
 
 
 def _ac_core(ac):
@@ -69,7 +72,25 @@ def test_func_001_feature_header_matches_its_issue_body_golden_entity():
         for ac in expected["acceptance_criteria"]
     ]
 
-    # The one extension this corpus assigns only to the .feature-header form.
+    # The one extension this corpus assigns only to the .feature-header form, in both its spellings.
     by_id = {ac.id: ac for ac in entity.acceptance_criteria}
-    assert by_id["FUNC-001-01"].aspect == ["minimum-length", "character-classes"]
+    assert by_id["FUNC-001-01"].aspect == _FUNC_001_RULES
+    assert by_id["FUNC-001-01"].placeholder_values == {}
     assert by_id["FUNC-001-02"].aspect == []
+    # The named keyword `- rule:` is the other spelling of `Aspect:`: the same values, its name kept.
+    assert by_id["FUNC-001-03"].aspect == _FUNC_001_RULES
+    assert by_id["FUNC-001-03"].placeholder_values == {"rule": _FUNC_001_RULES}
+
+
+def test_func_001_scenarios_link_one_value_of_each_variant_spelling():
+    """`@AC:FUNC-001-01/aspect:<v>` and `@AC:FUNC-001-03/rule:<v>` both link one declared value; no tag is malformed."""
+    text = read_fixture("gherkin", "liv_doc_func", "func-001-validate-password-strength.feature")
+    scenarios, warnings = parse_scenarios(text, "DocumentedFunctionality")
+
+    assert warnings == []
+    assert [(link.id, link.aspect) for scenario in scenarios for link in scenario.acceptance_criteria] == [
+        ("FUNC-001-01", "minimum-length"),
+        ("FUNC-001-01", "character-classes"),
+        ("FUNC-001-01", "no-username"),
+        ("FUNC-001-03", "minimum-length"),
+    ]

@@ -31,8 +31,13 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
   - Any other unread line no more specific code covers is `AUTHORING_WARNING`: text in no section, a key or `##` heading written twice (only the first is read; every line of the later one is reported), a value continued after a blank line, a code block inside a criterion, a line of a dropped criterion → `tests/authoring/test_accounting.py::test_a_key_written_twice_reads_the_first_value_and_reports_the_later_one`
   - Both are warnings: parsing goes on, and a format check decides what fails it ([codes](../contracts/errors.md#codes)) → `tests/authoring/test_accounting.py::test_both_authoring_codes_are_warnings_so_a_parser_never_stops`
   - An HTML comment, and the prose a cross-reference header may open with, are not content and are not reported → `tests/authoring/test_accounting.py::test_issue_body_text_before_the_first_heading_is_reported_but_an_html_comment_is_not`
-- A warning about a line names its 1-based input line (`line_no=`) and the line or its text (`line=`); the caller, which knows the file, adds the file → `tests/authoring/test_accounting.py::test_every_line_warning_of_a_broken_header_names_its_input_line`
-  - A warning about a whole entity (a status mismatch, a relation) names the entity instead.
+- A warning about a line sets its 1-based `line_no`, and its context keeps the line or its text (`line=`); the collector, which knows the file, fills `path` ([how codes are reported](../contracts/errors.md#how-codes-are-reported)) → `tests/authoring/test_accounting.py::test_every_line_warning_of_a_broken_header_names_its_input_line`
+- A warning sets every location field its parser knows: `entity_id`, `ac_id` when the criterion's id is valid, `line_no` → `tests/authoring/test_warning_location.py::test_a_warning_carries_the_location_its_parser_knows`
+  - A header `MALFORMED_AC` names the header's line, and the criterion when its id is valid, even on a header too malformed to parse.
+  - Every line inside a criterion names that criterion when its id is valid: a line the grammar cannot read, a line of a dropped criterion, a code block, an `AC:` line read as text, a criterion under a repeated key → `authoring/ac_grammar.py::criterion_ids`
+  - A scenario names no entity: a tag's `MALFORMED_AC` names the tag's line, and the criterion when the tag's id is valid.
+  - `MISSING_ENTITY_ID` names only the line of a banner's title or rule: its entity was never emitted. An issue title has no line.
+  - A warning about a whole entity (a status mismatch, a relation) names only the entity.
 - No authoring module uses `logging` → `tests/authoring/test_warning_coverage.py::test_no_authoring_module_uses_the_logging_module`
 - `None` with `MISSING_ENTITY_ID` means the title or banner had no id; none of the document's fields are extracted, and nothing of it is normalised → `authoring/identity.py::derive_entity_id`
 - A parsed entity has every entity field except `source_ref`, `tags` and `timestamps`; the collector fills those → `authoring/issue_body.py::ParsedEntity`
@@ -190,16 +195,20 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 
 `parse_scenarios(text, entity_type)` reads a `.feature` file's Gherkin body → `authoring/scenario.py::parse_scenarios`.
 
-- Each `Scenario:` or `Scenario Outline:` takes the `@AC:<id>[/<param>:<value>...]` tags right before it → `authoring/scenario.py::_tags_to_ac_links`
-- The tag format is open: any number of `/<param>:<value>` segments may follow the id → `authoring/scenario.py::_parse_ac_tag`
-  - `aspect` fills the link's `aspect`; its value stops at the next `/` and must not contain `:`.
-  - Any other parameter is accepted without a warning and not stored.
-    - Why: `AcLink` has no field for one; the canon's AC custom keyword (`@AC:<id>/<placeholder-name>:<value>`) is defined only in its header templates, so its value is not stored yet.
+- Each `Scenario:` or `Scenario Outline:` takes the `@AC:<id>[/<param>:<value>]` tags right before it → `authoring/scenario.py::_tags_to_ac_links`
+- The tag format is closed: at most one `/<param>:<value>` follows the id (`DEC-76`) → `authoring/scenario.py::_parse_ac_tag`
+  - The parameter is `aspect` or the criterion's keyword name ([Variants](ac-grammar.md#variants)); its value fills the link's `aspect`.
+  - The name is not stored or checked against the criterion here.
+    - Why: `AcLink` holds the value only (`D39`); a value the criterion does not declare is `STALE_AC_REF`, a transform's check.
+  - The value stops at the next `/` and must not contain `:`.
+  - Anything else a team tags a scenario with goes into ordinary Cucumber tags, e.g. `@priority_high`.
+- A bare `@AC:<id>` links the whole criterion, every declared value: the link's `aspect` is `None` → `contracts/ui_tests.py::AcLink`
+  - Why: a data-driven scenario runs every value at once; review confirms that it really does.
 - A `# AC:` comment above a scenario is documentation only; only the `@AC:` tag links a scenario.
 - Any other line between a tag block and the next scenario (`Rule:`, a step, `Examples:`) drops the pending tags → `authoring/scenario.py::parse_scenarios`
   - Why: a tag block links only the very next scenario, never one further down.
 - A `Feature:` or `Background:` line also drops pending tags → `authoring/scenario.py::parse_scenarios`
-- An `@AC:` tag is `MALFORMED_AC` when its criterion id is invalid, a segment is empty or not `<param>:<value>`, `aspect` is given twice, or the `aspect` value contains `:` → `authoring/scenario.py::_parse_ac_tag`
+- An `@AC:` tag is `MALFORMED_AC`, and skipped, when its criterion id is invalid, it has a second parameter, a segment is empty or not `<param>:<value>`, the name is invalid, or the value contains `:` → `tests/authoring/test_scenario.py::test_malformed_ac_tag_params_produce_a_warning_and_no_link`
 - The collector fills each scenario's `scenario_id` and `source_ref` → `authoring/scenario.py::ParsedScenario`
 
 ## Finding the entity id
@@ -208,7 +217,7 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
 - `derive_entity_id(title)` takes the first such run as a whole word, so another tracker key before it is passed over (`BUG-7 fix for US-001` gives `US-001`) → `tests/authoring/test_identity.py::test_other_tracker_keys_are_not_entity_ids`
 - A run glued to other letters, digits or `_` (`XUS-001`, `US-001abc`, `GH_US-001`) is not an id → `tests/authoring/test_identity.py::test_an_id_run_glued_to_other_word_characters_is_not_an_entity_id`
 - A historical prefix is skipped: in `GH-US-001`, the match is `US-001` → `tests/authoring/test_identity.py::test_valid_title_prefixes_extract_us_001`
-- No such run returns `(None, [MISSING_ENTITY_ID])`, even when the title names another key such as `JIRA-12`; the collector adds location context and counts `entities_skipped` → `authoring/identity.py::derive_entity_id`
+- No such run returns `(None, [MISSING_ENTITY_ID])`, even when the title names another key such as `JIRA-12`; a banner's parser adds the title's line, and the collector the file, and counts `entities_skipped` → `authoring/identity.py::derive_entity_id`
 - Normalisation rules 5 and 5b find the id with the same pattern, so the ` · ` separator lands after the real id → `authoring/normalize.py::normalize_title`
 - The same function serves an issue title, a `.feature` banner and a PageObject banner → `authoring/identity.py::derive_entity_id`
 - One helper reads the title text from the banner's title line, in both banner formats → `authoring/identity.py::extract_living_doc_title`

@@ -21,7 +21,7 @@ encodes the field-by-view rendering table, so tests assert against it instead of
 """
 
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Any, Callable
 
 from living_doc_utilities.contracts import (
     coverage_matrix,
@@ -31,11 +31,13 @@ from living_doc_utilities.contracts import (
     ui_test_catalog,
     ui_tests,
 )
+from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import AcceptanceCriterion, SourceRef, Timestamps
 from living_doc_utilities.contracts.doc_entities import Entity, PageRef
 from living_doc_utilities.contracts.envelope import (
     AuditStats,
     Cardinality,
+    ContractWarning,
     Metadata,
     Producer,
     Run,
@@ -75,10 +77,17 @@ def _azure_devops_source_ref(native_id: str, native_type: str) -> SourceRef:
     )
 
 
+# The keyword AC's declared values; the coverage sample covers one of them.
+_PAYMENT_FIELDS = ("card-holder", "expiry-date", "last-four-digits")
+
+
 def _acceptance_criteria(parent_id: str) -> list[AcceptanceCriterion]:
-    """Every acceptance-criterion-level extension, jointly: an `active` AC carrying aspect,
-    preconditions, not_in_scope, rationale and placeholder_values; a `planned` AC targeted at
-    a future version; and a separate backlog `planned` AC with none."""
+    """Every acceptance-criterion-level extension, jointly: an `active` AC carrying `Aspect:`,
+    preconditions, not_in_scope and rationale; a `planned` AC targeted at a future version; a
+    separate backlog `planned` AC with none; an `active` AC declaring its variants by a
+    keyword, so `aspect` holds the keyword's values and placeholder_values its one name; and an
+    `active` `Aspect:` AC no scenario covers. No AC declares both (living-doc's header-types,
+    "AC variants")."""
     return [
         AcceptanceCriterion(
             id=f"{parent_id}-01",
@@ -89,7 +98,6 @@ def _acceptance_criteria(parent_id: str) -> list[AcceptanceCriterion]:
             preconditions=["The cart has at least one item."],
             not_in_scope=["International shipping."],
             rationale="Keeping checkout to one step reduces cart abandonment.",
-            placeholder_values={"user_role": ["customer", "guest"]},
         ),
         AcceptanceCriterion(
             id=f"{parent_id}-02",
@@ -101,6 +109,21 @@ def _acceptance_criteria(parent_id: str) -> list[AcceptanceCriterion]:
             id=f"{parent_id}-03",
             state="planned",
             description="A customer can pay with a digital wallet.",
+        ),
+        AcceptanceCriterion(
+            id=f"{parent_id}-04",
+            state="active",
+            version="1.0.0",
+            description="The order summary shows the {payment-field} of the chosen saved card.",
+            aspect=list(_PAYMENT_FIELDS),
+            placeholder_values={"payment_field": list(_PAYMENT_FIELDS)},
+        ),
+        AcceptanceCriterion(
+            id=f"{parent_id}-05",
+            state="active",
+            version="1.0.0",
+            description="A customer can remove a saved payment method at checkout.",
+            aspect=["desktop", "mobile"],
         ),
     ]
 
@@ -212,15 +235,20 @@ def _entities() -> list[Entity]:
 
 def _scenarios() -> list[Scenario]:
     """Two scenarios jointly covering every leaf path ui-tests and ui-test-catalog declare
-    for their Scenario-shaped record roots: one tagged, GitHub-sourced and aspect-linked; one
-    Azure-DevOps-sourced (covering source_ref.area_path/iteration_path) and un-aspected."""
+    for their Scenario-shaped record roots: one tagged, GitHub-sourced and linked to each value
+    of an `Aspect:` AC and to one value of a keyword AC; one Azure-DevOps-sourced (covering
+    source_ref.area_path/iteration_path) with a bare link."""
     return [
         Scenario(
             scenario_id="SCN-001",
             title="Customer completes checkout with a saved card",
             source_ref=_github_source_ref("checkout.feature", "Scenario"),
             tags=["smoke"],
-            acceptance_criteria=[AcLink(id="US-001-01", aspect="desktop")],
+            acceptance_criteria=[
+                AcLink(id="US-001-01", aspect="desktop"),
+                AcLink(id="US-001-01", aspect="mobile"),
+                AcLink(id="US-001-04", aspect=_PAYMENT_FIELDS[0]),
+            ],
         ),
         Scenario(
             scenario_id="SCN-002",
@@ -289,6 +317,41 @@ def _ui_tests_sample() -> ui_tests.UITestsResult:
     return ui_tests.UITestsResult(metadata=_metadata(transform=False), scenarios=_scenarios())
 
 
+def _not_loaded_warnings() -> list[ContractWarning]:
+    """What was not loaded from the input, as a collector reports it: a dropped criterion with every location
+    field, which therefore no entity or coverage row holds; a criterion line no field reads; and a file whose
+    entity was never emitted, which names no entity."""
+    feature_file = "features/checkout.feature"
+    return [
+        ContractWarning(
+            code=Code.MALFORMED_AC.name,
+            message="Acceptance criterion declares its variants more than once (Aspect, payment_field); "
+            "keep one 'Aspect:' or one keyword.",
+            context="entity='US-001' line_no=31 header='#   AC:US-001-06 (v1.0.0 - active)'",
+            entity_id="US-001",
+            ac_id="US-001-06",
+            line_no=31,
+            path=feature_file,
+        ),
+        ContractWarning(
+            code=Code.UNPARSED_AC_LINE.name,
+            message="Bullet 'device' is not a keyword: the description names no '{device}'.",
+            context="entity='US-001' header='#   AC:US-001-01 (v1.0.0 - active)' line_no=17 line='- device: tablet'",
+            entity_id="US-001",
+            ac_id="US-001-01",
+            line_no=17,
+            path=feature_file,
+        ),
+        ContractWarning(
+            code=Code.MISSING_ENTITY_ID.name,
+            message="Feature-header banner carries no 'LIVING DOC — ...' title line.",
+            context="title='' line_no=1",
+            line_no=1,
+            path="features/refund.feature",
+        ),
+    ]
+
+
 def _generator_ready_sample() -> generator_ready.GeneratorReadyResult:
     return generator_ready.GeneratorReadyResult(
         metadata=_metadata(transform=True),
@@ -300,44 +363,82 @@ def _generator_ready_sample() -> generator_ready.GeneratorReadyResult:
                 total_entities=4,
                 included_entities=4,
                 excluded_entities=0,
-                total_acceptance_criteria=4,
-                included_acceptance_criteria=4,
+                total_acceptance_criteria=6,
+                included_acceptance_criteria=6,
                 excluded_acceptance_criteria=0,
             ),
         ),
         content=generator_ready.Content(entities=_entities()),
+        warnings=_not_loaded_warnings(),
+    )
+
+
+def _aspect(aspect: str, *scenario_ids: str) -> coverage_matrix.AspectCoverage:
+    return coverage_matrix.AspectCoverage(
+        aspect=aspect, status="covered" if scenario_ids else "not_covered", scenario_ids=list(scenario_ids)
+    )
+
+
+def _entity_coverage(rows: list[coverage_matrix.AcCoverage], **fields: Any) -> coverage_matrix.EntityCoverage:
+    """An entity's coverage rows with the summary computed from them, as a producer writes it."""
+    return coverage_matrix.EntityCoverage(
+        acceptance_criteria=rows, summary=coverage_matrix.CoverageSummary.from_rows(rows), **fields
     )
 
 
 def _coverage_matrix_sample() -> coverage_matrix.CoverageMatrixResult:
-    covered_via_aspects = coverage_matrix.EntityCoverage(
-        entity_id="US-001",
-        type="DocumentedUserStory",
-        title="Checkout with a saved payment method",
-        state="active",
-        acceptance_criteria=[
+    """Each row status once - covered, partially_covered (1 of 3), not_covered - plus a deprecated row and an
+    entity with no counted row. US-001 is 44.4 (1 + 1/3 + 0 over 3 rows), US-002 100.0, FUNC-001 None; the
+    matrix is 58.3 (7/3 over 4 rows), not the 72.2 mean of the two entity percentages."""
+    user_story = _entity_coverage(
+        [
             coverage_matrix.AcCoverage(
                 ac_id="US-001-01",
                 state="active",
                 status="covered",
-                aspects=[coverage_matrix.AspectCoverage(aspect="desktop", status="covered", scenario_ids=["SCN-001"])],
-            )
+                aspects=[_aspect("desktop", "SCN-001"), _aspect("mobile", "SCN-001")],
+            ),
+            coverage_matrix.AcCoverage(
+                ac_id="US-001-04",
+                state="active",
+                status="partially_covered",
+                aspects=[
+                    _aspect(_PAYMENT_FIELDS[0], "SCN-001"),
+                    _aspect(_PAYMENT_FIELDS[1]),
+                    _aspect(_PAYMENT_FIELDS[2]),
+                ],
+            ),
+            coverage_matrix.AcCoverage(
+                ac_id="US-001-05",
+                state="active",
+                status="not_covered",
+                aspects=[_aspect("desktop"), _aspect("mobile")],
+            ),
         ],
-    )
-    covered_without_aspects = coverage_matrix.EntityCoverage(
-        entity_id="FUNC-001",
-        type="DocumentedFunctionality",
-        title="Validate card number",
+        entity_id="US-001",
+        type="DocumentedUserStory",
+        title="Checkout with a saved payment method",
         state="active",
-        acceptance_criteria=[
-            coverage_matrix.AcCoverage(ac_id="FUNC-001-01", state="active", status="covered", scenario_ids=["SCN-002"])
-        ],
     )
+    deprecated_user_story = _entity_coverage(
+        [coverage_matrix.AcCoverage(ac_id="US-002-01", state="deprecated", status="covered", scenario_ids=["SCN-002"])],
+        entity_id="US-002",
+        type="DocumentedUserStory",
+        title="Checkout as a guest",
+        state="deprecated",
+    )
+    functionality = _entity_coverage(
+        [], entity_id="FUNC-001", type="DocumentedFunctionality", title="Validate card number", state="active"
+    )
+    entities = [user_story, deprecated_user_story, functionality]
     return coverage_matrix.CoverageMatrixResult(
         metadata=_metadata(transform=True),
         document=coverage_matrix.Document(view="inner"),
-        entities=[covered_via_aspects, covered_without_aspects],
+        entities=entities,
         planned_summary=coverage_matrix.PlannedSummary(total=2, backlog=1, by_target_version={"1.6.0": 1}),
+        summary=coverage_matrix.CoverageSummary.from_rows(
+            row for entity in entities for row in entity.acceptance_criteria
+        ),
     )
 
 
@@ -404,6 +505,10 @@ _SHOWN_BOTH_VIEWS = frozenset(
     }
 )
 
+# What was not loaded from the input: each warning under the entity its entity_id names, or once for the document
+# when it names none the document holds. Its entity_id only places it; its ac_id and context are never shown.
+_WARNING_PATH = "warnings[]."
+
 _SHOWN_INNER_ONLY = frozenset(
     {
         f"{_ENTITY_PATH}stub_reason",
@@ -412,14 +517,18 @@ _SHOWN_INNER_ONLY = frozenset(
         f"{_ENTITY_PATH}source_ref.area_path",
         f"{_ENTITY_PATH}source_ref.iteration_path",
     }
+    | {f"{_WARNING_PATH}{name}" for name in ("code", "message", "line_no", "path")}
 )
 
 # Never shown in either view: source_ref.native_type, source_ref.tracker_state (absent from both sets above).
 
-# Per-aspect rows show in both views; planned_summary (root-relative, beside entities[]) shows in inner only.
+# Per-aspect rows and the coverage summaries (each entity's and the matrix's) show in both views;
+# planned_summary (root-relative, beside entities[]) shows in inner only.
 _COVERAGE_PATH = "entities[].acceptance_criteria[]."
+_SUMMARY_FIELDS = ("counted_acs", "covered_acs", "partially_covered_acs", "not_covered_acs", "coverage_pct")
 _COVERAGE_BOTH_VIEWS = frozenset(
     {f"{_COVERAGE_PATH}status", f"{_COVERAGE_PATH}aspects[].aspect", f"{_COVERAGE_PATH}aspects[].status"}
+    | {f"{owner}summary.{name}" for owner in ("entities[].", "") for name in _SUMMARY_FIELDS}
 )
 _COVERAGE_INNER_ONLY = frozenset(
     {"planned_summary.total", "planned_summary.backlog", "planned_summary.by_target_version"}

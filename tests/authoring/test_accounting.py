@@ -40,9 +40,10 @@ def _po(body: str) -> str:
 
 
 def _codes_and_lines(text: str, warnings) -> list[tuple[str, str]]:
-    """Each warning's code and the input line its `line_no` names."""
+    """Each warning's code and the input line its `line_no` names; its context names the same line."""
     lines = text.split("\n")
-    return [(w.code, lines[int(_LINE_NO_RE.search(w.context).group(1)) - 1].strip()) for w in warnings]
+    assert [int(_LINE_NO_RE.search(w.context).group(1)) for w in warnings] == [w.line_no for w in warnings]
+    return [(w.code, lines[w.line_no - 1].strip()) for w in warnings]
 
 
 def test_both_authoring_codes_are_warnings_so_a_parser_never_stops():
@@ -345,6 +346,24 @@ def test_every_line_of_a_dropped_criterion_is_reported_and_the_next_criterion_is
     ]
 
 
+def test_every_line_of_a_criterion_declaring_its_variants_twice_is_reported():
+    """`Aspect:` plus a keyword drops the criterion like any other `MALFORMED_AC`: each of its lines is reported."""
+    text = _us_header(
+        "# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     - Shows the failed {rule}.\n"
+        "#     - rule: minimum-length\n#     - Aspect: desktop\n"
+    )
+
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert entity is not None and entity.acceptance_criteria == []
+    assert _codes_and_lines(text, warnings) == [
+        ("MALFORMED_AC", "#   AC:US-001-01 (v1.0.0 - active)"),
+        ("AUTHORING_WARNING", "#     - Shows the failed {rule}."),
+        ("AUTHORING_WARNING", "#     - rule: minimum-length"),
+        ("AUTHORING_WARNING", "#     - Aspect: desktop"),
+    ]
+
+
 def test_a_dropped_criterions_line_already_reported_is_not_reported_twice():
     """A block line the grammar named already keeps its one warning; a dropped criterion adds none for it."""
     text = _us_header("# acceptance_criteria:\n#   AC:US-001-01 (v1.0.0 - active)\n#     prose with no bullet\n")
@@ -496,7 +515,7 @@ def test_an_item_nested_one_space_deeper_is_reported_as_github_renders_it_a_sibl
 
 
 def test_every_line_warning_of_a_broken_header_names_its_input_line():
-    """Each warning about a line carries `line_no` and the line itself; the caller adds the file."""
+    """Each warning about a line carries `line_no`, and its context the line itself; the collector adds the file."""
     text = _us_header(
         "# status: Bogus\n"
         "# unknown_key: x\n"

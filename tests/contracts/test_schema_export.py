@@ -68,6 +68,7 @@ def _coverage_matrix_instance_dict() -> dict:
         document=factories.coverage_matrix_document(),
         entities=[factories.entity_coverage()],
         planned_summary=factories.planned_summary(),
+        summary=factories.matrix_summary([factories.entity_coverage()]),
     )
     return json.loads(result.model_dump_json())
 
@@ -296,13 +297,20 @@ def _pages_without_exactly_one_primary() -> dict:
     return data
 
 
-def _ac_coverage_covered_with_a_not_covered_aspect() -> dict:
-    data = _coverage_matrix_instance_dict()
-    data["entities"][0]["acceptance_criteria"][0]["status"] = "covered"
-    data["entities"][0]["acceptance_criteria"][0]["aspects"] = [
-        {"aspect": "checkout", "status": "not_covered", "scenario_ids": []}
-    ]
-    return data
+_COVERED_ASPECT = {"aspect": "checkout", "status": "covered", "scenario_ids": ["SCN-001"]}
+_NOT_COVERED_ASPECT = {"aspect": "refund", "status": "not_covered", "scenario_ids": []}
+
+
+def _ac_coverage_with_aspects(status: str, *aspects: dict) -> Callable[[], dict]:
+    """Builds the dumped coverage-matrix sample with its one row set to `status` over `aspects`."""
+
+    def build() -> dict:
+        data = _coverage_matrix_instance_dict()
+        data["entities"][0]["acceptance_criteria"][0]["status"] = status
+        data["entities"][0]["acceptance_criteria"][0]["aspects"] = list(aspects)
+        return data
+
+    return build
 
 
 def _ac_coverage_partially_covered_with_no_aspects() -> dict:
@@ -393,8 +401,37 @@ REJECTION_CASES = [
         "ac_coverage_covered_status_with_a_not_covered_aspect",
         "status must be 'partially_covered'",
         coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(
+            status="covered",
+            aspects=[factories.aspect_coverage(status="covered"), factories.aspect_coverage(status="not_covered")],
+        ),
+        _ac_coverage_with_aspects("covered", _COVERED_ASPECT, _NOT_COVERED_ASPECT),
+    ),
+    RejectionCase(
+        "ac_coverage_covered_status_with_no_covered_aspect",
+        "status must be 'not_covered'",
+        coverage_matrix.CONTRACT_ID,
         lambda: factories.ac_coverage(status="covered", aspects=[factories.aspect_coverage(status="not_covered")]),
-        _ac_coverage_covered_with_a_not_covered_aspect,
+        _ac_coverage_with_aspects("covered", _NOT_COVERED_ASPECT),
+    ),
+    RejectionCase(
+        "ac_coverage_partially_covered_status_with_no_covered_aspect",
+        "status must be 'not_covered'",
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(
+            status="partially_covered", aspects=[factories.aspect_coverage(status="not_covered")] * 3
+        ),
+        _ac_coverage_with_aspects("partially_covered", _NOT_COVERED_ASPECT, _NOT_COVERED_ASPECT, _NOT_COVERED_ASPECT),
+    ),
+    RejectionCase(
+        "ac_coverage_not_covered_status_with_a_covered_aspect",
+        "status must be 'partially_covered'",
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(
+            status="not_covered",
+            aspects=[factories.aspect_coverage(status="covered"), factories.aspect_coverage(status="not_covered")],
+        ),
+        _ac_coverage_with_aspects("not_covered", _COVERED_ASPECT, _NOT_COVERED_ASPECT),
     ),
     RejectionCase(
         "ac_coverage_partially_covered_status_with_no_aspects",

@@ -15,7 +15,7 @@
 #
 
 """
-Gherkin scenario parsing: a scenario's title and its `@AC:<id>[/<param>:<value>...]` tags. The
+Gherkin scenario parsing: a scenario's title and its `@AC:<id>[/<param>:<value>]` tags. The
 human-readable `# AC:` comment above a scenario is documentation only; only the
 machine-readable `@AC:` Cucumber tag links a scenario to an acceptance criterion.
 """
@@ -23,7 +23,8 @@ machine-readable `@AC:` Cucumber tag links a scenario to an acceptance criterion
 import re
 from dataclasses import dataclass, field
 
-from living_doc_utilities.authoring.ac_grammar import is_valid_ac_id
+from living_doc_utilities.authoring.ac_grammar import is_valid_ac_id, is_valid_variant_name
+from living_doc_utilities.authoring.accounting import located
 from living_doc_utilities.authoring.framing import SCENARIO, Role, opening_value
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize_framed
 from living_doc_utilities.contracts.codes import Code
@@ -33,7 +34,6 @@ from living_doc_utilities.contracts.ui_tests import AcLink
 
 _TAG_TOKEN_RE = re.compile(r"@\S+")
 _AC_TAG_PREFIX = "@AC:"
-_ASPECT_PARAM = "aspect"
 
 
 @dataclass
@@ -46,25 +46,23 @@ class ParsedScenario:
 
 
 def _parse_ac_tag(tag: str) -> AcLink | None:
-    """Parses `@AC:<id>[/<param>:<value>...]`; `None` when malformed. Only `aspect` is stored; the canon
-    keeps the format open, and other parameters are accepted but have no field on `AcLink`."""
+    """Parses `@AC:<id>[/<param>:<value>]`; `None` when malformed. The canon closes the format: at most one
+    parameter, `aspect` or the criterion's keyword name, whose value fills `aspect` (the name is not stored).
+    A bare tag links the whole criterion, every declared value."""
     ac_id, *segments = tag[len(_AC_TAG_PREFIX) :].split("/")
-    if not is_valid_ac_id(ac_id):
+    if not is_valid_ac_id(ac_id) or len(segments) > 1:
         return None
-    aspect: str | None = None
-    for segment in segments:
-        param, sep, value = segment.partition(":")
-        if not sep or not param or not value:
-            return None
-        if param == _ASPECT_PARAM:
-            if aspect is not None or ":" in value:
-                return None
-            aspect = value
-    return AcLink(id=ac_id, aspect=aspect)
+    if not segments:
+        return AcLink(id=ac_id)
+    param, sep, value = segments[0].partition(":")
+    if not sep or not is_valid_variant_name(param) or not value or ":" in value:
+        return None
+    return AcLink(id=ac_id, aspect=value)
 
 
 def _tags_to_ac_links(tags: list[tuple[str, int]]) -> tuple[list[AcLink], list[ContractWarning]]:
-    """Each `@AC:` tag of `(tag, input line number)` pairs as a link; a malformed one is reported on its line."""
+    """Each `@AC:` tag of `(tag, input line number)` pairs as a link; a malformed one is reported on its line,
+    naming the criterion when the tag's id is valid."""
     links: list[AcLink] = []
     warnings: list[ContractWarning] = []
     for tag, number in tags:
@@ -72,11 +70,14 @@ def _tags_to_ac_links(tags: list[tuple[str, int]]) -> tuple[list[AcLink], list[C
             continue
         link = _parse_ac_tag(tag)
         if link is None:
+            ac_id = tag[len(_AC_TAG_PREFIX) :].split("/")[0]
             warnings.append(
-                ContractWarning(
-                    code=Code.MALFORMED_AC.name,
-                    message="'@AC:' tag is malformed.",
-                    context=f"tag={tag!r} line_no={number}",
+                located(
+                    Code.MALFORMED_AC,
+                    "'@AC:' tag is malformed.",
+                    f"tag={tag!r} line_no={number}",
+                    number=number,
+                    ac_id=ac_id if is_valid_ac_id(ac_id) else None,
                 )
             )
             continue

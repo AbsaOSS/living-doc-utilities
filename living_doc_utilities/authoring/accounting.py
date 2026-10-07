@@ -69,9 +69,32 @@ def line_context(entity_id: str, number: int, text: str) -> str:
     return f"entity_id={entity_id!r} line_no={number} line={text.strip()!r}"
 
 
-def report(code: Code, message: str, entity_id: str, framed: FramedLine) -> ContractWarning:
-    """One warning about one input line."""
-    return ContractWarning(code=code.name, message=message, context=line_context(entity_id, framed.number, framed.raw))
+def located(
+    code: Code,
+    message: str,
+    context: str,
+    entity_id: str = "",
+    number: Optional[int] = None,
+    ac_id: Optional[str] = None,
+) -> ContractWarning:
+    """A warning naming where it belongs, from what its emitter knows (`DEC-77`): an empty `entity_id` and a missing
+    line `number` are not known, so their fields stay unset. `ac_id` is passed only when valid; `context` keeps
+    its free text."""
+    return ContractWarning(
+        code=code.name,
+        message=message,
+        context=context,
+        entity_id=entity_id or None,
+        ac_id=ac_id,
+        line_no=number or None,
+    )
+
+
+def report(
+    code: Code, message: str, entity_id: str, framed: FramedLine, ac_id: Optional[str] = None
+) -> ContractWarning:
+    """One warning about one input line; `ac_id`, when given, is the valid id of the criterion the line is in."""
+    return located(code, message, line_context(entity_id, framed.number, framed.raw), entity_id, framed.number, ac_id)
 
 
 def missing_title(frame: Frame, banner: str, no_header: str = "") -> ContractWarning:
@@ -80,7 +103,7 @@ def missing_title(frame: Frame, banner: str, no_header: str = "") -> ContractWar
     number = next((framed.number for framed in frame.lines if framed.role is Role.RULE), 1)
     found_none = any(problem.kind == NO_FRAME for problem in frame.problems)
     message = no_header if found_none and no_header else f"{banner} banner carries no 'LIVING DOC — ...' title line."
-    return ContractWarning(code=Code.MISSING_ENTITY_ID.name, message=message, context=f"title='' line_no={number}")
+    return located(Code.MISSING_ENTITY_ID, message, f"title='' line_no={number}", number=number)
 
 
 def at_title(warnings: list[ContractWarning], frame: Frame) -> list[ContractWarning]:
@@ -88,13 +111,20 @@ def at_title(warnings: list[ContractWarning], frame: Frame) -> list[ContractWarn
     if frame.title is None:
         return warnings
     number = frame.title.number
-    return [warning.model_copy(update={"context": f"{warning.context} line_no={number}"}) for warning in warnings]
+    return [
+        warning.model_copy(update={"context": f"{warning.context} line_no={number}", "line_no": number})
+        for warning in warnings
+    ]
 
 
-def structural_warnings(frame: Frame, entity_id: str, unclosed: str = "") -> list[ContractWarning]:
+def structural_warnings(
+    frame: Frame, entity_id: str, unclosed: str = "", criterion_ids: Optional[dict[int, str]] = None
+) -> list[ContractWarning]:
     """The frame's structural problems, each reported on the line it names. `unclosed`, when given, replaces the
-    message for a header that never closes, for a format that reads nothing of it."""
+    message for a header that never closes, for a format that reads nothing of it. `criterion_ids` maps each line of
+    a criterion block to its valid id (`ac_grammar.criterion_ids`): a problem on such a line names the criterion."""
     raw_by_number = {framed.number: framed.raw for framed in frame.lines}
+    ids = criterion_ids or {}
     warnings = []
     for problem in frame.problems:
         if problem.kind in _PROBLEMS:
@@ -102,17 +132,23 @@ def structural_warnings(frame: Frame, entity_id: str, unclosed: str = "") -> lis
             if problem.kind == UNTERMINATED_FRAME and unclosed:
                 message = unclosed
             context = line_context(entity_id, problem.line, raw_by_number.get(problem.line, ""))
-            warnings.append(ContractWarning(code=code.name, message=message, context=context))
+            warnings.append(located(code, message, context, entity_id, problem.line, ids.get(problem.line)))
     return warnings
 
 
 def unplaced_lines(
-    frame: Frame, entity_id: str, criteria_section: str = "acceptance_criteria", skip_intro: bool = False
+    frame: Frame,
+    entity_id: str,
+    criteria_section: str = "acceptance_criteria",
+    skip_intro: bool = False,
+    criterion_ids: Optional[dict[int, str]] = None,
 ) -> list[ContractWarning]:
     """Every line with text that no field reads: one in no section (before the first key or `##` heading, or
-    after a rule), one in the criteria section outside every criterion, and a code block inside a criterion.
+    after a rule), one in the criteria section outside every criterion, and a code block inside a criterion,
+    which names the criterion by `criterion_ids` (`ac_grammar.criterion_ids`) when its id is valid.
     An HTML comment renders as nothing, so it holds no authored content; `skip_intro` spares the prose a
     cross-reference header may open with. A line a structural problem already names is left to that warning."""
+    ids = criterion_ids or {}
     warnings: list[ContractWarning] = []
     seen_section = False
     in_html_comment = False
@@ -137,6 +173,7 @@ def unplaced_lines(
                         "A code block inside an acceptance criterion is not read.",
                         entity_id,
                         framed,
+                        ids.get(framed.number),
                     )
                 )
             continue
@@ -196,10 +233,14 @@ def scalar_lines(section: Section, single_value: bool, entity_id: str) -> tuple[
     return values, warnings
 
 
-def first_occurrences(frame: Frame, entity_id: str) -> tuple[Frame, list[ContractWarning]]:
+def first_occurrences(
+    frame: Frame, entity_id: str, criterion_ids: Optional[dict[int, str]] = None
+) -> tuple[Frame, list[ContractWarning]]:
     """A key or `##` heading written twice: only its first occurrence is read. A later one runs to the next key,
     heading or rule, so a `.feature` header's criteria under it are its too; each of its lines is reported and
-    leaves the frame, so no field, criterion or other check reads it."""
+    leaves the frame, so no field, criterion or other check reads it. A line of such a criterion names it by
+    `criterion_ids` (`ac_grammar.criterion_ids` over this frame) when its id is valid."""
+    ids = criterion_ids or {}
     seen: set[str] = set()
     repeated: Optional[str] = None
     lines: list[FramedLine] = []
@@ -217,7 +258,7 @@ def first_occurrences(frame: Frame, entity_id: str) -> tuple[Frame, list[Contrac
         # A line rule 7 split off an input line carries no `raw` of its own; that input line is reported once.
         if framed.line.text and framed.raw:
             message = f"'{repeated}' appears earlier; only the first one is read, so this line is not."
-            warnings.append(report(Code.AUTHORING_WARNING, message, entity_id, framed))
+            warnings.append(report(Code.AUTHORING_WARNING, message, entity_id, framed, ids.get(framed.number)))
         lines.append(framed._replace(role=Role.OUTSIDE, section=None, item_text=False, criterion=False))
     return Frame(lines, frame.problems), warnings
 
