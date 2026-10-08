@@ -119,6 +119,7 @@ jobs:
           duplicity-scope: 'none'
           warnings: true
           skip-release-notes-labels: "no RN,duplicate,invalid,wontfix"
+          release-notes-title: '## [Rr]elease [Nn]otes'
           print-empty-chapters: true
           row-format-issue: '_{title}_ {developers} in {number}'
           row-format-pr: '_{title}_ {developers} in {number}'

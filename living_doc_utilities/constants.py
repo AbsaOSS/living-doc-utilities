@@ -20,6 +20,3 @@ This module contains all constants and enums used across the project.
 
 # General Action inputs
 GITHUB_TOKEN = "GITHUB_TOKEN"
-
-# Output related
-OUTPUT_PATH = "./output"

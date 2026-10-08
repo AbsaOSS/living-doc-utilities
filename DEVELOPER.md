@@ -111,6 +111,7 @@ Releasing is a two-stage GitHub Actions pipeline; no local tag or manual upload 
 - Publishing the draft is the approval gate for the PyPI upload.
 - To abort before step 5, delete the draft release and its tag.
 - `from-tag-name` scopes the release notes; without it, the latest tag is used.
+- The notes take the bullet lines directly under each merged pull request's `## Release Notes`, up to its first line that is neither blank nor a bullet, so a bullet stays on one line → `.github/workflows/release_draft.yml::release-notes-title`
 
 ## Writing documentation
 

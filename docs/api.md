@@ -60,7 +60,7 @@ table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module
 | `github.decorators` | `safe_call_decorator()`, `debug_log_decorator()` | `github` |
 | `inputs.action_inputs` | `BaseActionInputs` | none |
 | `logging_config` | `setup_logging()` | none |
-| `constants` | `GITHUB_TOKEN`, `OUTPUT_PATH` | none |
+| `constants` | `GITHUB_TOKEN` | none |
 
 Where each part is defined: [contracts](contracts.md) and [authoring](authoring.md).
 
@@ -134,7 +134,7 @@ def fetch_issue(repository, number):
 - `validate_user_configuration()` returns true when `_validate()` reports no errors → `inputs/action_inputs.py::BaseActionInputs.validate_user_configuration`
 - `get_github_token()` reads the `GITHUB_TOKEN` input → `inputs/action_inputs.py::BaseActionInputs.get_github_token`
 - `setup_logging()` logs to stdout at `DEBUG` when `INPUT_VERBOSE_LOGGING=true` or `RUNNER_DEBUG=1`, else at `INFO` → `logging_config.py::setup_logging`
-- Shared constants: the `GITHUB_TOKEN` input name and the `OUTPUT_PATH` default `./output` → `constants.py::OUTPUT_PATH`
+- Shared constant: the `GITHUB_TOKEN` input name → `constants.py::GITHUB_TOKEN`
 
 ## Versioning
 
