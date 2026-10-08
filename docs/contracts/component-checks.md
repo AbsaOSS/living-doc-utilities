@@ -48,12 +48,15 @@ Its state-consistent records jointly fill every optional field:
 - a deprecated acceptance criterion with a planned-removal version;
 - a planned acceptance criterion with a target version, and one without;
 - a Feature with a derived state and a `stub_reason`;
-- every [field prepared for Azure DevOps](entities-and-state.md#fields-prepared-for-azure-devops).
+- every [field prepared for Azure DevOps](entities-and-state.md#fields-prepared-for-azure-devops);
+- in `generator-ready`, what was not loaded: a dropped criterion's `MALFORMED_AC` with every location field, an `UNPARSED_AC_LINE`, and a `MISSING_ENTITY_ID` that names no entity ([warning fields](errors.md#how-codes-are-reported)).
 
-Two properties of the sample:
+Three properties of the sample:
 
 - No record carries a field its own state makes meaningless → `contracts/testing.py::full_sample`
   - Why: the sample stays something a real pipeline could produce.
+- The contracts' samples agree: each coverage row and scenario link names a criterion the entities hold, with its aspects, and the dropped criterion is in none of them → `contracts/testing.py::full_sample`
+  - Why: a generator joins them by criterion id, e.g. to label a keyword criterion's coverage breakdown.
 - The sample takes no view: transforms filter it, generators set `document.view` → `contracts/testing.py::full_sample`
 
 Each kind of component uses the sample differently:

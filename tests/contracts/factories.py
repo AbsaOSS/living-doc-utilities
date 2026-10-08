@@ -17,12 +17,13 @@
 """Builders for minimal, schema-valid contract instances, shared by the contracts tests."""
 
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from living_doc_utilities.contracts.common import AcceptanceCriterion, SourceRef
 from living_doc_utilities.contracts.coverage_matrix import (
     AcCoverage,
     AspectCoverage,
+    CoverageSummary,
     EntityCoverage,
     PlannedSummary,
 )
@@ -312,6 +313,8 @@ def ac_coverage(parent_id: str = "US-001", seq: int = 1, **overrides: Any) -> Ac
 
 
 def entity_coverage(entity_id: str = "US-001", **overrides: Any) -> EntityCoverage:
+    """An EntityCoverage whose summary is computed from its rows, overridden or not, unless `summary` is given."""
+    rows = overrides.get("acceptance_criteria", [ac_coverage(parent_id=entity_id)])
     return _build(
         EntityCoverage,
         {
@@ -319,10 +322,16 @@ def entity_coverage(entity_id: str = "US-001", **overrides: Any) -> EntityCovera
             "type": "DocumentedUserStory",
             "title": "A user story",
             "state": "active",
-            "acceptance_criteria": [ac_coverage(parent_id=entity_id)],
+            "acceptance_criteria": rows,
+            "summary": CoverageSummary.from_rows(rows),
         },
         **overrides,
     )
+
+
+def matrix_summary(entities: Iterable[EntityCoverage]) -> CoverageSummary:
+    """The coverage-matrix root summary over every row of `entities`, as a producer computes it."""
+    return CoverageSummary.from_rows(row for entity in entities for row in entity.acceptance_criteria)
 
 
 def planned_summary(**overrides: Any) -> PlannedSummary:

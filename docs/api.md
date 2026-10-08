@@ -29,7 +29,7 @@ table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module
 | `contracts.doc_source` | the `doc-source` result model | none |
 | `contracts.ui_tests` | the `ui-tests` result model, `Scenario`, `AcLink` | none |
 | `contracts.generator_ready` | the `generator-ready` result model | none |
-| `contracts.coverage_matrix` | the `coverage-matrix` result model | none |
+| `contracts.coverage_matrix` | the `coverage-matrix` result model, `CoverageSummary.from_rows()` | none |
 | `contracts.ui_test_catalog` | the `ui-test-catalog` result model | none |
 | `contracts.registry` | the one table of all six contracts: `CONTRACTS`, `record_roots()` | none |
 | `contracts.schema_export` | generates the schemas; `load_schema(contract_id)` reads a bundled one | none |
@@ -43,8 +43,8 @@ table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module
 | `contracts.check_no_vendored_schemas` | the vendored-schema check, runnable with `python -m` | none |
 | `authoring.normalize` | `normalize()`, `normalize_framed()`, `SourceFormat` | none |
 | `authoring.framing` | `Frame`, `FramedLine`, `Role`, `sections()`, `criterion_blocks()`, the structural `Problem` kinds | none |
-| `authoring.accounting` | the line-accounting warnings every parser reports: `structural_warnings()`, `unplaced_lines()`, `scalar_lines()` | none |
-| `authoring.ac_grammar` | `parse_acceptance_criteria()`, `parse_frame_criteria()`, `is_valid_ac_id()` | none |
+| `authoring.accounting` | the line-accounting warnings every parser reports: `structural_warnings()`, `unplaced_lines()`, `scalar_lines()`; `located()` builds a warning with its location fields | none |
+| `authoring.ac_grammar` | `parse_acceptance_criteria()`, `parse_frame_criteria()`, `is_valid_ac_id()`, `is_valid_variant_name()`, `criterion_ids()` | none |
 | `authoring.issue_body` | `parse_issue_body()`, `ParsedEntity` | none |
 | `authoring.feature_header` | `parse_feature_header()` | none |
 | `authoring.page_object` | `parse_page_object()`, `PageObjectResult` | none |
@@ -68,12 +68,12 @@ Where each part is defined: [contracts](contracts.md) and [authoring](authoring.
 
 | Install | Adds | Needed for |
 |---|---|---|
-| `living-doc-utilities==0.5.0` | `pydantic`, `jsonschema` | every module marked "none" above |
-| `living-doc-utilities[github]==0.5.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
-| `living-doc-utilities[html]==0.5.0` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
+| `living-doc-utilities==0.6.0` | `pydantic`, `jsonschema` | every module marked "none" above |
+| `living-doc-utilities[github]==0.6.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
+| `living-doc-utilities[html]==0.6.0` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
 
 - The extras are declared in `pyproject.toml` → `pyproject.toml::optional-dependencies`
-- Extras combine: `pip install "living-doc-utilities[github,html]==0.5.0"` → `pyproject.toml::optional-dependencies`
+- Extras combine: `pip install "living-doc-utilities[github,html]==0.6.0"` → `pyproject.toml::optional-dependencies`
 - Importing a module never needs the `html` extra; calling `convert_html_to_markdown()` or `sanitize_html_fragment()` does → `tests/authoring/test_isolation.py::test_nh3_is_imported_only_inside_a_function_that_needs_it`
 - A clean install of the wheel with each extra proves which module imports where → `Makefile::import-matrix`
 
@@ -140,7 +140,7 @@ def fetch_issue(repository, number):
 
 The version lives in `pyproject.toml` → `pyproject.toml::version`. The rules for pinning and changing it:
 
-- Pin exactly: `living-doc-utilities==0.5.0` plus your extras; no ranges, pre-releases or git-SHA pins.
+- Pin exactly: `living-doc-utilities==0.6.0` plus your extras; no ranges, pre-releases or git-SHA pins.
 - The version stays `0.x` until every component of the ecosystem reaches `1.0` together, as one release.
 - A contract or public-API change bumps the minor version (`0.5.0` → `0.6.0`).
 - A parser or helper fix bumps the patch version (`0.5.0` → `0.5.1`).

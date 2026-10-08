@@ -19,6 +19,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
 from living_doc_utilities.authoring.ac_grammar import parse_acceptance_criteria
 from living_doc_utilities.authoring.issue_body import parse_issue_body
@@ -26,6 +27,7 @@ from living_doc_utilities.authoring.normalize import SourceFormat, normalize
 from living_doc_utilities.contracts.codes import Code
 
 FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "agentic_toolkit_descope.md"
+CASES_PATH = Path(__file__).resolve().parents[2] / "living_doc_utilities" / "authoring" / "normalisation_cases.yaml"
 
 
 def _parse_one(text: str, entity_id: str = "US-001"):
@@ -77,11 +79,10 @@ def test_deprecated_form_with_removal_planned():
 
 
 def test_every_acceptance_criterion_level_extension_parses():
-    """Every AC-level extension (aspect, error code, rationale, preconditions, scope) parses onto its own field."""
+    """Every AC-level extension (error-code keyword, rationale, preconditions, scope) parses onto its own field."""
     text = (
         "AC:FUNC-001-02 (v1.0.0 - active)\n"
         "- Raises {error code} when the credential check fails.\n"
-        "- Aspect: minimum-length, character-classes\n"
         "- Error code: INVALID_PASSWORD, USER_NOT_FOUND, ACCOUNT_LOCKED\n"
         "- Rationale: Distinct error codes per failure reason.\n"
         "preconditions:\n"
@@ -94,7 +95,8 @@ def test_every_acceptance_criterion_level_extension_parses():
     assert warnings == []
     ac = acs[0]
     assert ac.description == "Raises {error code} when the credential check fails."
-    assert ac.aspect == ["minimum-length", "character-classes"]
+    # The keyword is the other spelling of `Aspect:`: its values fill `aspect`, its name stays in placeholder_values.
+    assert ac.aspect == ["INVALID_PASSWORD", "USER_NOT_FOUND", "ACCOUNT_LOCKED"]
     assert ac.placeholder_values == {"error_code": ["INVALID_PASSWORD", "USER_NOT_FOUND", "ACCOUNT_LOCKED"]}
     assert ac.rationale == "Distinct error codes per failure reason."
     assert ac.preconditions == ["A registered customer account exists."]
@@ -456,13 +458,16 @@ def test_a_bare_key_with_nothing_deeper_under_it_is_wrapped_text(after):
 
 
 def test_a_flat_unknown_key_is_read_as_wrapped_text_and_its_bullets_as_criterion_lines():
-    """A `notes:` whose bullet sits at its own indent reads as wrapped text, exactly as it always did."""
+    """A `notes:` whose bullet sits at its own indent reads as wrapped text; the bullet is a criterion line, and
+    `Owner:` is no keyword (the description names no `{owner}`), so it is `UNPARSED_AC_LINE`."""
     text = _feature_block("- desc", "notes:", "- Owner: wallet team.")
     acs, warnings = _parse_one(text)
 
-    assert warnings == []
     assert acs[0].description == "desc notes:"
-    assert acs[0].placeholder_values == {"owner": ["wallet team."]}
+    assert acs[0].placeholder_values == {}
+    assert [(w.code, w.context.split(" line=")[1]) for w in warnings] == [
+        (Code.UNPARSED_AC_LINE.name, "'- Owner: wallet team.'")
+    ]
 
 
 def test_sub_list_state_resets_between_criterion_blocks():
@@ -498,3 +503,88 @@ def test_a_criterion_with_nothing_under_its_header_is_reported_and_the_rest_is_r
         (Code.MALFORMED_AC.name, "Acceptance criterion has no description line.")
     ]
     assert "line_no=3" in warnings[0].context
+
+
+# --- AC variants: a named keyword is the other spelling of `Aspect:` (living-doc #48, `DEC-71`) ----------------
+
+
+def test_a_keyword_named_in_the_description_fills_aspect_and_keeps_its_name():
+    """`- rule: a, b, c` under a description naming `{rule}` gives `aspect == [a, b, c]` and `{"rule": [a, b, c]}`."""
+    text = _feature_block("- Shows the failed {rule} under the field.", "- rule: minimum-length, character-classes, no-username")
+    acs, warnings = _parse_one(text)
+
+    assert warnings == []
+    assert acs[0].aspect == ["minimum-length", "character-classes", "no-username"]
+    assert acs[0].placeholder_values == {"rule": ["minimum-length", "character-classes", "no-username"]}
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("- rule: minimum-length", "- Aspect: desktop, mobile"),
+        ("- rule: minimum-length", "- field: username, password"),
+        ("- Aspect: desktop", "- Aspect: mobile"),
+    ],
+    ids=["aspect_and_keyword", "two_keywords", "aspect_twice"],
+)
+def test_a_criterion_declaring_its_variants_twice_is_malformed_and_dropped(first, second):
+    """`Aspect:` plus a keyword, two keywords, or `Aspect:` twice is one declaration too many: `MALFORMED_AC`, and
+    the criterion is dropped; neither declaration wins (living-doc's `tools/examples_check.py::_declare_variant`)."""
+    text = _feature_block("- Shows the failed {rule} for the {field}.", first, second)
+    text += "#   AC:US-001-02 (v1.0.0 - active)\n#     - Next.\n"
+    acs, warnings = _parse_one(text)
+
+    assert [ac.id for ac in acs] == ["US-001-02"]
+    assert [w.code for w in warnings] == [Code.MALFORMED_AC.name]
+    assert "line_no=1" in warnings[0].context
+    assert "declares its variants more than once" in warnings[0].message
+
+
+@pytest.mark.parametrize(
+    "bullet",
+    ["- rule: minimum-length", "- Owner: wallet team"],
+    ids=["named_keyword_absent_from_text", "plain_label"],
+)
+def test_a_bullet_whose_name_the_description_does_not_name_is_unparsed(bullet):
+    """A `- <name>:` bullet is a keyword only when the description names `{<name>}`; otherwise it is reported."""
+    text = _feature_block("- Shows the failed check.", bullet)
+    acs, warnings = _parse_one(text)
+
+    assert (acs[0].aspect, acs[0].placeholder_values) == ([], {})
+    assert [(w.code, w.context.split(" line=")[1]) for w in warnings] == [(Code.UNPARSED_AC_LINE.name, repr(bullet))]
+    assert "the description names no" in warnings[0].message
+
+
+@pytest.mark.parametrize("name", ["aspect", "ASPECT"])
+def test_a_keyword_named_aspect_is_reserved_and_unparsed(name):
+    """`aspect` names the `Aspect:` extension: as a keyword, in any case, it is `UNPARSED_AC_LINE` and fills nothing."""
+    text = _feature_block("- Shows the {aspect}.", f"- {name}: desktop, mobile")
+    acs, warnings = _parse_one(text)
+
+    assert (acs[0].aspect, acs[0].placeholder_values) == ([], {})
+    assert [w.code for w in warnings] == [Code.UNPARSED_AC_LINE.name]
+    assert "reserved" in warnings[0].message
+
+
+def _normalisation_case(case_id: str) -> dict:
+    with CASES_PATH.open(encoding="utf-8") as handle:
+        return next(case for case in yaml.safe_load(handle) if case["id"] == case_id)
+
+
+@pytest.mark.parametrize(
+    ("case_id", "slug"),
+    [
+        ("never_touched_ac_keyword_name_capitalised", "field"),
+        ("never_touched_ac_keyword_name_with_a_space", "user_role"),
+        ("never_touched_ac_keyword_name_with_a_hyphen", "user_role"),
+    ],
+)
+def test_each_keyword_name_form_normalisation_leaves_folds_to_one_slug(case_id, slug):
+    """`Field:`, `user role:` and `user-role:` reach the grammar as written; it folds each to one name (case, `-`,
+    `_` and space equal) and matches it against the description's `{...}` folded the same way."""
+    case = _normalisation_case(case_id)
+    acs, warnings = _parse_one(case["expected"])
+
+    assert warnings == []
+    assert list(acs[0].placeholder_values) == [slug]
+    assert acs[0].aspect == acs[0].placeholder_values[slug]

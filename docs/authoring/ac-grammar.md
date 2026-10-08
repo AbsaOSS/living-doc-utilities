@@ -12,6 +12,7 @@ Read before: [Normalisation](normalisation.md) · Next: [Parsers](parsers.md)
 - [Header](#header)
 - [Block](#block)
 - [Extensions](#extensions)
+- [Variants](#variants)
 - [Dropped criteria](#dropped-criteria)
 - [Legacy descoped criteria](#legacy-descoped-criteria)
 - [Rendering the header](#rendering-the-header)
@@ -37,7 +38,7 @@ It accepts only the canonical form that [normalisation](normalisation.md) produc
 - `removal planned` is required on `deprecated` and allowed nowhere else → `contracts/common.py::AcceptanceCriterion._check_removal_planned_only_when_deprecated`
 - The stored version drops the header's `v` ([version format](../contracts/entities-and-state.md#version-format)).
 - A header may follow a comment leader: `###` in an issue body, `#` in a `.feature` file, `*` in a PageObject → `authoring/ac_grammar.py::parse_acceptance_criteria`
-- `entity_id` is used only in warning context; that an id belongs to its entity is checked on the model → `contracts/common.py::check_ac_ids_owned`
+- `entity_id` only names a warning's entity; that an id belongs to its entity is checked on the model → `contracts/common.py::check_ac_ids_owned`
 
 ## Block
 
@@ -62,12 +63,13 @@ Each block line fills one field of the criterion → `contracts/common.py::Accep
 | the first `- ` bullet | `description` (required) |
 | `- Aspect: a, b` | `aspect`, a list |
 | `- Rationale: text` | `rationale` |
-| `- <name>: value, value` | `placeholder_values[<name>]`; the name is lowercased with spaces and hyphens as `_` |
+| `- <name>: value, value`, when the description names `{<name>}` | the criterion's keyword: `aspect` and `placeholder_values[<name>]` ([Variants](#variants)) |
+| `- <name>: value, value`, when it does not, or `<name>` is `aspect` | nothing: `UNPARSED_AC_LINE` |
 | a `preconditions:` line, then bullets | `preconditions` |
 | a `not_in_scope:` line, then bullets | `not_in_scope` |
 | a line with no bullet marker, right after a description, rationale, `preconditions:` or `not_in_scope:` line | appended to that field |
 | a line deeper than a description, rationale, `preconditions` or `not_in_scope` item's `- ` | that item's text: wrapped text is joined with a space; a nested `- ` item is kept as extracted, as in a [bullet-list field](parsers.md#common-behaviour) |
-| a line deeper than an `Aspect:` or placeholder item's `- ` | nothing: `UNPARSED_AC_LINE` |
+| a line deeper than an `Aspect:` or keyword item's `- ` | nothing: `UNPARSED_AC_LINE` |
 | any other bare `<key>:` line with a deeper line right under it, e.g. `notes:` | nothing: `UNPARSED_AC_LINE`, for it and each line deeper than it |
 | a line whose indent fits no level (see below) | nothing: `MISINDENTED_LINE`, for it and each line deeper than it |
 | any other line | nothing: `UNPARSED_AC_LINE` |
@@ -97,10 +99,27 @@ This gives `preconditions = ["An account exists."]` and `aspect = ["security"]`,
 - A line deeper than an item's `- ` is that item's text: a sub-key or `<key>:` there is not read as a key → `authoring/ac_grammar.py::_ExtensionReader`
 - A nested precondition stays in its parent's entry: `["An account exists.\n  - It is not locked."]` → `tests/authoring/test_ac_grammar.py::test_a_nested_precondition_item_is_kept_in_its_parents_string`
 - An unknown bare key is reported with exactly the lines deeper than it; none of them fills a field, and the next line at or above its indent is read normally → `tests/authoring/test_ac_grammar.py::test_unknown_sub_key_is_reported_with_exactly_the_lines_deeper_than_it`
-  - Why: the canon allows `notes:` at entity level only; a nested note reading `Owner: x` would otherwise become a placeholder value.
+  - Why: the canon allows `notes:` at entity level only; a nested note reading `Owner: x` would otherwise be read as a criterion line.
 - A bare `<key>:` with no deeper line right under it is a wrapped line, not a key: `- The dashboard shows the` then `following:` is one description → `tests/authoring/test_ac_grammar.py::test_a_bare_key_with_nothing_deeper_under_it_is_wrapped_text`
   - Why: without an indent the two cannot be told apart, so the line is read as it always was; a flat `notes:` is read the same way, its bullets as criterion lines → `tests/authoring/test_ac_grammar.py::test_a_flat_unknown_key_is_read_as_wrapped_text_and_its_bullets_as_criterion_lines`
-- A placeholder name must match `^[A-Za-z_][A-Za-z0-9_]*$` after that rewrite → `contracts/common.py::PLACEHOLDER_NAME_PATTERN`
+
+## Variants
+
+A criterion that must hold for several values declares them once: `- Aspect: a, b`, or one named keyword, `- <name>: a, b`.
+The canon's rule: living-doc's header types, "AC variants".
+
+- A keyword is the other spelling of `Aspect:`: its values fill `aspect`, and `placeholder_values` keeps its one name → `tests/authoring/test_ac_grammar.py::test_a_keyword_named_in_the_description_fills_aspect_and_keeps_its_name`
+  - Why: coverage is per value either way; the name only reads better than "Aspect".
+- A `- <name>: <values>` bullet is a keyword only when the description names `{<name>}` → `authoring/ac_grammar.py::_ExtensionReader._read_keyword`
+  - Otherwise it is `UNPARSED_AC_LINE` and fills nothing → `tests/authoring/test_ac_grammar.py::test_a_bullet_whose_name_the_description_does_not_name_is_unparsed`
+- Names are compared folded: lowercase, with `-`, `_` and space equal; `- user role:` matches `{user-role}`, stored as `user_role` → `authoring/ac_grammar.py::_slug_placeholder_name`
+  - The folded name must match `^[A-Za-z_][A-Za-z0-9_]*$` → `contracts/common.py::PLACEHOLDER_NAME_PATTERN`
+  - [Normalisation](normalisation.md) never rewrites a name, as its `never_touched_ac_keyword_name_*` rows show → `tests/authoring/test_ac_grammar.py::test_each_keyword_name_form_normalisation_leaves_folds_to_one_slug`
+- `aspect` is reserved: a keyword named `aspect`, in any case, is `UNPARSED_AC_LINE` → `tests/authoring/test_ac_grammar.py::test_a_keyword_named_aspect_is_reserved_and_unparsed`
+- `Rationale:` is never a keyword, even with `{rationale}` in the description → `authoring/ac_grammar.py::_ExtensionReader._read_criterion_field`
+- `Aspect:` plus a keyword, two keywords, or `Aspect:` twice is `MALFORMED_AC`, and the criterion is dropped; no declaration wins → `authoring/ac_grammar.py::_Extensions.declares_two_variants`
+  - Why: the canon allows one variant declaration per criterion; the author picks one.
+- A scenario links one value with `@AC:<id>/aspect:<value>` or `@AC:<id>/<name>:<value>` ([Parsers, scenarios](parsers.md#scenarios)) → `authoring/scenario.py::_parse_ac_tag`
 
 ## Dropped criteria
 
@@ -114,7 +133,8 @@ A criterion is skipped with a `MALFORMED_AC` warning when → `authoring/ac_gram
 - a version is missing on a state other than `planned`;
 - `removal planned` is missing on `deprecated`, or present on another state;
 - the block has no description bullet;
-- in a scenario file, an `@AC:` tag has an invalid criterion id, an empty segment, a segment that is not `<param>:<value>`, `aspect` given twice, or an `aspect` value that contains `:` ([Parsers, scenarios](parsers.md#scenarios)).
+- the block declares `Aspect:` and a keyword, two keywords, or `Aspect:` twice ([Variants](#variants));
+- in a scenario file, an `@AC:` tag has an invalid criterion id, a second parameter, an empty segment, a segment that is not `<param>:<value>`, an invalid parameter name, or a value that contains `:` ([Parsers, scenarios](parsers.md#scenarios)).
 
 In a parser, each line of a dropped criterion's block is reported too, one `AUTHORING_WARNING` per line, unless another warning already names it → `tests/authoring/test_accounting.py::test_every_line_of_a_dropped_criterion_is_reported_and_the_next_criterion_is_read`
 

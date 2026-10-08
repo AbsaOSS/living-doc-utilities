@@ -252,7 +252,7 @@
     },
     "ContractWarning": {
       "additionalProperties": false,
-      "description": "One entry of an artifact's top-level warnings[] array.",
+      "description": "One entry of an artifact's top-level warnings[] array. Where it belongs is structured: each of\n`entity_id`, `ac_id`, `line_no` and `path` is set only when its emitter knows it (`DEC-77`); `context`\nkeeps the free text.",
       "properties": {
         "code": {
           "pattern": "^[A-Z][A-Z0-9_]*$",
@@ -274,6 +274,56 @@
           ],
           "default": null,
           "title": "Context"
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Id"
+        },
+        "ac_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:US|FUNC)-\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ac Id"
+        },
+        "line_no": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line No"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
         }
       },
       "required": [

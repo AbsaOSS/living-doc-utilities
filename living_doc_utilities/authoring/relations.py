@@ -33,6 +33,7 @@ def _unresolved(entity: ParsedEntity, target_id: str, relation: str) -> Contract
         code=Code.UNRESOLVED_RELATION.name,
         message=f"'{relation}' points outside the collected entity set.",
         context=f"entity_id={entity.entity_id!r} target={target_id!r}",
+        entity_id=entity.entity_id,
     )
 
 
@@ -48,6 +49,7 @@ def _type_mismatch(
             f"entity_id={entity.entity_id!r} field={field!r} target={target.entity_id!r} "
             f"actual_type={actual_type!r} expected_type={expected_type!r}"
         ),
+        entity_id=entity.entity_id,
     )
 
 
@@ -61,6 +63,7 @@ def _feature_dependency_warning(entity: ParsedEntity, target: ParsedEntity) -> l
                 code=Code.RELATION_MISMATCH.name,
                 message="Feature declares a feature dependency on itself.",
                 context=f"entity_id={entity.entity_id!r} target={target.entity_id!r}",
+                entity_id=entity.entity_id,
             )
         ]
     if target.surface_type != "API":
@@ -112,6 +115,7 @@ def check_relations(entities: list[ParsedEntity]) -> list[ContractWarning]:
                         code=Code.RELATION_MISMATCH.name,
                         message="Feature's declared functionality does not list it back as its own parent.",
                         context=f"entity_id={entity.entity_id!r} functionality={target_id!r}",
+                        entity_id=entity.entity_id,
                     )
                 )
             elif field == "parent" and target.functionalities and entity.entity_id not in target.functionalities:
@@ -120,6 +124,7 @@ def check_relations(entities: list[ParsedEntity]) -> list[ContractWarning]:
                         code=Code.RELATION_MISMATCH.name,
                         message="Functionality's declared parent does not list it back in its own " "functionalities.",
                         context=f"entity_id={entity.entity_id!r} parent={target_id!r}",
+                        entity_id=entity.entity_id,
                     )
                 )
 

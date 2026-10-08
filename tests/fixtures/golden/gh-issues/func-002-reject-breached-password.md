@@ -1,6 +1,6 @@
 <!--
 Golden fixture. Copied verbatim from AbsaOSS/living-doc's docs/examples/gh-issues/func-002-reject-breached-password.md
-at commit b28820e5940ebc8ee2578fc2663e1464aca83a57 (canon HEAD; a Feature has no deprecated_at, PR #44).
+at commit a80649bd577e6bb135ad8772817bf383ef557d07 (canon HEAD; AC variant keyword as a spelling of Aspect, PR #48).
 -->
 <!--
 GitHub issue body for a Functionality mined by collector-gh `doc-issues`.

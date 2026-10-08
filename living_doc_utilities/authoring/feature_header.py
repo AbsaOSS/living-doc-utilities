@@ -23,10 +23,11 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from living_doc_utilities.authoring.ac_grammar import parse_frame_criteria
+from living_doc_utilities.authoring.ac_grammar import criterion_ids, parse_frame_criteria
 from living_doc_utilities.authoring.accounting import (
     at_title,
     first_occurrences,
+    located,
     missing_title,
     report,
     scalar_lines,
@@ -148,19 +149,23 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
     if entity_id is None:
         return None, at_title(id_warnings, frame)
 
-    warnings: list[ContractWarning] = structural_warnings(frame, entity_id)
-    frame, repeated = first_occurrences(frame, entity_id)
+    # Read before `first_occurrences`, so a criterion under a repeated key is named too.
+    ids = criterion_ids(frame)
+    warnings: list[ContractWarning] = structural_warnings(frame, entity_id, criterion_ids=ids)
+    frame, repeated = first_occurrences(frame, entity_id, criterion_ids=ids)
     warnings.extend(repeated)
     key_specs = _KEYS_BY_TYPE[entity_type]
     keys = _read_keys(frame, key_specs, entity_id)
     warnings.extend(keys.warnings)
-    warnings.extend(unplaced_lines(frame, entity_id))
+    warnings.extend(unplaced_lines(frame, entity_id, criterion_ids=ids))
     for key, number in keys.unrecognised:
         warnings.append(
-            ContractWarning(
-                code=Code.IGNORED_AUTHORED_KEY.name,
-                message=f"'{key}:' is not a field this contract carries.",
-                context=f"entity_id={entity_id!r} line_no={number}",
+            located(
+                Code.IGNORED_AUTHORED_KEY,
+                f"'{key}:' is not a field this contract carries.",
+                f"entity_id={entity_id!r} line_no={number}",
+                entity_id,
+                number,
             )
         )
     for key, spec in key_specs.items():

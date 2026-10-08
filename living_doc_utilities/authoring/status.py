@@ -64,6 +64,7 @@ def _derive_us_or_func(entity: ParsedEntity, warnings: list[ContractWarning]) ->
                 code=Code.MISSING_STATUS.name,
                 message="No authored status; derived from acceptance criteria.",
                 context=f"entity_id={entity.entity_id!r} derived={state!r}",
+                entity_id=entity.entity_id,
             )
         )
         return entity.model_copy(update={"state": state, "state_origin": "authored"})
@@ -74,6 +75,7 @@ def _derive_us_or_func(entity: ParsedEntity, warnings: list[ContractWarning]) ->
                 code=Code.STATUS_AC_MISMATCH.name,
                 message="Authored status contradicts the entity's own acceptance criteria.",
                 context=f"entity_id={entity.entity_id!r} authored={entity.state!r}",
+                entity_id=entity.entity_id,
             )
         )
     return entity.model_copy(update={"state_origin": "authored"})
@@ -104,6 +106,7 @@ def _derive_feature(
                 "fully retired. Author its Functionalities, or remove the Feature."
             ),
             context=f"entity_id={feature.entity_id!r}",
+            entity_id=feature.entity_id,
         )
     )
     # Nothing to derive from, the same case `_majority_state` answers `planned` for: never claim the surface works.

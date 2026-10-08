@@ -29,6 +29,7 @@ from living_doc_utilities.authoring.accounting import (
     UNCLOSED_COMMENT,
     at_title,
     first_occurrences,
+    located,
     missing_title,
     scalar_lines,
     structural_warnings,
@@ -183,25 +184,18 @@ def parse_page_object(text: str) -> tuple[Optional[PageObjectResult], list[Contr
     warnings: list[ContractWarning] = structural_warnings(frame, entity_id) + repeated + read.warnings
     warnings.extend(unplaced_lines(frame, entity_id, skip_intro=is_cross_reference))
     for key, number in read.unrecognised:
+        message = f"'{key}:' is not a field this contract carries."
         warnings.append(
-            ContractWarning(
-                code=Code.IGNORED_AUTHORED_KEY.name,
-                message=f"'{key}:' is not a field this contract carries.",
-                context=f"entity_id={entity_id!r} line_no={number}",
-            )
+            located(Code.IGNORED_AUTHORED_KEY, message, f"entity_id={entity_id!r} line_no={number}", entity_id, number)
         )
     for key, lines in raw_values.items():
         if key in _BULLET_KEYS:
             warnings.extend(bullet_field_warnings(entity_id, key, lines, read.numbers[key]))
     for key, reason in IGNORED_AUTHORED_KEYS.items():
         if key in values:
-            warnings.append(
-                ContractWarning(
-                    code=Code.IGNORED_AUTHORED_KEY.name,
-                    message=reason,
-                    context=f"entity_id={entity_id!r} line_no={read.key_lines[key]} key='{key}:'",
-                )
-            )
+            number = read.key_lines[key]
+            context = f"entity_id={entity_id!r} line_no={number} key='{key}:'"
+            warnings.append(located(Code.IGNORED_AUTHORED_KEY, reason, context, entity_id, number))
 
     if is_cross_reference:
         page_ref = PageRef(

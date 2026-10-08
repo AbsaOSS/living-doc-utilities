@@ -26,9 +26,10 @@ from typing import Any, Callable, Optional
 
 from pydantic import ValidationError
 
-from living_doc_utilities.authoring.ac_grammar import parse_frame_criteria
+from living_doc_utilities.authoring.ac_grammar import criterion_ids, parse_frame_criteria
 from living_doc_utilities.authoring.accounting import (
     first_occurrences,
+    located,
     nesting_github_reads_as_siblings,
     structural_warnings,
     unplaced_lines,
@@ -204,9 +205,14 @@ def extract_bullets(lines: list[str]) -> list[str]:
     return _read_bullets(lines).items
 
 
-def _line_no(numbers: Optional[list[int]], index: int) -> str:
-    """` line_no=<n>` for the line at `index` of a field's lines, when their input numbers are known."""
-    return f" line_no={numbers[index]}" if numbers is not None else ""
+def _number(numbers: Optional[list[int]], index: int) -> Optional[int]:
+    """The input number of the line at `index` of a field's lines, when their numbers are known."""
+    return numbers[index] if numbers is not None else None
+
+
+def _line_no(number: Optional[int]) -> str:
+    """` line_no=<n>` for a context, when the line's input number is known."""
+    return f" line_no={number}" if number is not None else ""
 
 
 def unparsed_bullet_warning(
@@ -229,11 +235,14 @@ def unparsed_bullet_warning(
         dropped.append(stripped)
     if first is None:
         return []
+    number = _number(numbers, first)
     return [
-        ContractWarning(
-            code=Code.UNPARSED_BULLET_LINE.name,
-            message=f"'{field_name}' text outside a '- ' bullet was dropped: {' '.join(dropped)!r}.",
-            context=f"entity_id={entity_id!r} field={field_name!r}{_line_no(numbers, first)}",
+        located(
+            Code.UNPARSED_BULLET_LINE,
+            f"'{field_name}' text outside a '- ' bullet was dropped: {' '.join(dropped)!r}.",
+            f"entity_id={entity_id!r} field={field_name!r}{_line_no(number)}",
+            entity_id,
+            number,
         )
     ]
 
@@ -247,11 +256,14 @@ def bullet_field_warnings(
     lines' input numbers, which each warning names."""
     warnings = unparsed_bullet_warning(entity_id, field_name, lines, numbers)
     for index, line in _read_bullets(lines).misindented:
+        number = _number(numbers, index)
         warnings.append(
-            ContractWarning(
-                code=Code.MISINDENTED_LINE.name,
-                message=f"'{field_name}' line at indent {line.indent} fits no level of its list and was dropped.",
-                context=f"entity_id={entity_id!r} field={field_name!r}{_line_no(numbers, index)} line={line.text!r}",
+            located(
+                Code.MISINDENTED_LINE,
+                f"'{field_name}' line at indent {line.indent} fits no level of its list and was dropped.",
+                f"entity_id={entity_id!r} field={field_name!r}{_line_no(number)} line={line.text!r}",
+                entity_id,
+                number,
             )
         )
     return warnings
@@ -317,12 +329,14 @@ def _build_parsed_entity(
         for error in exc.errors():
             field_path = ".".join(str(part) for part in error["loc"])
             fields.pop(field_path, None)
-            line_no = f" line_no={lines[field_path]}" if field_path in lines else ""
+            number = lines.get(field_path)
             warnings.append(
-                ContractWarning(
-                    code=Code.MALFORMED_STATUS.name,
-                    message=f"Authored '{field_path}' value {error['input']!r} failed validation: {error['msg']}",
-                    context=f"entity_id={entity_id!r}{line_no}",
+                located(
+                    Code.MALFORMED_STATUS,
+                    f"Authored '{field_path}' value {error['input']!r} failed validation: {error['msg']}",
+                    f"entity_id={entity_id!r}{_line_no(number)}",
+                    entity_id,
+                    number,
                 )
             )
         parsed = ParsedEntity(
@@ -335,7 +349,7 @@ def _read_sections(
     frame: Frame, spec_map: dict[str, _SectionSpec], entity_id: str
 ) -> tuple[dict[str, Any], dict[str, int], list[ContractWarning]]:
     """Each `##` section of the frame, looked up by its slug in `spec_map`: the field values, each field's
-    heading line, and a warning for each heading that maps to no field and each line no field reads."""
+    heading line, and a warning for each heading that maps to no field and each line a field drops."""
     fields: dict[str, Any] = {}
     field_lines: dict[str, int] = {}
     warnings: list[ContractWarning] = []
@@ -343,28 +357,20 @@ def _read_sections(
         heading_text = section.opener.line.text.lstrip("# ").strip()
         content = [framed.rendered for framed in section.lines]
         numbers = [framed.number for framed in section.lines]
-        at = f"line_no={section.opener.number}"
+        number = section.opener.number
+        at = f"entity_id={entity_id!r} line_no={number}"
         spec = spec_map.get(section.name)
         if spec is None:
-            warnings.append(
-                ContractWarning(
-                    code=Code.UNKNOWN_SECTION.name,
-                    message=f"Unrecognised heading '## {heading_text}'.",
-                    context=f"entity_id={entity_id!r} {at}",
-                )
-            )
+            message = f"Unrecognised heading '## {heading_text}'."
+            warnings.append(located(Code.UNKNOWN_SECTION, message, at, entity_id, number))
             continue
         if spec.kind == _SectionKind.AC:
             continue
         if spec.kind == _SectionKind.IGNORED_AUTHORED:
             assert spec.field_name is not None  # holds the IGNORED_AUTHORED_KEYS lookup key
-            warnings.append(
-                ContractWarning(
-                    code=Code.IGNORED_AUTHORED_KEY.name,
-                    message=IGNORED_AUTHORED_KEYS[spec.field_name],
-                    context=f"entity_id={entity_id!r} {at} heading='## {heading_text}'",
-                )
-            )
+            message = IGNORED_AUTHORED_KEYS[spec.field_name]
+            context = f"{at} heading='## {heading_text}'"
+            warnings.append(located(Code.IGNORED_AUTHORED_KEY, message, context, entity_id, number))
             continue
         assert spec.field_name is not None  # every other kind carries a field
         fields[spec.field_name] = _EXTRACTORS[spec.kind](content)
@@ -372,7 +378,6 @@ def _read_sections(
         if spec.kind in BULLET_KINDS:
             warnings.extend(bullet_field_warnings(entity_id, spec.field_name, content, numbers))
             warnings.extend(nesting_github_reads_as_siblings(section.lines, entity_id, spec.field_name))
-    warnings.extend(unplaced_lines(frame, entity_id))
     return fields, field_lines, warnings
 
 
@@ -387,10 +392,13 @@ def parse_issue_body(
         return None, id_warnings
 
     _, frame = normalize_framed(text, SourceFormat.ISSUE_BODY, entity_type)
-    frame, warnings = first_occurrences(frame, entity_id)
+    # Read before `first_occurrences`, so a criterion under a repeated heading is named too.
+    ids = criterion_ids(frame)
+    frame, warnings = first_occurrences(frame, entity_id, criterion_ids=ids)
     fields, field_lines, section_warnings = _read_sections(frame, _SECTIONS_BY_TYPE[entity_type], entity_id)
     warnings.extend(section_warnings)
-    warnings.extend(structural_warnings(frame, entity_id))
+    warnings.extend(unplaced_lines(frame, entity_id, criterion_ids=ids))
+    warnings.extend(structural_warnings(frame, entity_id, criterion_ids=ids))
 
     # The frame bounds every criterion: an item's own text is never one, whatever it reads like (`D20`).
     acceptance_criteria, ac_warnings = parse_frame_criteria(frame, entity_id)

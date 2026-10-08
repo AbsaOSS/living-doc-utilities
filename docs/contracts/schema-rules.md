@@ -84,8 +84,8 @@ Each map constrains its keys with `propertyNames`:
 
 - A model rule JSON Schema can express is exported as `allOf` with `if`/`then`/`else` → `contracts/schema_export.py::_CROSS_FIELD_RULES`
 - A transform output's schema also requires at least one `source_inputs[]` entry (R7) → `contracts/schema_export.py::_inject_cross_field_constraints`
-- Four rules stay Pydantic-only: AC ids owned by their entity, the planned-summary total, the selection-summary total, repositories naming a listed organisation → `contracts/schema_export.py::_inject_cross_field_constraints`
-- The read and write helpers re-validate with the model after the schema, so these four still fail → `contracts/io.py::_model_validate_or_raise`
+- Five rules stay Pydantic-only: AC ids owned by their entity, the planned-summary total, the selection-summary total, the coverage summaries recomputed from their rows, repositories naming a listed organisation → `contracts/schema_export.py::_inject_cross_field_constraints`
+- The read and write helpers re-validate with the model after the schema, so these five still fail → `contracts/io.py::_model_validate_or_raise`
 
 ## R10: validators are selected from the schema
 

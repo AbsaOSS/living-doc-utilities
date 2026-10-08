@@ -16,9 +16,13 @@
 
 """The shared envelope models: `Source` consistency checks, `Cardinality` constraints, `ContractWarning`."""
 
+import json
+
+import jsonschema
 import pytest
 from pydantic import ValidationError
 
+from living_doc_utilities.contracts import generator_ready, schema_export, testing
 from living_doc_utilities.contracts.envelope import Cardinality, ContractWarning, Source
 from tests.contracts import factories
 
@@ -142,3 +146,50 @@ def test_contract_warning_round_trip():
 
     assert warning.code == "MISSING_STATUS"
     assert warning.context == "US-001"
+
+
+def test_contract_warning_with_no_location_field_validates():
+    """`entity_id`, `ac_id`, `line_no` and `path` are optional: a warning that knows none of them still validates."""
+    warning = ContractWarning(code="HTML_CONTENT_DROPPED", message="Dropped: script=1.")
+
+    assert (warning.entity_id, warning.ac_id, warning.line_no, warning.path) == (None, None, None, None)
+
+
+def test_contract_warning_carries_every_location_field():
+    """A warning names its entity, its criterion, its 1-based line and its file, beside its free-text context."""
+    warning = ContractWarning(
+        code="MALFORMED_AC",
+        message="Acceptance-criterion header is malformed.",
+        context="entity='FUNC-001' line_no=13 header='#   AC:FUNC-001-01 (v1.0.0 - activ)'",
+        entity_id="FUNC-001",
+        ac_id="FUNC-001-01",
+        line_no=13,
+        path="features/func-001.feature",
+    )
+
+    assert ContractWarning.model_validate(warning.model_dump(mode="json")) == warning
+
+
+@pytest.mark.parametrize("ac_id", ["FEAT-001-01", "US-001", "us-001-01", ""])
+def test_contract_warning_rejects_an_invalid_ac_id(ac_id):
+    """`ac_id` holds a valid criterion id (`AC_ID_PATTERN`) only; an invalid one stays in `context`."""
+    with pytest.raises(ValidationError):
+        ContractWarning(code="MALFORMED_AC", message="...", ac_id=ac_id)
+
+
+@pytest.mark.parametrize("line_no", [0, -1])
+def test_contract_warning_rejects_a_line_number_below_one(line_no):
+    """`line_no` is a 1-based input line."""
+    with pytest.raises(ValidationError):
+        ContractWarning(code="AUTHORING_WARNING", message="...", line_no=line_no)
+
+
+@pytest.mark.parametrize("field, value", [("ac_id", "FEAT-001-01"), ("line_no", 0)])
+def test_contract_warning_schema_rejects_what_the_model_rejects(field, value):
+    """The committed schema holds `ac_id` to its pattern and `line_no` to its minimum, as the model does."""
+    sample = testing.full_sample(generator_ready.CONTRACT_ID)
+    data = json.loads(sample.model_dump_json())
+    data["warnings"][0][field] = value
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=schema_export.load_schema(generator_ready.CONTRACT_ID))

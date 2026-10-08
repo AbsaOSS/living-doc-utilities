@@ -26,7 +26,7 @@ from typing import Optional
 
 from pydantic import ValidationError
 
-from living_doc_utilities.authoring.accounting import report
+from living_doc_utilities.authoring.accounting import located, report
 from living_doc_utilities.authoring.framing import (
     CriterionBlock,
     Frame,
@@ -63,8 +63,8 @@ _COMMENT_LEADER_RE = re.compile(r"^[#*]+ ?")
 
 _AC_HEADER_RE = re.compile(r"^AC:(?P<id>\S*)\s*\((?P<inner>.*)\)\s*$")
 _AC_PREFIX_RE = re.compile(r"^AC:")
-# The input line a warning's context names.
-_LINE_NO_RE = re.compile(r"\bline_no=(\d+)")
+# The id a criterion header names, read even from a header too malformed to parse: `AC:` up to a space or `(`.
+_HEADER_ID_RE = re.compile(r"^AC:(?P<id>[^\s(]+)")
 
 # Hard AC-block boundary like a fresh "AC:" header; else the last AC absorbs the banner and the scenario body.
 _SECTION_BANNER_RE = re.compile(r"^=+$")
@@ -79,6 +79,10 @@ _UNKNOWN_SUBLIST_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*:\s*$")
 _ASPECT_RE = re.compile(r"^Aspect:\s*(?P<values>.+)$")
 _RATIONALE_RE = re.compile(r"^Rationale:\s*(?P<text>.+)$")
 _PLACEHOLDER_BULLET_RE = re.compile(r"^(?P<name>.+?):\s*(?P<values>.+)$")
+# A `{<name>}` in a description: what makes a `- <name>: <values>` bullet the criterion's keyword.
+_DESCRIPTION_PLACEHOLDER_RE = re.compile(r"\{(?P<name>[^{}]+)\}")
+# The `Aspect:` extension's own name, which no keyword may take, in any case.
+_RESERVED_KEYWORD = "aspect"
 _LEGACY_DESCOPED_REASON_RE = re.compile(r"^descoped_reason:\s*(?P<text>.+)$")
 _LEGACY_DISCARD_RE = re.compile(r"^(?:descoped_at|future_release):\s*.+$")
 
@@ -91,6 +95,11 @@ def _strip_leading_v(token: str) -> Optional[str]:
 
 def _slug_placeholder_name(name: str) -> str:
     return _WORD_SEP_RE.sub("_", name.strip().lower())
+
+
+def _description_placeholders(description: Optional[str]) -> set[str]:
+    """Every `{<name>}` the description names, each folded as a keyword bullet's name is."""
+    return {_slug_placeholder_name(m.group("name")) for m in _DESCRIPTION_PLACEHOLDER_RE.finditer(description or "")}
 
 
 def _parse_header_inner(inner: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
@@ -128,6 +137,13 @@ class _Extensions:
     not_in_scope: list[str] = field(default_factory=list)
     rationale: Optional[str] = None
     placeholder_values: dict[str, list[str]] = field(default_factory=dict)
+    # Each variant declaration in line order: "Aspect" for an `Aspect:` bullet, a keyword bullet's folded name.
+    declarations: list[str] = field(default_factory=list)
+
+    def declares_two_variants(self) -> bool:
+        """Any second declaration - `Aspect:` plus a keyword, two keywords, or `Aspect:` twice: the canon allows
+        one variant declaration per criterion (living-doc's `tools/examples_check.py::_declare_variant`)."""
+        return len(self.declarations) > 1
 
 
 @dataclass
@@ -156,11 +172,14 @@ class _ExtensionReader:
     its first bullet's indent. A line deeper than the open item's `- ` is that item's text (`ItemText`);
     any other line is read at its level, and a line that fits no level is `MISINDENTED_LINE`."""
 
-    def __init__(self, is_legacy_descoped: bool, context: str) -> None:
+    def __init__(self, is_legacy_descoped: bool, context: str, entity_id: str, ac_id: str) -> None:
         self.result = _Extensions()
         self.warnings: list[ContractWarning] = []
         self._is_legacy_descoped = is_legacy_descoped
         self._context = context
+        # The criterion's entity and its valid id, which every warning names.
+        self._entity_id = entity_id
+        self._ac_id = ac_id
         # The input line being read, which every warning names.
         self._number = 0
         self._content_level: Optional[int] = None
@@ -174,16 +193,13 @@ class _ExtensionReader:
         # Field a wrapped line is appended to; only the first physical line carries "-".
         self._continuation: Optional[str] = None
 
-    def _warn(self, code: Code, line: IndentedLine) -> None:
-        if code == Code.MISINDENTED_LINE:
+    def _warn(self, code: Code, line: IndentedLine, message: Optional[str] = None) -> None:
+        if message is None and code == Code.MISINDENTED_LINE:
             message = f"Acceptance-criterion block line at indent {line.indent} fits no level and was dropped."
-        else:
+        elif message is None:
             message = "Acceptance-criterion block line could not be assigned to any known field."
-        self.warnings.append(
-            ContractWarning(
-                code=code.name, message=message, context=f"{self._context} line_no={self._number} line={line.text!r}"
-            )
-        )
+        context = f"{self._context} line_no={self._number} line={line.text!r}"
+        self.warnings.append(located(code, message, context, self._entity_id, self._number, self._ac_id))
 
     def _skip_deeper_than(self, line: IndentedLine, code: Code) -> None:
         """Reports `line` with `code`, and every later line deeper than it with the same code."""
@@ -291,6 +307,7 @@ class _ExtensionReader:
         aspect_m = _ASPECT_RE.match(text)
         if aspect_m:
             result.aspect = [v.strip() for v in aspect_m.group("values").split(",")]
+            result.declarations.append("Aspect")
             return None
 
         rationale_m = _RATIONALE_RE.match(text)
@@ -302,18 +319,35 @@ class _ExtensionReader:
         if placeholder_m:
             name = _slug_placeholder_name(placeholder_m.group("name"))
             if _PLACEHOLDER_NAME_RE.match(name):
-                result.placeholder_values[name] = [v.strip() for v in placeholder_m.group("values").split(",")]
+                self._read_keyword(line, name, [v.strip() for v in placeholder_m.group("values").split(",")])
                 return None
 
         self._warn(Code.UNPARSED_AC_LINE, line)
         return None
 
+    def _read_keyword(self, line: IndentedLine, name: str, values: list[str]) -> None:
+        """A `- <name>: <values>` bullet is the criterion's keyword, the other spelling of `Aspect:`, only when the
+        description names it as `{<name>}`; its values then fill `aspect`, and `placeholder_values` keeps the name."""
+        if name == _RESERVED_KEYWORD:
+            self._warn(Code.UNPARSED_AC_LINE, line, "'aspect' is reserved and cannot name a keyword; use 'Aspect:'.")
+            return
+        if name not in _description_placeholders(self.result.description):
+            self._warn(
+                Code.UNPARSED_AC_LINE,
+                line,
+                f"Bullet '{name}' is not a keyword: the description names no '{{{name}}}'.",
+            )
+            return
+        self.result.declarations.append(name)
+        self.result.aspect = values
+        self.result.placeholder_values[name] = list(values)
+
 
 def _parse_extensions(
-    block_lines: list[tuple[str, int]], is_legacy_descoped: bool, context: str
+    block_lines: list[tuple[str, int]], is_legacy_descoped: bool, context: str, entity_id: str, ac_id: str
 ) -> tuple[_Extensions, list[ContractWarning]]:
     """Reads a block's `(line, input line number)` pairs; an empty block reads as no extension at all (`D22`)."""
-    reader = _ExtensionReader(is_legacy_descoped, context)
+    reader = _ExtensionReader(is_legacy_descoped, context, entity_id, ac_id)
     lines = [(line, number) for line, number in ((indented(raw), number) for raw, number in block_lines) if line.text]
     followers = [*(line for line, _ in lines[1:]), None][: len(lines)]
     for (line, number), following in zip(lines, followers, strict=True):
@@ -321,11 +355,31 @@ def _parse_extensions(
     return reader.result, reader.warnings
 
 
+def _header_ac_id(raw_header_line: str) -> Optional[str]:
+    """The id a criterion header names, when it is valid, even on a header too malformed to parse."""
+    header_id_m = _HEADER_ID_RE.match(_COMMENT_LEADER_RE.sub("", raw_header_line.strip()).strip())
+    return header_id_m.group("id") if header_id_m and is_valid_ac_id(header_id_m.group("id")) else None
+
+
+def criterion_ids(frame: Frame) -> dict[int, str]:
+    """Each input line of a criterion block, its header included, mapped to the criterion's id when that id is valid:
+    a warning about the line names its criterion (living-doc's header types, "Indentation")."""
+    ids: dict[int, str] = {}
+    for block in criterion_blocks(frame):
+        ac_id = _header_ac_id(block.header.rendered)
+        if ac_id is not None:
+            ids |= {framed.number: ac_id for framed in (block.header, *block.lines)}
+    return ids
+
+
 def _malformed_header(entity_id: str, raw_header_line: str, number: int) -> ContractWarning:
-    return ContractWarning(
-        code=Code.MALFORMED_AC.name,
-        message="Acceptance-criterion header is malformed.",
-        context=f"entity={entity_id!r} line_no={number} header={raw_header_line.strip()!r}",
+    return located(
+        Code.MALFORMED_AC,
+        "Acceptance-criterion header is malformed.",
+        f"entity={entity_id!r} line_no={number} header={raw_header_line.strip()!r}",
+        entity_id,
+        number,
+        _header_ac_id(raw_header_line),
     )
 
 
@@ -350,28 +404,25 @@ def _build_ac(
     if is_legacy_descoped:
         legacy_shape_valid = removal_planned is None and version is not None and _VERSION_RE.match(version) is not None
         if not legacy_shape_valid:
-            warnings.append(
-                ContractWarning(
-                    code=Code.MALFORMED_AC.name,
-                    message="Legacy 'descoped' acceptance criterion requires the strict versioned form "
-                    "'vX.Y.Z - descoped'.",
-                    context=context,
-                )
-            )
+            message = "Legacy 'descoped' acceptance criterion requires the strict versioned form 'vX.Y.Z - descoped'."
+            warnings.append(located(Code.MALFORMED_AC, message, context, entity_id, number, raw_id))
             return None, warnings
-        warnings.append(
-            ContractWarning(
-                code=Code.LEGACY_AC_STATE.name,
-                message="Legacy 'descoped' state converted to a version-less 'planned' acceptance criterion.",
-                context=context,
-            )
-        )
+        message = "Legacy 'descoped' state converted to a version-less 'planned' acceptance criterion."
+        warnings.append(located(Code.LEGACY_AC_STATE, message, context, entity_id, number, raw_id))
         state = "planned"
         version = None
         removal_planned = None
 
-    extensions, ext_warnings = _parse_extensions(block_lines, is_legacy_descoped, block_context)
+    extensions, ext_warnings = _parse_extensions(block_lines, is_legacy_descoped, block_context, entity_id, raw_id)
     warnings.extend(ext_warnings)
+
+    if extensions.declares_two_variants():
+        message = (
+            "Acceptance criterion declares its variants more than once "
+            f"({', '.join(extensions.declarations)}); keep one 'Aspect:' or one keyword."
+        )
+        warnings.append(located(Code.MALFORMED_AC, message, context, entity_id, number, raw_id))
+        return None, warnings
 
     try:
         acceptance_criterion = AcceptanceCriterion(
@@ -397,7 +448,7 @@ def _build_ac(
             if missing_description
             else f"Acceptance criterion failed validation: {detail}"
         )
-        warnings.append(ContractWarning(code=Code.MALFORMED_AC.name, message=message, context=context))
+        warnings.append(located(Code.MALFORMED_AC, message, context, entity_id, number, raw_id))
         return None, warnings
 
     return acceptance_criterion, warnings
@@ -408,6 +459,12 @@ def is_valid_ac_id(candidate: str) -> bool:
     other module should check this (e.g. a scenario's `@AC:<id>` tag), instead of
     re-deriving the pattern itself."""
     return _AC_ID_RE.match(candidate) is not None
+
+
+def is_valid_variant_name(candidate: str) -> bool:
+    """Whether `candidate`, folded as a keyword bullet's name is (case, `-`, `_` and space equal), is a valid
+    variant name: `aspect` or a keyword name, e.g. a scenario tag's `/<name>:<value>` parameter."""
+    return _PLACEHOLDER_NAME_RE.match(_slug_placeholder_name(candidate)) is not None
 
 
 def parse_acceptance_criteria(
@@ -512,9 +569,10 @@ def _dropped_lines(
     """Each line of a dropped criterion's block that no other warning names: one warning per line, so none of its
     lines is lost unnamed. A code line is reported as a code block already, and a structural problem by the frame."""
     numbers = {problem.line for problem in frame.problems}
-    numbers |= {int(m.group(1)) for warning in named if (m := _LINE_NO_RE.search(warning.context or ""))}
+    numbers |= {warning.line_no for warning in named if warning.line_no is not None}
+    ac_id = _header_ac_id(block.header.rendered)
     return [
-        report(Code.AUTHORING_WARNING, "Line of a dropped acceptance criterion is not read.", entity_id, framed)
+        report(Code.AUTHORING_WARNING, "Line of a dropped acceptance criterion is not read.", entity_id, framed, ac_id)
         for framed in block.lines
         if framed.line.text and framed.role is not Role.CODE and framed.number not in numbers
     ]

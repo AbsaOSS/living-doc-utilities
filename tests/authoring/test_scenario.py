@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-"""Scenario parsing: `@AC:<id>[/<param>:<value>...]` tags link scenarios to acceptance criteria."""
+"""Scenario parsing: `@AC:<id>[/<param>:<value>]` tags link scenarios to acceptance criteria."""
 
 import pytest
 
@@ -84,44 +84,57 @@ def _parse_single_tag(tag: str):
 @pytest.mark.parametrize(
     ("tag", "aspect"),
     [
+        ("@AC:US-1-01", None),
         ("@AC:US-1-01/aspect:username-input", "username-input"),
-        ("@AC:US-1-01/aspect:a/priority:high", "a"),
-        ("@AC:US-1-01/priority:high", None),
-        ("@AC:US-1-01/priority:high/aspect:a", "a"),
-        ("@AC:US-1-01/owner:team-a/env:staging/aspect:a/ticket:JIRA-42", "a"),
-        ("@AC:US-1-01/note:a:b", None),
+        ("@AC:FUNC-001-03/rule:minimum-length", "minimum-length"),
+        ("@AC:US-1-01/required-field:username-input", "username-input"),
+        ("@AC:US-1-01/priority:high", "high"),
     ],
-    ids=[
-        "aspect",
-        "aspect_then_other_param",
-        "unknown_param_only",
-        "other_param_then_aspect",
-        "several_unknown_params",
-        "unknown_param_value_with_colon",
-    ],
+    ids=["bare", "aspect", "keyword", "kebab_case_keyword", "any_valid_name"],
 )
-def test_ac_tag_param_segments_link_the_criterion(tag, aspect):
-    """Any `/<param>:<value>` segments are accepted; `aspect` stops at the next `/`, other parameters are not stored."""
+def test_ac_tag_with_at_most_one_parameter_links_the_criterion(tag, aspect):
+    """`DEC-76`: a bare tag links the whole criterion; one `/aspect:<v>` or `/<keyword>:<v>` gives `aspect=<v>`.
+    The name is not stored or checked here, so a value the criterion does not declare is `toolkit`'s `STALE_AC_REF`."""
     scenarios, warnings = _parse_single_tag(tag)
 
     assert warnings == []
-    assert [(link.id, link.aspect) for link in scenarios[0].acceptance_criteria] == [("US-1-01", aspect)]
+    assert [(link.id, link.aspect) for link in scenarios[0].acceptance_criteria] == [(tag[4:].split("/")[0], aspect)]
 
 
 @pytest.mark.parametrize(
     "tag",
     [
         "@AC:US-1-01//aspect:a",
+        "@AC:US-1-01/",
         "@AC:US-1-01/priority",
         "@AC:US-1-01/aspect:a/aspect:b",
+        "@AC:US-1-01/aspect:a/priority:high",
+        "@AC:US-1-01/priority:high/aspect:a",
+        "@AC:US-1-01/owner:team-a/env:staging/aspect:a/ticket:JIRA-42",
         "@AC:US-1-01/aspect:a:b",
+        "@AC:US-1-01/note:a:b",
+        "@AC:US-1-01/:a",
+        "@AC:US-1-01/1st:a",
         "@AC:FEAT-001-01",
     ],
-    ids=["empty_segment", "segment_without_colon", "aspect_twice", "colon_in_aspect_value", "feature_owns_no_ac"],
+    ids=[
+        "empty_segment",
+        "trailing_slash",
+        "segment_without_colon",
+        "aspect_twice",
+        "aspect_then_other_param",
+        "other_param_then_aspect",
+        "four_params",
+        "colon_in_aspect_value",
+        "colon_in_keyword_value",
+        "empty_name",
+        "invalid_name",
+        "feature_owns_no_ac",
+    ],
 )
 def test_malformed_ac_tag_params_produce_a_warning_and_no_link(tag):
-    """An empty segment, a segment without `:`, a repeated `aspect`, an `aspect` value containing `:`, or a Feature
-    id (a Feature owns no criteria) makes the whole tag `MALFORMED_AC`."""
+    """The format is closed (`DEC-76`): a second parameter, an empty segment, a segment without `:`, an invalid name,
+    a value containing `:`, or a Feature id (a Feature owns no criteria) makes the whole tag `MALFORMED_AC`."""
     scenarios, warnings = _parse_single_tag(tag)
 
     assert scenarios[0].acceptance_criteria == []

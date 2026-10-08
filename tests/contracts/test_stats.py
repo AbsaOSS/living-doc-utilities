@@ -186,6 +186,7 @@ def test_coverage_matrix_field_occupancy_uses_the_entities_prefix():
         document=factories.coverage_matrix_document(),
         entities=[factories.entity_coverage()],
         planned_summary=factories.planned_summary(),
+        summary=factories.matrix_summary([factories.entity_coverage()]),
     )
 
     computed = stats.compute_stats(result, COVERAGE_MATRIX_ROOTS, Cardinality())
@@ -253,6 +254,9 @@ def test_cardinality_entities_and_entities_by_type_are_tallied_for_coverage_matr
         document=factories.coverage_matrix_document(),
         entities=[factories.entity_coverage(entity_id="US-001"), factories.entity_coverage(entity_id="US-002")],
         planned_summary=factories.planned_summary(),
+        summary=factories.matrix_summary(
+            [factories.entity_coverage(entity_id="US-001"), factories.entity_coverage(entity_id="US-002")]
+        ),
     )
 
     computed = stats.compute_stats(result, COVERAGE_MATRIX_ROOTS, Cardinality())
@@ -291,6 +295,7 @@ def test_cardinality_acceptance_criteria_tallies_ac_coverage_lists():
         document=factories.coverage_matrix_document(),
         entities=[entity],
         planned_summary=factories.planned_summary(),
+        summary=factories.matrix_summary([entity]),
     )
 
     computed = stats.compute_stats(result, COVERAGE_MATRIX_ROOTS, Cardinality())

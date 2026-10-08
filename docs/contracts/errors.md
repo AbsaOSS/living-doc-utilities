@@ -19,7 +19,13 @@ Read before: [Rendering](rendering.md) · Next: back to [Documentation contracts
 - Every code is registered once, with its kind and emitter → `contracts/codes.py::ALL_CODES`
 - A test keeps the table below equal to the registry, kind and emitter included → `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes`
 - A hard error is raised with a code, a message and an optional context → `contracts/codes.py::ContractError`
-- A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context` → `contracts/envelope.py::ContractWarning`
+- A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context`, and four optional fields for where it belongs → `contracts/envelope.py::ContractWarning`
+  - `entity_id`: the entity it names
+  - `ac_id`: the criterion it names, only when that id is valid; an invalid one stays in `context`, as written
+  - `line_no`: the 1-based input line
+  - `path`: the input file, relative to its scan root; `authoring` never knows it, so a collector fills it → collectors
+  - Each is set only when its emitter knows it (`DEC-77`); what `authoring` sets per code: [Parsers](../authoring/parsers.md#common-behaviour)
+  - Why: a generator places a warning by these fields, never by parsing `context`, which stays free text ([Fields by view](rendering.md#fields-by-view)).
 - Nothing elsewhere redefines a code; other pages name it and link here → [one fact, one page](../../DEVELOPER.md#depth)
 
 ## Codes
@@ -45,9 +51,9 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 | `INVALID_CONFIGURATION` | error | collector | project id missing or malformed; malformed repository or project entry; token rejected by the first request | run fails at start; names the input and reason |
 | `SOURCE_UNAVAILABLE` | error | collector | a source unfetchable after retries, a configured path missing, or a token lacking a scope | source fails; a warning in partial mode |
 | `EMPTY_SOURCE` | warning | collector | a source answered with zero entities | reported |
-| `MALFORMED_AC` | warning | collector | a criterion header or `@AC:` tag that cannot be mapped ([conditions](../authoring/ac-grammar.md#dropped-criteria)) | criterion or tag skipped |
+| `MALFORMED_AC` | warning | collector | a criterion header or `@AC:` tag that cannot be mapped, a criterion declaring its variants twice (`Aspect:` and a keyword, two keywords, `Aspect:` twice), an `@AC:` tag with a second parameter ([conditions](../authoring/ac-grammar.md#dropped-criteria)) | criterion or tag skipped |
 | `LEGACY_AC_STATE` | warning | collector | a retired state value, `descoped` | criterion kept as version-less `planned` |
-| `UNPARSED_AC_LINE` | warning | collector | a criterion-block line that fits no field after normalisation | line dropped |
+| `UNPARSED_AC_LINE` | warning | collector | a criterion-block line that fits no field after normalisation, including a `- <name>:` bullet the description does not name as `{<name>}`, or one named `aspect` ([variants](../authoring/ac-grammar.md#variants)) | line dropped |
 | `UNPARSED_BULLET_LINE` | warning | collector | text in a bullet-list field before its first `- ` bullet, including text on the key's own line | text dropped |
 | `MISINDENTED_LINE` | warning | collector | a line in a bullet-list field or a criterion block whose indent fits no level of its list ([Parsers](../authoring/parsers.md#common-behaviour)) | line dropped, with any line deeper than it |
 | `UNKNOWN_SECTION` | warning | collector | an unrecognised `##` heading in an issue body | section dropped |
