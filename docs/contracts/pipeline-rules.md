@@ -38,8 +38,9 @@ Read before: [Artifact rules](artifact-rules.md) · Next: [Component checks](com
 
 ## Collector output layout
 
-- A collector writes `<output-path>/<mode>/<artifact>.json`, e.g. `output/collector-gh/doc-issues/doc-entities.json` → collectors
-- `output-path` is an input on both collectors, with a per-collector default under `./output` → collectors; the base is `constants.py::OUTPUT_PATH`
+- A collector writes `<output-path>/<mode>/<artifact>.json`, e.g. `output/collector-gh/doc-source/doc-source.json` → collectors
+- `output-path` is an input on each collector, and each collector owns its default, `./output/<collector>` → collectors
+  - Why: with one shared root, two collectors writing the same mode would write, and clear, one directory.
 - A collector clears only its own `<output-path>/<mode>/` directory, never a shared parent → collectors
   - Why: two collectors writing into one output tree cannot delete each other's results.
 - The file name is always the contract name; the source system lives in `metadata` → [Contracts](artifact-rules.md#contracts)
