@@ -1,7 +1,7 @@
 # Runtime dependencies of this repository's own CI tooling (`make schemas`, `make docs`,
 # `make no-vendored-schemas`). These are NOT the package's install-time dependencies - those
 # are declared in pyproject.toml. Test, lint and type tools belong in requirements-dev.txt.
-pydantic==2.13.5
+pydantic==2.14.1
 jsonschema==4.26.0
 # Read only by `make docs` and the tests; not a package dependency.
 PyYAML==6.0.3
