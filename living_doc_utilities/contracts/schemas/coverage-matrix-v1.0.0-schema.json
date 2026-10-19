@@ -28,6 +28,19 @@
           "title": "Status",
           "type": "string"
         },
+        "keyword": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Keyword"
+        },
         "aspects": {
           "items": {
             "$ref": "#/$defs/AspectCoverage"
@@ -51,6 +64,28 @@
       "title": "AcCoverage",
       "type": "object",
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "keyword": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "keyword"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aspects": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "aspects"
+            ]
+          }
+        },
         {
           "if": {
             "properties": {
@@ -375,7 +410,7 @@
     },
     "ContractWarning": {
       "additionalProperties": false,
-      "description": "One entry of an artifact's top-level warnings[] array. Where it belongs is structured: each of\n`entity_id`, `ac_id`, `line_no` and `path` is set only when its emitter knows it (`DEC-77`); `context`\nkeeps the free text.",
+      "description": "One entry of an artifact's top-level warnings[] array. Where it belongs is structured: each of\n`entity_id`, `ac_id`, `line_no`, `path` and `source_url` is set only when its emitter knows it; `context`\nkeeps the free text.",
       "properties": {
         "code": {
           "pattern": "^[A-Z][A-Z0-9_]*$",
@@ -447,6 +482,18 @@
           ],
           "default": null,
           "title": "Path"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
         }
       },
       "required": [
@@ -856,6 +903,7 @@
               "entities[].acceptance_criteria[].aspects[].aspect",
               "entities[].acceptance_criteria[].aspects[].scenario_ids[]",
               "entities[].acceptance_criteria[].aspects[].status",
+              "entities[].acceptance_criteria[].keyword",
               "entities[].acceptance_criteria[].scenario_ids[]",
               "entities[].acceptance_criteria[].state",
               "entities[].acceptance_criteria[].status",

@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from living_doc_utilities.contracts.common import (
     AC_ID_PATTERN,
+    PLACEHOLDER_NAME_PATTERN,
     VERSION_PATTERN,
     ContractModel,
     LifecycleState,
@@ -72,8 +73,18 @@ class AcCoverage(ContractModel):
     ac_id: str = Field(pattern=AC_ID_PATTERN)
     state: CountedState
     status: CoverageStatus
+    # A keyword criterion's name, its one placeholder_values key (`payment_field` for `{payment-field}`), which
+    # labels the aspects; None for an `Aspect:` criterion and for one without variants.
+    keyword: Optional[str] = Field(default=None, pattern=PLACEHOLDER_NAME_PATTERN)
     aspects: list[AspectCoverage] = Field(default_factory=list)
     scenario_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check_keyword_has_aspects(self) -> "AcCoverage":
+        # A keyword names the criterion's variants, so a row without aspects has nothing for it to label.
+        if self.keyword is not None and not self.aspects:
+            raise ValueError(f"keyword {self.keyword!r} needs aspects: a keyword row lists its values as aspects")
+        return self
 
     @model_validator(mode="after")
     def _check_status_matches_aspects(self) -> "AcCoverage":

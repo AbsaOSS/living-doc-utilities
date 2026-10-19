@@ -187,6 +187,11 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
     ],
     "AcCoverage": [
         {
+            # `coverage_matrix.py::AcCoverage._check_keyword_has_aspects`: a keyword row has aspects.
+            "if": {"properties": {"keyword": {"type": "string"}}, "required": ["keyword"]},
+            "then": {"properties": {"aspects": {"minItems": 1}}, "required": ["aspects"]},
+        },
+        {
             "if": _AC_COVERAGE_NO_ASPECTS,
             "then": {"properties": {"status": {"enum": ["covered", "not_covered"]}}},
         },

@@ -139,7 +139,7 @@ class Metadata(ContractModel):
 
 class ContractWarning(ContractModel):
     """One entry of an artifact's top-level warnings[] array. Where it belongs is structured: each of
-    `entity_id`, `ac_id`, `line_no` and `path` is set only when its emitter knows it (`DEC-77`); `context`
+    `entity_id`, `ac_id`, `line_no`, `path` and `source_url` is set only when its emitter knows it; `context`
     keeps the free text."""
 
     code: str = Field(pattern=WARNING_CODE_PATTERN)
@@ -152,6 +152,9 @@ class ContractWarning(ContractModel):
     line_no: Optional[int] = Field(default=None, ge=1)
     # The input file, relative to its scan root; `authoring` never knows it, a collector fills it.
     path: Optional[str] = None
+    # That file's permalink at the collected commit (`<server>/<org>/<repo>/blob/<sha>/<path>` on GitHub);
+    # a collector fills it, `authoring` never does.
+    source_url: Optional[str] = None
 
 
 def check_transform_source_inputs(metadata: Metadata) -> None:

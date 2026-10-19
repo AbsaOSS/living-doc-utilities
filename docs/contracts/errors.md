@@ -19,11 +19,12 @@ Read before: [Rendering](rendering.md) · Next: back to [Documentation contracts
 - Every code is registered once, with its kind and emitter → `contracts/codes.py::ALL_CODES`
 - A test keeps the table below equal to the registry, kind and emitter included → `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes`
 - A hard error is raised with a code, a message and an optional context → `contracts/codes.py::ContractError`
-- A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context`, and four optional fields for where it belongs → `contracts/envelope.py::ContractWarning`
+- A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context`, and five optional fields for where it belongs → `contracts/envelope.py::ContractWarning`
   - `entity_id`: the entity it names
   - `ac_id`: the criterion it names, only when that id is valid; an invalid one stays in `context`, as written
   - `line_no`: the 1-based input line
   - `path`: the input file, relative to its scan root; `authoring` never knows it, so a collector fills it → collectors
+  - `source_url`: that file's permalink at the collected commit, `<server>/<org>/<repo>/blob/<sha>/<path>` on GitHub; a collector fills it → collectors
   - Each is set only when its emitter knows it (`DEC-77`); what `authoring` sets per code: [Parsers](../authoring/parsers.md#common-behaviour)
   - Why: a generator places a warning by these fields, never by parsing `context`, which stays free text ([Fields by view](rendering.md#fields-by-view)).
 - Nothing elsewhere redefines a code; other pages name it and link here → [one fact, one page](../../DEVELOPER.md#depth)
@@ -34,7 +35,7 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 
 | Code | Kind | Emitter | When | Effect |
 |---|---|---|---|---|
-| `INVALID_CONTRACT_ID` | error | utilities | `schema_version` missing or unparseable (hand-edited JSON); on write, an unknown id | R5 step 1 fails |
+| `INVALID_CONTRACT_ID` | error | utilities | `schema_version` missing or unparseable (hand-edited JSON); on read, an expected contract's version this `utilities` does not ship (a file from another `utilities` version); on write, an unknown id | R5 step 1 fails; an unshipped version fails before step 3, with the pin hint |
 | `CONTRACT_MISMATCH` | error | utilities | not a contract the slot expects (a test catalog where documentation is expected) | R5 step 2 fails; names the expected set |
 | `SCHEMA_VALIDATION_FAILED` | error | utilities | schema or model validation fails (a missing field; an unknown field from a newer library) | R5 step 3 fails; on write, no file is written |
 | `MISSING_INPUT` | error | toolkit | a needed input is absent (a coverage run with no documentation or no test input) | validation stops |
