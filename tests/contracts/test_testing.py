@@ -18,6 +18,7 @@
 
 import inspect
 import json
+import re
 from dataclasses import dataclass
 
 import jsonschema
@@ -193,6 +194,22 @@ def test_full_samples_agree_on_every_criterion_and_scenario_link():
     assert dropped not in criteria and dropped not in {row.ac_id for row in rows}
 
 
+def test_each_coverage_row_names_its_criterion_s_keyword():
+    """A coverage row's keyword is its criterion's one placeholder_values key, or None when the criterion has none."""
+    generator_sample = testing.full_sample(generator_ready.CONTRACT_ID)
+    coverage_sample = testing.full_sample(coverage_matrix.CONTRACT_ID)
+    criteria = {ac.id: ac for entity in generator_sample.content.entities for ac in entity.acceptance_criteria}
+    rows = [row for entity in coverage_sample.entities for row in entity.acceptance_criteria]
+    keywords = {row.ac_id: row.keyword for row in rows}
+
+    for row in rows:
+        assert row.keyword == next(iter(criteria[row.ac_id].placeholder_values), None), row.ac_id
+    assert keywords.pop("US-001-04") == "payment_field"
+    assert set(keywords.values()) == {None}
+    # Guards the None side from passing only on rows without variants: an `Aspect:` row has aspects and no keyword.
+    assert any(row.aspects and row.keyword is None for row in rows)
+
+
 # ---------------------------------------------------------------------------
 # shown_paths: every row of testing.py's field-by-view table, for both views.
 # ---------------------------------------------------------------------------
@@ -334,7 +351,13 @@ SHOWN_PATH_CASES = [
     ShownPathCase(
         "what_was_not_loaded",
         _INNER,
-        shown=("warnings[].code", "warnings[].message", "warnings[].line_no", "warnings[].path"),
+        shown=(
+            "warnings[].code",
+            "warnings[].message",
+            "warnings[].line_no",
+            "warnings[].path",
+            "warnings[].source_url",
+        ),
         hidden=("warnings[].entity_id", "warnings[].ac_id", "warnings[].context"),
     ),
     ShownPathCase(
@@ -345,6 +368,7 @@ SHOWN_PATH_CASES = [
             "warnings[].message",
             "warnings[].line_no",
             "warnings[].path",
+            "warnings[].source_url",
             "warnings[].entity_id",
             "warnings[].ac_id",
             "warnings[].context",
@@ -371,16 +395,28 @@ def test_shown_paths_release_view_shows_no_warning_path():
 
 def test_generator_ready_full_sample_carries_what_was_not_loaded():
     """A dropped criterion with every location field, a criterion line, and a warning that names no entity, so a
-    generator renders a warning under its entity and one for the whole document."""
+    generator renders a warning under its entity and one for the whole document; each links its file's permalink."""
     warnings = testing.full_sample(_CID).warnings
     by_code = {warning.code: warning for warning in warnings}
     malformed = by_code["MALFORMED_AC"]
-    entity_ids = {entity.entity_id for entity in testing.full_sample(_CID).content.entities}
+    entities = testing.full_sample(_CID).content.entities
+    entity_ids = {entity.entity_id for entity in entities}
+    entity_urls = {entity.source_ref.url for entity in entities}
 
     assert [warning.code for warning in warnings] == ["MALFORMED_AC", "UNPARSED_AC_LINE", "MISSING_ENTITY_ID"]
-    assert None not in (malformed.entity_id, malformed.ac_id, malformed.line_no, malformed.path)
+    assert None not in (malformed.entity_id, malformed.ac_id, malformed.line_no, malformed.path, malformed.source_url)
     assert by_code["UNPARSED_AC_LINE"].entity_id in entity_ids
     assert by_code["MISSING_ENTITY_ID"].entity_id is None and by_code["MISSING_ENTITY_ID"].line_no is not None
+    commits = set()
+    for warning in warnings:
+        assert warning.path is not None and warning.source_url is not None, warning.code
+        # A permalink pins the file at one commit: `<repo>/blob/<40-hex sha>/<path>`; the entities link issues instead.
+        permalink = rf"https://github\.com/absaoss/payments-service/blob/([0-9a-f]{{40}})/{re.escape(warning.path)}"
+        match = re.fullmatch(permalink, warning.source_url)
+        assert match is not None, warning.code
+        assert warning.source_url not in entity_urls, warning.code
+        commits.add(match.group(1))
+    assert len(commits) == 1
 
 
 def test_shown_paths_rejects_an_unsupported_contract():
@@ -390,9 +426,10 @@ def test_shown_paths_rejects_an_unsupported_contract():
 
 
 def test_shown_paths_coverage_matrix_shows_aspect_breakdown_in_both_views_and_planned_summary_in_inner_only():
-    """Coverage-matrix's aspect breakdown is shown in both views; planned_summary only in inner."""
+    """Coverage-matrix's aspect breakdown and keyword label are shown in both views; planned_summary only in inner."""
     both = {
         "entities[].acceptance_criteria[].status",
+        "entities[].acceptance_criteria[].keyword",
         "entities[].acceptance_criteria[].aspects[].aspect",
         "entities[].acceptance_criteria[].aspects[].status",
     }

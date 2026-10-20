@@ -343,6 +343,27 @@ def _ac_coverage_without_aspects_covered_with_no_scenario_ids() -> dict:
     return data
 
 
+def _ac_coverage_keyword_with_no_aspects() -> dict:
+    # Row 0 is covered by SCN-001 with no aspects, so every other row rule still holds: only the keyword fails.
+    data = _coverage_matrix_instance_dict()
+    data["entities"][0]["acceptance_criteria"][0]["keyword"] = "payment_field"
+    data["entities"][0]["acceptance_criteria"][0]["aspects"] = []
+    return data
+
+
+def _ac_coverage_keyword_with_aspects_absent() -> dict:
+    data = _ac_coverage_keyword_with_no_aspects()
+    del data["entities"][0]["acceptance_criteria"][0]["aspects"]
+    return data
+
+
+def _ac_coverage_keyword_row_without_an_aspects_key() -> coverage_matrix.AcCoverage:
+    # An absent aspects key defaults to [], so Pydantic judges it as the empty list.
+    row = factories.ac_coverage().model_dump()
+    del row["aspects"]
+    return coverage_matrix.AcCoverage.model_validate({**row, "keyword": "payment_field"})
+
+
 def _generator_ready_with_empty_source_inputs() -> dict:
     result = generator_ready.GeneratorReadyResult(
         metadata=factories.transform_metadata(),
@@ -462,6 +483,20 @@ REJECTION_CASES = [
         _ac_coverage_without_aspects_covered_with_no_scenario_ids,
     ),
     RejectionCase(
+        "ac_coverage_keyword_with_no_aspects",
+        "needs aspects",
+        coverage_matrix.CONTRACT_ID,
+        lambda: factories.ac_coverage(keyword="payment_field", aspects=[]),
+        _ac_coverage_keyword_with_no_aspects,
+    ),
+    RejectionCase(
+        "ac_coverage_keyword_with_aspects_absent",
+        "needs aspects",
+        coverage_matrix.CONTRACT_ID,
+        _ac_coverage_keyword_row_without_an_aspects_key,
+        _ac_coverage_keyword_with_aspects_absent,
+    ),
+    RejectionCase(
         "generator_ready_with_empty_source_inputs",
         "source_inputs must have at least one entry",
         generator_ready.CONTRACT_ID,
@@ -485,6 +520,24 @@ def test_rule_is_rejected_by_pydantic_and_jsonschema(case: RejectionCase):
 
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(instance=data, schema=_committed_schema(case.contract_id))
+
+
+@pytest.mark.parametrize("drop_keyword", [True, False], ids=["keyword_absent", "keyword_null"])
+@pytest.mark.parametrize(
+    "build",
+    [_ac_coverage_keyword_with_no_aspects, _ac_coverage_keyword_with_aspects_absent],
+    ids=["aspects_empty", "aspects_absent"],
+)
+def test_a_row_without_aspects_passes_the_schema_once_it_has_no_keyword(build, drop_keyword):
+    """The keyword payloads above pass once their keyword is dropped or null, so the keyword rule alone rejects them."""
+    data = build()
+    row = data["entities"][0]["acceptance_criteria"][0]
+    if drop_keyword:
+        del row["keyword"]
+    else:
+        row["keyword"] = None
+
+    jsonschema.validate(instance=data, schema=_committed_schema(coverage_matrix.CONTRACT_ID))
 
 
 @pytest.mark.parametrize(

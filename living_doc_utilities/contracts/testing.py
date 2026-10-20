@@ -77,7 +77,8 @@ def _azure_devops_source_ref(native_id: str, native_type: str) -> SourceRef:
     )
 
 
-# The keyword AC's declared values; the coverage sample covers one of them.
+# The keyword AC's folded name and its declared values; the coverage sample covers one of them.
+_PAYMENT_FIELD_KEYWORD = "payment_field"
 _PAYMENT_FIELDS = ("card-holder", "expiry-date", "last-four-digits")
 
 
@@ -116,7 +117,7 @@ def _acceptance_criteria(parent_id: str) -> list[AcceptanceCriterion]:
             version="1.0.0",
             description="The order summary shows the {payment-field} of the chosen saved card.",
             aspect=list(_PAYMENT_FIELDS),
-            placeholder_values={"payment_field": list(_PAYMENT_FIELDS)},
+            placeholder_values={_PAYMENT_FIELD_KEYWORD: list(_PAYMENT_FIELDS)},
         ),
         AcceptanceCriterion(
             id=f"{parent_id}-05",
@@ -317,11 +318,21 @@ def _ui_tests_sample() -> ui_tests.UITestsResult:
     return ui_tests.UITestsResult(metadata=_metadata(transform=False), scenarios=_scenarios())
 
 
+# The commit the collector read the warnings' files at.
+_COLLECTED_SHA = "4f2c1e9a7b3d5f6081a2c3d4e5f60718293a4b5c"
+
+
+def _blob_url(path: str) -> str:
+    """A file's permalink at the collected commit. The entities link GitHub issues, so no entity's URL places a line."""
+    return f"https://github.com/absaoss/payments-service/blob/{_COLLECTED_SHA}/{path}"
+
+
 def _not_loaded_warnings() -> list[ContractWarning]:
     """What was not loaded from the input, as a collector reports it: a dropped criterion with every location
     field, which therefore no entity or coverage row holds; a criterion line no field reads; and a file whose
-    entity was never emitted, which names no entity."""
+    entity was never emitted, which names no entity. Each links its file at the collected commit."""
     feature_file = "features/checkout.feature"
+    refund_file = "features/refund.feature"
     return [
         ContractWarning(
             code=Code.MALFORMED_AC.name,
@@ -332,6 +343,7 @@ def _not_loaded_warnings() -> list[ContractWarning]:
             ac_id="US-001-06",
             line_no=31,
             path=feature_file,
+            source_url=_blob_url(feature_file),
         ),
         ContractWarning(
             code=Code.UNPARSED_AC_LINE.name,
@@ -341,13 +353,15 @@ def _not_loaded_warnings() -> list[ContractWarning]:
             ac_id="US-001-01",
             line_no=17,
             path=feature_file,
+            source_url=_blob_url(feature_file),
         ),
         ContractWarning(
             code=Code.MISSING_ENTITY_ID.name,
             message="Feature-header banner carries no 'LIVING DOC — ...' title line.",
             context="title='' line_no=1",
             line_no=1,
-            path="features/refund.feature",
+            path=refund_file,
+            source_url=_blob_url(refund_file),
         ),
     ]
 
@@ -402,6 +416,7 @@ def _coverage_matrix_sample() -> coverage_matrix.CoverageMatrixResult:
                 ac_id="US-001-04",
                 state="active",
                 status="partially_covered",
+                keyword=_PAYMENT_FIELD_KEYWORD,
                 aspects=[
                     _aspect(_PAYMENT_FIELDS[0], "SCN-001"),
                     _aspect(_PAYMENT_FIELDS[1]),
@@ -517,17 +532,17 @@ _SHOWN_INNER_ONLY = frozenset(
         f"{_ENTITY_PATH}source_ref.area_path",
         f"{_ENTITY_PATH}source_ref.iteration_path",
     }
-    | {f"{_WARNING_PATH}{name}" for name in ("code", "message", "line_no", "path")}
+    | {f"{_WARNING_PATH}{name}" for name in ("code", "message", "line_no", "path", "source_url")}
 )
 
 # Never shown in either view: source_ref.native_type, source_ref.tracker_state (absent from both sets above).
 
-# Per-aspect rows and the coverage summaries (each entity's and the matrix's) show in both views;
-# planned_summary (root-relative, beside entities[]) shows in inner only.
+# Per-aspect rows, labelled by their keyword, and the coverage summaries (each entity's and the matrix's) show in
+# both views; planned_summary (root-relative, beside entities[]) shows in inner only.
 _COVERAGE_PATH = "entities[].acceptance_criteria[]."
 _SUMMARY_FIELDS = ("counted_acs", "covered_acs", "partially_covered_acs", "not_covered_acs", "coverage_pct")
 _COVERAGE_BOTH_VIEWS = frozenset(
-    {f"{_COVERAGE_PATH}status", f"{_COVERAGE_PATH}aspects[].aspect", f"{_COVERAGE_PATH}aspects[].status"}
+    {f"{_COVERAGE_PATH}{name}" for name in ("status", "keyword", "aspects[].aspect", "aspects[].status")}
     | {f"{owner}summary.{name}" for owner in ("entities[].", "") for name in _SUMMARY_FIELDS}
 )
 _COVERAGE_INNER_ONLY = frozenset(

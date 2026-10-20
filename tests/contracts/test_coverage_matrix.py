@@ -21,12 +21,15 @@ Tests for the coverage-matrix-v1.0.0 contract (coverage_matrix.py).
 import json
 from typing import Any, get_args
 
+import jsonschema
 import pytest
 from pydantic import ValidationError
 
+from living_doc_utilities.contracts import schema_export
 from living_doc_utilities.contracts.coverage_matrix import (
     CONTRACT_ID,
     RECORD_ROOTS,
+    AcCoverage,
     CountedState,
     CoverageMatrixResult,
     CoverageStatus,
@@ -159,6 +162,82 @@ def test_ac_coverage_rejects_a_malformed_ac_id():
     # AC_ID_PATTERN also applies here; the belongs-to-entity prefix check alone misses a malformed suffix.
     with pytest.raises(ValidationError):
         factories.ac_coverage(ac_id="US-001-anything")
+
+
+# --- keyword: the name a keyword criterion's aspects are labelled by ---------------------------------------------
+
+
+def _keyword_row(**overrides: Any) -> AcCoverage:
+    """A keyword row: `payment_field`, the folded `{payment-field}`, over two aspects of which one is covered."""
+    fields: dict[str, Any] = {
+        "status": "partially_covered",
+        "keyword": "payment_field",
+        "aspects": [
+            factories.aspect_coverage(aspect="card-holder", status="covered"),
+            factories.aspect_coverage(aspect="expiry-date", status="not_covered"),
+        ],
+        "scenario_ids": [],
+    }
+    fields.update(overrides)
+    return factories.ac_coverage(**fields)
+
+
+def test_ac_coverage_keyword_row_with_aspects_keeps_its_keyword():
+    """A keyword row with aspects validates, and its keyword survives a dump and re-validation."""
+    row = _keyword_row()
+
+    assert row.keyword == "payment_field"
+    assert [a.aspect for a in row.aspects] == ["card-holder", "expiry-date"]
+    assert AcCoverage.model_validate(row.model_dump()).keyword == "payment_field"
+
+
+def test_ac_coverage_aspect_row_has_no_keyword():
+    """An `Aspect:` row validates with aspects and no keyword."""
+    row = factories.ac_coverage(status="covered", aspects=[factories.aspect_coverage(aspect="checkout")])
+
+    assert row.keyword is None
+    assert [a.aspect for a in row.aspects] == ["checkout"]
+
+
+def test_ac_coverage_without_variants_has_no_keyword_by_default():
+    """A row without variants (no aspects) defaults keyword to None."""
+    row = factories.ac_coverage()
+
+    assert (row.keyword, row.aspects) == (None, [])
+
+
+def test_ac_coverage_rejects_a_keyword_row_without_aspects():
+    """A keyword row with an empty aspects list is rejected: the keyword has no values to label."""
+    # Covered by SCN-001 with no aspects, so only the keyword rule can fail.
+    with pytest.raises(ValidationError, match="keyword 'payment_field' needs aspects"):
+        factories.ac_coverage(keyword="payment_field", aspects=[])
+
+
+@pytest.mark.parametrize("keyword", ["payment-field", "1field", "", "payment field", "payment.field"])
+def test_ac_coverage_rejects_a_keyword_outside_the_placeholder_name_pattern(keyword):
+    """An unfolded or malformed keyword fails the placeholder-name pattern, in Pydantic and in the committed schema."""
+    with pytest.raises(ValidationError, match="String should match pattern") as excinfo:
+        _keyword_row(keyword=keyword)
+    assert [error["loc"] for error in excinfo.value.errors()] == [("keyword",)]
+
+    entity = factories.entity_coverage(acceptance_criteria=[_keyword_row()])
+    data = json.loads(_result(entities=[entity]).model_dump_json())
+    data["entities"][0]["acceptance_criteria"][0]["keyword"] = keyword
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=data, schema=schema_export.load_schema(CONTRACT_ID))
+
+
+def test_keyword_and_aspect_rows_validate_against_the_committed_schema():
+    """A keyword row with aspects, an `Aspect:` row and a row without variants all pass the committed schema."""
+    rows = [
+        _keyword_row(seq=1),
+        factories.ac_coverage(seq=2, status="covered", aspects=[factories.aspect_coverage(aspect="checkout")]),
+        factories.ac_coverage(seq=3),
+    ]
+    data = json.loads(_result(entities=[factories.entity_coverage(acceptance_criteria=rows)]).model_dump_json())
+
+    assert [row["keyword"] for row in data["entities"][0]["acceptance_criteria"]] == ["payment_field", None, None]
+    jsonschema.validate(instance=data, schema=schema_export.load_schema(CONTRACT_ID))
 
 
 def test_aspect_coverage_rejects_covered_status_with_no_linked_scenarios():

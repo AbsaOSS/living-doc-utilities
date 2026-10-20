@@ -55,8 +55,8 @@ Three properties of the sample:
 
 - No record carries a field its own state makes meaningless → `contracts/testing.py::full_sample`
   - Why: the sample stays something a real pipeline could produce.
-- The contracts' samples agree: each coverage row and scenario link names a criterion the entities hold, with its aspects, and the dropped criterion is in none of them → `contracts/testing.py::full_sample`
-  - Why: a generator joins them by criterion id, e.g. to label a keyword criterion's coverage breakdown.
+- The contracts' samples agree: each coverage row and scenario link names a criterion the entities hold, with its aspects and keyword, and the dropped criterion is in none of them → `contracts/testing.py::full_sample`
+  - Why: the toolkit computes the matrix from the other two; its tests compare samples one run could produce.
 - The sample takes no view: transforms filter it, generators set `document.view` → `contracts/testing.py::full_sample`
 
 Each kind of component uses the sample differently:

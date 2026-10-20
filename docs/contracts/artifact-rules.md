@@ -63,6 +63,8 @@ A contract id has the form `<contract-name>-v<major>.<minor>.<patch>` → `contr
 - Step 3 names the file's `metadata.producer.utilities_version` and the reader's own version → `contracts/compat.py::schema_validation_error`
 - When the two versions differ, step 3 adds "the components run different utilities versions — align the pins" → `contracts/compat.py::schema_validation_error`
   - Why: loud and specific beats tolerant; a tolerant reader hides a skew in subtly wrong output.
+- A version of an expected contract this library does not ship has no bundled schema: it fails as `INVALID_CONTRACT_ID` before step 3, always with that hint → `contracts/compat.py::check_input`
+  - When the file names the reader's own version, the message names an edit by hand first: the same version ships the id it writes.
 - A skew that shows in the file fails at step 3: an unknown field, a missing required field, a value the schema rejects.
 - A skew that leaves the file valid passes; before v1 there is no run-time alignment check.
 - `metadata.producer.version` and `utilities_version` are audit information: quoted in messages, never compared → `contracts/envelope.py::Producer`

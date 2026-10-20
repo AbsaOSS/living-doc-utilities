@@ -25,7 +25,7 @@ from typing import Any, Optional, Union
 
 from jsonschema.exceptions import ValidationError, best_match
 
-from living_doc_utilities.contracts import schema_export
+from living_doc_utilities.contracts import registry, schema_export
 from living_doc_utilities.contracts.codes import Code, ContractError
 from living_doc_utilities.contracts.envelope import CONTRACT_ID_PATTERN
 from living_doc_utilities.contracts.validation import validate
@@ -33,6 +33,8 @@ from living_doc_utilities.contracts.validation import validate
 _CONTRACT_ID_RE = re.compile(CONTRACT_ID_PATTERN)
 
 _PACKAGE_NAME = "living-doc-utilities"
+
+_PIN_HINT = "the components run different utilities versions — align the pins"
 
 
 def installed_utilities_version() -> str:
@@ -49,6 +51,21 @@ def _safe_get(payload: Any, *keys: str) -> Optional[Any]:
     return value
 
 
+def _with_utilities_versions(text: str, payload: Any, *, always_hint: bool) -> str:
+    """`text`, then the file's and this package's utilities_version, then the pin-alignment hint: when the two
+    differ, or always. A forced hint on two equal versions names an edit by hand first, as the likelier cause.
+    The one wording of a version skew, shared by every message that reports one."""
+    producer_version = _safe_get(payload, "metadata", "producer", "utilities_version")
+    own_version = installed_utilities_version()
+    message = f"{text} (file written by utilities {producer_version!r}, this is utilities {own_version!r})"
+    if producer_version is not None and producer_version != own_version:
+        message += f"; {_PIN_HINT}"
+    elif always_hint:
+        cause = "the file was edited by hand, or " if producer_version == own_version else ""
+        message += f"; {cause}{_PIN_HINT}"
+    return message
+
+
 def schema_validation_error(errors: list[ValidationError], payload: Any) -> ContractError:
     """Builds the R5 step-3 SCHEMA_VALIDATION_FAILED error: names the failing path and both
     this package's and the file's own utilities_version, with a pin-alignment hint when they
@@ -60,16 +77,7 @@ def schema_validation_error(errors: list[ValidationError], payload: Any) -> Cont
     """
     worst = best_match(errors)
     assert worst is not None  # best_match returns None only for an empty iterable
-    path = worst.json_path
-    detail = worst.message
-
-    producer_version = _safe_get(payload, "metadata", "producer", "utilities_version")
-    own_version = installed_utilities_version()
-    message = (
-        f"{path}: {detail} (file written by utilities {producer_version!r}, " f"this is utilities {own_version!r})"
-    )
-    if producer_version is not None and producer_version != own_version:
-        message += "; the components run different utilities versions — align the pins"
+    message = _with_utilities_versions(f"{worst.json_path}: {worst.message}", payload, always_hint=False)
     return ContractError(Code.SCHEMA_VALIDATION_FAILED, message)
 
 
@@ -79,7 +87,8 @@ def check_input(payload: Any, expected: Union[str, set[str]]) -> str:
 
     1. schema_version is present and parses against "<contract-name>-v<major>.<minor>.<patch>".
     2. the parsed contract name is in the caller's expected set.
-    3. structural validation against that contract's bundled schema.
+    3. structural validation against that contract's bundled schema; a version this package does not
+       ship has none, and fails as INVALID_CONTRACT_ID with the pin-alignment hint.
 
     @param payload: the parsed JSON of a candidate contract artifact.
     @param expected: a single contract name (e.g. "doc-entities") or a set of acceptable
@@ -105,6 +114,17 @@ def check_input(payload: Any, expected: Union[str, set[str]]) -> str:
         raise ContractError(
             Code.CONTRACT_MISMATCH,
             f"expected one of {sorted(expected_names)!r}, got {contract_name!r}",
+        )
+
+    # Only another utilities version, or a hand-edited id, writes a version this one does not ship.
+    if schema_version not in registry.CONTRACTS:
+        raise ContractError(
+            Code.INVALID_CONTRACT_ID,
+            _with_utilities_versions(
+                f"schema_version {schema_version!r} is not a contract version this utilities ships",
+                payload,
+                always_hint=True,
+            ),
         )
 
     schema = schema_export.load_schema(schema_version)

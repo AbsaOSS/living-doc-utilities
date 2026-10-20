@@ -22,7 +22,7 @@ import jsonschema
 import pytest
 from pydantic import ValidationError
 
-from living_doc_utilities.contracts import generator_ready, schema_export, testing
+from living_doc_utilities.contracts import generator_ready, registry, schema_export, testing
 from living_doc_utilities.contracts.envelope import Cardinality, ContractWarning, Source
 from tests.contracts import factories
 
@@ -149,14 +149,19 @@ def test_contract_warning_round_trip():
 
 
 def test_contract_warning_with_no_location_field_validates():
-    """`entity_id`, `ac_id`, `line_no` and `path` are optional: a warning that knows none of them still validates."""
+    """`entity_id`, `ac_id`, `line_no`, `path` and `source_url` are optional: a warning knowing none still validates."""
     warning = ContractWarning(code="HTML_CONTENT_DROPPED", message="Dropped: script=1.")
 
-    assert (warning.entity_id, warning.ac_id, warning.line_no, warning.path) == (None, None, None, None)
+    assert (warning.entity_id, warning.ac_id, warning.line_no, warning.path, warning.source_url) == (None,) * 5
+
+
+# The warned file and its permalink at the collected commit, as a collector fills `path` and `source_url`.
+_WARNING_FILE = "features/func-001.feature"
+_BLOB_URL = f"https://github.com/absaoss/payments-service/blob/4f2c1e9a7b3d5f6081a2c3d4e5f60718293a4b5c/{_WARNING_FILE}"
 
 
 def test_contract_warning_carries_every_location_field():
-    """A warning names its entity, its criterion, its 1-based line and its file, beside its free-text context."""
+    """A warning names its entity, criterion, 1-based line, file and file permalink, beside its free-text context."""
     warning = ContractWarning(
         code="MALFORMED_AC",
         message="Acceptance-criterion header is malformed.",
@@ -164,10 +169,36 @@ def test_contract_warning_carries_every_location_field():
         entity_id="FUNC-001",
         ac_id="FUNC-001-01",
         line_no=13,
-        path="features/func-001.feature",
+        path=_WARNING_FILE,
+        source_url=_BLOB_URL,
     )
+    dumped = warning.model_dump(mode="json")
 
-    assert ContractWarning.model_validate(warning.model_dump(mode="json")) == warning
+    assert dumped["source_url"] == _BLOB_URL
+    assert ContractWarning.model_validate(dumped) == warning
+
+
+def test_contract_warning_rejects_an_unknown_location_field():
+    """A misspelt sibling of `source_url` is rejected by the model and by the committed schema, never silently kept."""
+    with pytest.raises(ValidationError, match="source_uri"):
+        ContractWarning(code="MALFORMED_AC", message="...", source_uri=_BLOB_URL)
+
+    data = json.loads(testing.full_sample(generator_ready.CONTRACT_ID).model_dump_json())
+    data["warnings"][0]["source_uri"] = _BLOB_URL
+    with pytest.raises(jsonschema.ValidationError, match="source_uri"):
+        jsonschema.validate(instance=data, schema=schema_export.load_schema(generator_ready.CONTRACT_ID))
+
+
+@pytest.mark.parametrize("contract_id", list(registry.CONTRACTS))
+def test_every_contract_schema_accepts_a_warning_with_and_without_source_url(contract_id):
+    """Every contract's top-level warnings[] accepts a warning with `source_url` and one without it."""
+    with_url = ContractWarning(code="MALFORMED_AC", message="...", path=_WARNING_FILE, source_url=_BLOB_URL)
+    without_url = ContractWarning(code="HTML_CONTENT_DROPPED", message="Dropped: script=1.")
+    data = json.loads(testing.full_sample(contract_id).model_dump_json())
+    data["warnings"] = [with_url.model_dump(mode="json"), without_url.model_dump(mode="json")]
+
+    assert [warning["source_url"] for warning in data["warnings"]] == [_BLOB_URL, None]
+    jsonschema.validate(instance=data, schema=schema_export.load_schema(contract_id))
 
 
 @pytest.mark.parametrize("ac_id", ["FEAT-001-01", "US-001", "us-001-01", ""])

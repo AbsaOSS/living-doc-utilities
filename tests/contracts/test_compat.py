@@ -120,6 +120,15 @@ def test_check_input_contract_name_not_in_a_two_name_expected_set_names_both():
     assert message == "expected one of ['doc-entities', 'doc-source'], got 'ui-tests'"
 
 
+def test_check_input_reports_a_contract_mismatch_before_an_unshipped_version():
+    """A wrong contract name at an unshipped version is still CONTRACT_MISMATCH, its message unchanged."""
+    with pytest.raises(ContractError) as excinfo:
+        compat.check_input({"schema_version": "ui-tests-v9.9.9"}, "doc-entities")
+
+    assert excinfo.value.code == Code.CONTRACT_MISMATCH
+    assert excinfo.value.message == "expected one of ['doc-entities'], got 'ui-tests'"
+
+
 def test_check_input_accepts_a_single_string_expected_as_a_one_element_set():
     """`check_input` treats a single string `expected` argument as a one-element set of contract names."""
     payload = _valid_payload()
@@ -157,6 +166,60 @@ def test_check_input_never_raises_or_warns_on_an_unfamiliar_producer_version():
     result = compat.check_input(payload, "doc-entities")
 
     assert result == CONTRACT_ID
+
+
+# ---------------------------------------------------------------------------
+# check_input step 3: a version this package does not ship has no schema to validate against.
+# ---------------------------------------------------------------------------
+
+_PIN_HINT = "the components run different utilities versions — align the pins"
+
+
+@pytest.mark.parametrize("schema_version", ["generator-ready-v9.9.9", "generator-ready-v1.0.1"])
+def test_check_input_unshipped_version_raises_invalid_contract_id_before_loading_a_schema(mocker, schema_version):
+    """A known contract at an unshipped version is INVALID_CONTRACT_ID with the pin hint, and no schema is loaded."""
+    mocker.patch("living_doc_utilities.contracts.compat.installed_utilities_version", return_value="0.9.0")
+    load_schema = mocker.patch("living_doc_utilities.contracts.compat.schema_export.load_schema")
+
+    with pytest.raises(ContractError) as excinfo:
+        compat.check_input({"schema_version": schema_version}, "generator-ready")
+
+    assert excinfo.value.code == Code.INVALID_CONTRACT_ID
+    assert excinfo.value.message == (
+        f"schema_version {schema_version!r} is not a contract version this utilities ships "
+        f"(file written by utilities None, this is utilities '0.9.0'); {_PIN_HINT}"
+    )
+    load_schema.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "file_version, hint",
+    [("0.8.0", _PIN_HINT), ("0.9.0", f"the file was edited by hand, or {_PIN_HINT}")],
+    ids=["older_than_installed", "equal_to_installed"],
+)
+def test_check_input_unshipped_version_names_the_file_s_utilities_version_and_always_hints(mocker, file_version, hint):
+    """The unshipped-version message names the file's utilities_version and always ends with the pin hint; when that
+    version is ours, an edit by hand comes first, as the likelier cause."""
+    mocker.patch("living_doc_utilities.contracts.compat.installed_utilities_version", return_value="0.9.0")
+    payload = {
+        "schema_version": "generator-ready-v9.9.9",
+        "metadata": {"producer": {"utilities_version": file_version}},
+    }
+
+    with pytest.raises(ContractError) as excinfo:
+        compat.check_input(payload, "generator-ready")
+
+    assert excinfo.value.code == Code.INVALID_CONTRACT_ID
+    versions = f"(file written by utilities {file_version!r}, this is utilities '0.9.0')"
+    assert excinfo.value.message.endswith(f"{versions}; {hint}")
+
+
+def test_check_input_shipped_version_is_validated_against_its_own_bundled_schema(mocker):
+    """A shipped version passes the registry check and loads exactly its own schema once."""
+    load_schema = mocker.spy(schema_export, "load_schema")
+
+    assert compat.check_input(_valid_payload(), "doc-entities") == CONTRACT_ID
+    load_schema.assert_called_once_with(CONTRACT_ID)
 
 
 # ---------------------------------------------------------------------------
