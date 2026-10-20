@@ -107,14 +107,9 @@ CASES = [
         ("entities", 1, "acceptance_criteria", 0, "scenario_ids"),
         rejected=True,
     ),
-    # `coverage_matrix.py::AcCoverage._check_keyword_has_aspects`: a keyword row needs aspects, a keyword is optional.
-    # US-001-04 is the keyword row; it is partially_covered, so dropping its aspects also breaks the status rule.
-    OmissionCase(
-        "ac_coverage_aspects_on_a_keyword_row",
-        coverage_matrix.CONTRACT_ID,
-        ("entities", 0, "acceptance_criteria", 1, "aspects"),
-        rejected=True,
-    ),
+    # `coverage_matrix.py::AcCoverage._check_keyword_has_aspects`: a keyword is optional. The sample's keyword row is
+    # partially_covered, so dropping its aspects breaks the status rule too; test_schema_export.py's
+    # `ac_coverage_keyword_with_aspects_absent` judges that omission with the keyword rule alone.
     OmissionCase(
         "ac_coverage_keyword_on_a_keyword_row",
         coverage_matrix.CONTRACT_ID,

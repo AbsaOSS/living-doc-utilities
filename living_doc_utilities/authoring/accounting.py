@@ -77,7 +77,7 @@ def located(
     number: Optional[int] = None,
     ac_id: Optional[str] = None,
 ) -> ContractWarning:
-    """A warning naming where it belongs, from what its emitter knows (`DEC-77`): an empty `entity_id` and a missing
+    """A warning naming where it belongs, from what its emitter knows: an empty `entity_id` and a missing
     line `number` are not known, so their fields stay unset. `ac_id` is passed only when valid; `context` keeps
     its free text."""
     return ContractWarning(

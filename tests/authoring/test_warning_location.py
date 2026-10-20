@@ -15,7 +15,7 @@
 #
 
 """
-Where a warning belongs (`DEC-77`): each authoring warning sets the `entity_id`, `ac_id` and `line_no` its parser
+Where a warning belongs: each authoring warning sets the `entity_id`, `ac_id` and `line_no` its parser
 knows, and `context` keeps its free text. `path` is never set here: a collector fills it.
 """
 

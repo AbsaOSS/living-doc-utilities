@@ -49,7 +49,7 @@ Read before: [Component checks](component-checks.md) · Next: [Errors and warnin
   - Why: generator tests assert against the table itself, not a copy that drifts.
 - What was not loaded is the canon's rule; this row only maps it onto the warning's fields ([living-doc document types, *What was not loaded*](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-document-types.md#technical-project)) → `contracts/envelope.py::ContractWarning`
   - A warning's `ac_id` and `context` are never shown; `entity_id` only places it → `contracts/testing.py::shown_paths`
-- A warning's line links to `source_url` plus `#L<line_no>`; without `source_url`, the line shows as text → `contracts/envelope.py::ContractWarning`
+- A warning's line links to `source_url` plus `#L<line_no>`; without `source_url`, the line shows as text → generators
   - Why: the line can sit in another file than its entity's `source_ref.url`; only the collector knows which.
 - It covers the three contracts a generator renders; `ui-test-catalog` has no view-dependent field → `contracts/testing.py::shown_paths`
 - The canonical AC header is rendered by the model, with the `v` added back → `contracts/common.py::AcceptanceCriterion.canonical_header`
@@ -65,7 +65,7 @@ Coverage is computed per aspect → `contracts/coverage_matrix.py::AcCoverage._c
 | `not_covered` | with aspects: no aspect has a linked scenario; without aspects: the criterion has none |
 
 - A `partially_covered` criterion shows covered/declared aspects, e.g. **1/3**, before its per-aspect breakdown → `contracts/coverage_matrix.py::AcCoverage.covered_aspects`
-- A breakdown is labelled with the row's `keyword`, a keyword criterion's one `placeholder_values` key, and "Aspect" when it is `null` ([Variants](../authoring/ac-grammar.md#variants)) → `contracts/coverage_matrix.py::AcCoverage`
+- A breakdown is labelled with the row's `keyword`, a keyword criterion's one `placeholder_values` key, and "Aspect" when it is `null` ([Variants](../authoring/ac-grammar.md#variants)) → generators
   - Why: a generator reads the matrix alone; joining it with the documentation is the toolkit's work.
 - A row with a `keyword` lists that keyword's values as aspects; one without aspects fails validation → `contracts/coverage_matrix.py::AcCoverage._check_keyword_has_aspects`
 - A bare `@AC:<id>` link covers every aspect of the criterion: a producer lists its scenario under each aspect's `scenario_ids` (`DEC-76`) → toolkit

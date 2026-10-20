@@ -192,9 +192,14 @@ def test_check_input_unshipped_version_raises_invalid_contract_id_before_loading
     load_schema.assert_not_called()
 
 
-@pytest.mark.parametrize("file_version", ["0.8.0", "0.9.0"], ids=["older_than_installed", "equal_to_installed"])
-def test_check_input_unshipped_version_names_the_file_s_utilities_version_and_always_hints(mocker, file_version):
-    """The unshipped-version message names the file's utilities_version, and keeps the hint even when it is ours."""
+@pytest.mark.parametrize(
+    "file_version, hint",
+    [("0.8.0", _PIN_HINT), ("0.9.0", f"the file was edited by hand, or {_PIN_HINT}")],
+    ids=["older_than_installed", "equal_to_installed"],
+)
+def test_check_input_unshipped_version_names_the_file_s_utilities_version_and_always_hints(mocker, file_version, hint):
+    """The unshipped-version message names the file's utilities_version and always ends with the pin hint; when that
+    version is ours, an edit by hand comes first, as the likelier cause."""
     mocker.patch("living_doc_utilities.contracts.compat.installed_utilities_version", return_value="0.9.0")
     payload = {
         "schema_version": "generator-ready-v9.9.9",
@@ -205,8 +210,8 @@ def test_check_input_unshipped_version_names_the_file_s_utilities_version_and_al
         compat.check_input(payload, "generator-ready")
 
     assert excinfo.value.code == Code.INVALID_CONTRACT_ID
-    assert f"(file written by utilities {file_version!r}, this is utilities '0.9.0')" in excinfo.value.message
-    assert excinfo.value.message.endswith(f"; {_PIN_HINT}")
+    versions = f"(file written by utilities {file_version!r}, this is utilities '0.9.0')"
+    assert excinfo.value.message.endswith(f"{versions}; {hint}")
 
 
 def test_check_input_shipped_version_is_validated_against_its_own_bundled_schema(mocker):

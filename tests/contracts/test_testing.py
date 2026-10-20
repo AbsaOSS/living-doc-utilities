@@ -197,8 +197,9 @@ def test_full_samples_agree_on_every_criterion_and_scenario_link():
 def test_each_coverage_row_names_its_criterion_s_keyword():
     """A coverage row's keyword is its criterion's one placeholder_values key, or None when the criterion has none."""
     generator_sample = testing.full_sample(generator_ready.CONTRACT_ID)
+    coverage_sample = testing.full_sample(coverage_matrix.CONTRACT_ID)
     criteria = {ac.id: ac for entity in generator_sample.content.entities for ac in entity.acceptance_criteria}
-    rows = [row for entity in testing.full_sample(coverage_matrix.CONTRACT_ID).entities for row in entity.acceptance_criteria]
+    rows = [row for entity in coverage_sample.entities for row in entity.acceptance_criteria]
     keywords = {row.ac_id: row.keyword for row in rows}
 
     for row in rows:
@@ -425,7 +426,7 @@ def test_shown_paths_rejects_an_unsupported_contract():
 
 
 def test_shown_paths_coverage_matrix_shows_aspect_breakdown_in_both_views_and_planned_summary_in_inner_only():
-    """Coverage-matrix's aspect breakdown and its keyword label are shown in both views; planned_summary only in inner."""
+    """Coverage-matrix's aspect breakdown and keyword label are shown in both views; planned_summary only in inner."""
     both = {
         "entities[].acceptance_criteria[].status",
         "entities[].acceptance_criteria[].keyword",

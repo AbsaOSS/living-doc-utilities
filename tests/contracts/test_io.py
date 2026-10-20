@@ -134,7 +134,7 @@ def test_read_artifact_contract_mismatch_with_a_two_name_expected_set_names_both
 
 def test_read_artifact_unshipped_schema_version_raises_invalid_contract_id_with_the_pin_hint(tmp_path, mocker):
     """read_artifact rejects a known contract at an unshipped version as INVALID_CONTRACT_ID with the pin hint."""
-    # The file's utilities_version equals the installed one: the hint is still appended.
+    # The file's utilities_version equals the installed one: an edit by hand comes first, the hint still ends it.
     mocker.patch("living_doc_utilities.contracts.compat.installed_utilities_version", return_value="0.9.0")
     path = tmp_path / "doc-entities.json"
     result = _valid_doc_entities_result(producer=factories.producer(utilities_version="0.9.0"))
@@ -149,7 +149,7 @@ def test_read_artifact_unshipped_schema_version_raises_invalid_contract_id_with_
     assert excinfo.value.message == (
         "schema_version 'doc-entities-v9.9.9' is not a contract version this utilities ships "
         "(file written by utilities '0.9.0', this is utilities '0.9.0'); "
-        "the components run different utilities versions — align the pins"
+        "the file was edited by hand, or the components run different utilities versions — align the pins"
     )
 
 

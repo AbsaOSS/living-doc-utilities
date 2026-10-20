@@ -25,7 +25,7 @@ Read before: [Rendering](rendering.md) · Next: back to [Documentation contracts
   - `line_no`: the 1-based input line
   - `path`: the input file, relative to its scan root; `authoring` never knows it, so a collector fills it → collectors
   - `source_url`: that file's permalink at the collected commit, `<server>/<org>/<repo>/blob/<sha>/<path>` on GitHub; a collector fills it → collectors
-  - Each is set only when its emitter knows it (`DEC-77`); what `authoring` sets per code: [Parsers](../authoring/parsers.md#common-behaviour)
+  - Each is set only when its emitter knows it; what `authoring` sets per code: [Parsers](../authoring/parsers.md#common-behaviour)
   - Why: a generator places a warning by these fields, never by parsing `context`, which stays free text ([Fields by view](rendering.md#fields-by-view)).
 - Nothing elsewhere redefines a code; other pages name it and link here → [one fact, one page](../../DEVELOPER.md#depth)
 

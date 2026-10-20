@@ -34,6 +34,8 @@ _CONTRACT_ID_RE = re.compile(CONTRACT_ID_PATTERN)
 
 _PACKAGE_NAME = "living-doc-utilities"
 
+_PIN_HINT = "the components run different utilities versions — align the pins"
+
 
 def installed_utilities_version() -> str:
     """This installed package's own version (R5 step 3, R6 metadata.producer.utilities_version)."""
@@ -51,12 +53,16 @@ def _safe_get(payload: Any, *keys: str) -> Optional[Any]:
 
 def _with_utilities_versions(text: str, payload: Any, *, always_hint: bool) -> str:
     """`text`, then the file's and this package's utilities_version, then the pin-alignment hint: when the two
-    differ, or always. The one wording of a version skew, shared by every message that reports one."""
+    differ, or always. A forced hint on two equal versions names an edit by hand first, as the likelier cause.
+    The one wording of a version skew, shared by every message that reports one."""
     producer_version = _safe_get(payload, "metadata", "producer", "utilities_version")
     own_version = installed_utilities_version()
     message = f"{text} (file written by utilities {producer_version!r}, this is utilities {own_version!r})"
-    if always_hint or (producer_version is not None and producer_version != own_version):
-        message += "; the components run different utilities versions — align the pins"
+    if producer_version is not None and producer_version != own_version:
+        message += f"; {_PIN_HINT}"
+    elif always_hint:
+        cause = "the file was edited by hand, or " if producer_version == own_version else ""
+        message += f"; {cause}{_PIN_HINT}"
     return message
 
 
