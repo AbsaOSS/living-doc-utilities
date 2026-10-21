@@ -19,7 +19,7 @@ Read before: [Artifact rules](artifact-rules.md) · Next: [Component checks](com
 ## One project, one pipeline, one documentation source
 
 - A pipeline run documents exactly one project → toolkit shared input validation
-- A transform run takes exactly one documentation file: the issue-tracker document or the source-scanned one, never both → toolkit
+- A transform that reads documentation takes exactly one documentation file: the issue-tracker document or the source-scanned one, never both → toolkit
 - Several repositories or organisations of one project are collected in one collector run → collectors
   - Why: one run is where they can be de-duplicated coherently.
 - Test data may come from another system: Azure DevOps work items with `.feature` files on GitHub is supported → toolkit

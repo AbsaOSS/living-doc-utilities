@@ -46,8 +46,8 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 | `DUPLICATE_ENTITY_ID` | error | toolkit | the same entity id twice (one story id in two repositories of a project) | lists every occurrence |
 | `DUPLICATE_AC_ID` | error | toolkit | the same acceptance-criterion id twice under one entity | lists every occurrence |
 | `FIELD_LOSS` | error | transform | a mapped field populated in the input is empty in the output ([R11](component-checks.md#r11-a-transform-proves-it-lost-nothing)) | run fails; names every lost path |
-| `PLANNED_AC_HAS_TESTS` | warning | transform | a scenario links a `planned` criterion | criterion not counted |
-| `IN_REVIEW_AC_HAS_TESTS` | warning | transform | a scenario links an `in_review` criterion | link kept; criterion not counted |
+| `PLANNED_AC_HAS_TESTS` | warning | transform | a scenario links a `planned` criterion | link kept in `ui-test-catalog`; no matrix row |
+| `IN_REVIEW_AC_HAS_TESTS` | warning | transform | a scenario links an `in_review` criterion | link kept in `ui-test-catalog`; no matrix row |
 | `STALE_AC_REF` | warning | transform | a scenario references an unknown criterion or an undeclared aspect | reported |
 | `INVALID_CONFIGURATION` | error | collector | project id missing or malformed; malformed repository or project entry; token rejected by the first request | run fails at start; names the input and reason |
 | `SOURCE_UNAVAILABLE` | error | collector | a source unfetchable after retries, a configured path missing, or a token lacking a scope | source fails; a warning in partial mode |

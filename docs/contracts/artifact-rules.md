@@ -143,6 +143,7 @@ The retirement has no alias window:
 - One model means an envelope fix lands in all six contracts at once → `tests/contracts/test_schema_export.py::test_metadata_is_one_shared_model_across_all_six_contracts`
 - `source` is required on every output, and `source.project_id` everywhere → `contracts/envelope.py::Source`
 - A transform output copies `source` from its one documentation input, plus the test input's systems.
+- A transform without a documentation input copies `source` from its one input → transforms
 - `source.systems` values are `GitHub` and `AzureDevOps`; `extraction_mode` is `markdown`, `field-map` or `null` → `contracts/envelope.py::Source`
 - `organizations[]` lists every configured `organization-name` once; an organisation may have no repository → `contracts/envelope.py::Source`
 - `repositories[]` entries are meant to be `org/repo` (GitHub) or `org/project` (Azure DevOps); the only check enforced is that the segment before the first `/` is in `organizations[]` — the rest of the entry, and its shape, is not validated → `contracts/envelope.py::Source._check_repositories_reference_known_organizations`
