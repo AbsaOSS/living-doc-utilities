@@ -76,6 +76,7 @@ Each kind of component uses the sample differently:
 - The transform-time check compares the input's `selected_stats` (R7) with the output's stats → `contracts/lineage.py::check_field_loss`
 - A mapped path with input occupancy above 0 and output occupancy 0 is a hard `FIELD_LOSS`, naming each path → `contracts/lineage.py::check_field_loss`
 - The comparison runs against the one documentation input, which makes it well defined → [One documentation source](pipeline-rules.md#one-project-one-pipeline-one-documentation-source)
+- A transform without a documentation input compares against its one input → `contracts/lineage.py::check_field_loss`
 - A partial drop, occupancy reduced but not to 0, is not an error at transform time; it is reported later → transforms
   - Why: a transform cannot tell a legitimate record filter from a bug at that point.
 - R11 guards transforms only; the authoring-to-collector stage, with no JSON input to compare, has golden-entity tests and snapshot CI → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`

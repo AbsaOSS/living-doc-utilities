@@ -75,11 +75,14 @@ Coverage is computed per aspect → `contracts/coverage_matrix.py::AcCoverage._c
   - When an `AcCoverage` has aspects, its `status` is derived from the aspects instead (see table above), and its own top-level `scenario_ids` is not checked — it can be empty on a `covered` row → `contracts/testing.py::_coverage_matrix_sample`
 - Counted criteria are `active` and `deprecated`, in both views → `contracts/coverage_matrix.py::CountedState`
 - A coverage matrix's `document.view` changes presentation only, never which criteria are counted.
-- `in_review` criteria are not counted; a linked scenario is the warning `IN_REVIEW_AC_HAS_TESTS`, and the link is kept → `contracts/codes.py::Code`
+- `in_review` criteria are not counted; a linked scenario is the warning `IN_REVIEW_AC_HAS_TESTS` → `contracts/codes.py::Code`
   - Why: collection runs against `master`, where tests for work in review do not exist yet.
   - A test for one on `master` usually means the work merged and its state was not updated.
 - `planned` criteria, backlog or targeted, are not counted; a linked scenario is the warning `PLANNED_AC_HAS_TESTS` → `contracts/codes.py::Code`
   - Why: tests ahead of implementation are fine; counting unbuilt work would depress the coverage figure.
+- The coverage matrix holds no row for an `in_review` or `planned` criterion → `contracts/coverage_matrix.py::CountedState`
+- A scenario linked to one keeps its `@AC:` link in `ui-test-catalog` → `contracts/ui_test_catalog.py::FeatureFileCatalog`
+- Either warning names the scenario and the criterion → toolkit
 
 ## Coverage summary
 
