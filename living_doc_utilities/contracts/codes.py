@@ -35,7 +35,7 @@ class Emitter(str, Enum):
 
     # R5: raised only by `compat.py::check_input`, `io.py::read_artifact` and `io.py::write_artifact`.
     UTILITIES = "utilities"
-    # living_doc_toolkit_core.input_validation: shared cross-input checks run before any transform command.
+    # living_doc_core.input_validation (toolkit): shared cross-input checks run before any transform command.
     TOOLKIT = "toolkit"
     TRANSFORM = "transform"
     COLLECTOR = "collector"

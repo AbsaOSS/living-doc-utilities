@@ -16,8 +16,10 @@
 
 """
 Shared test helpers every component builds its own R12/R11 tests on: `full_sample` builds one
-valid, deterministic contract instance covering every optional field jointly; `shown_paths`
-encodes the field-by-view rendering table, so tests assert against it instead of a drifting copy.
+valid, deterministic contract instance from one entity set a producer could write, its records jointly
+covering every optional field their types carry; `NEVER_CARRIED_PATHS` names the doc-source paths
+no type carries, which its sample leaves empty; `shown_paths` encodes the field-by-view rendering
+table, so tests assert against it instead of a drifting copy.
 """
 
 from datetime import datetime, timezone
@@ -32,7 +34,7 @@ from living_doc_utilities.contracts import (
     ui_tests,
 )
 from living_doc_utilities.contracts.codes import Code
-from living_doc_utilities.contracts.common import AcceptanceCriterion, SourceRef, Timestamps
+from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType, EntityCore, SourceRef, Timestamps
 from living_doc_utilities.contracts.doc_entities import Entity, PageRef
 from living_doc_utilities.contracts.envelope import (
     AuditStats,
@@ -46,12 +48,14 @@ from living_doc_utilities.contracts.envelope import (
     Stats,
 )
 from living_doc_utilities.contracts.registry import ContractResult
+from living_doc_utilities.contracts.schema_export import field_occupancy_paths
 from living_doc_utilities.contracts.ui_tests import AcLink, Scenario
 
 _UTILITIES_VERSION = "0.5.1"
 
 # ---------------------------------------------------------------------------
-# Shared entities/scenarios reused everywhere a contract needs them; full coverage per root, since R11 is per-root.
+# The one entity set and the scenarios every sample reuses. doc-source holds the set split by type, one root per
+# type, and R11 counts each root on its own: a root fills every path but those its type never carries.
 # ---------------------------------------------------------------------------
 
 
@@ -141,10 +145,69 @@ def _deprecated_acceptance_criteria(parent_id: str) -> list[AcceptanceCriterion]
     ]
 
 
+# The Functionality's keyword AC: its folded name and its declared values. No scenario links that Functionality.
+_DECLINE_REASON_KEYWORD = "decline_reason"
+_DECLINE_REASONS = ("expired", "blocked")
+
+
+def _functionality_acceptance_criteria(parent_id: str) -> list[AcceptanceCriterion]:
+    """Every acceptance-criterion-level extension on a Functionality, jointly, since doc-source counts its root
+    apart: an `active` `Aspect:` AC with preconditions, not_in_scope and rationale; a targeted and a backlog
+    `planned` AC; an `active` keyword AC; and a `deprecated` AC with its planned removal, which an `active`
+    entity may hold (Parsers, "Status derivation")."""
+    return [
+        AcceptanceCriterion(
+            id=f"{parent_id}-01",
+            state="active",
+            version="1.2.0",
+            description="The API charges a saved card and returns the payment id.",
+            aspect=["visa", "mastercard"],
+            preconditions=["The card is saved to the customer's account."],
+            not_in_scope=["Refunds."],
+            rationale="The payment id lets the checkout page confirm the order without a second call.",
+        ),
+        AcceptanceCriterion(
+            id=f"{parent_id}-02",
+            state="planned",
+            version="1.7.0",
+            description="The API charges a saved card in the customer's own currency.",
+        ),
+        AcceptanceCriterion(
+            id=f"{parent_id}-03",
+            state="planned",
+            description="The API charges a saved card in instalments.",
+        ),
+        AcceptanceCriterion(
+            id=f"{parent_id}-04",
+            state="active",
+            version="1.2.0",
+            description="The API declines a charge on a card that is {decline-reason}.",
+            aspect=list(_DECLINE_REASONS),
+            placeholder_values={_DECLINE_REASON_KEYWORD: list(_DECLINE_REASONS)},
+        ),
+        AcceptanceCriterion(
+            id=f"{parent_id}-05",
+            state="deprecated",
+            version="1.2.0",
+            removal_planned="2.0.0",
+            description="The API returns the card's last four digits with the payment id.",
+        ),
+    ]
+
+
+def _closed_timestamps() -> Timestamps:
+    return Timestamps(
+        created_at=datetime(2025, 2, 3, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 4, 20, tzinfo=timezone.utc),
+        closed_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+    )
+
+
 def _entities() -> list[Entity]:
-    """One of each entity kind, jointly covering every Entity-shaped leaf path doc-entities,
-    doc-source and generator-ready declare - deprecation fields, a derived Feature state with
-    pages, a Functionality rationale - each only where its own state allows it."""
+    """The one entity set every entity-carrying sample holds, each id once. Per type, the records jointly cover every
+    Entity-shaped leaf path that type carries - deprecation fields, a derived Feature state with pages, an `API`
+    Feature, criteria on a User Story and on a Functionality - each only where its state and type allow it, and each
+    relation names an entity of the type it expects (Parsers, "Relations")."""
     user_story_active = Entity(
         entity_id="US-001",
         source_ref=_github_source_ref("501", "User Story"),
@@ -189,7 +252,7 @@ def _entities() -> list[Entity]:
         state="active",
         state_origin="derived",
         purpose="The page where a customer reviews and confirms an order.",
-        surface_type="page",
+        surface_type="UI",
         owners=["team-payments"],
         user_stories=["US-001"],
         functionalities=["FUNC-001"],
@@ -227,11 +290,111 @@ def _entities() -> list[Entity]:
         state_origin="authored",
         narrative="Validates the card number using the Luhn algorithm before submission.",
         parent="FEAT-001",
-        func_type="API",
+        func_type="field_validation",
         rationale="Prevents obviously invalid card numbers from reaching the payment gateway.",
     )
 
-    return [user_story_active, user_story_deprecated, feature, functionality]
+    # US-002's successor, so its superseded_by resolves; the one User Story with notes.
+    user_story_successor = Entity(
+        entity_id="US-010",
+        source_ref=_github_source_ref("512", "User Story"),
+        type="DocumentedUserStory",
+        title="Unified checkout",
+        state="active",
+        state_origin="authored",
+        narrative="As a customer, I want one checkout flow, whether or not I have an account.",
+        notes=["Guest checkout moved into this flow when US-002 was retired."],
+    )
+
+    # The API Feature FEAT-001's feature_dependencies names; its state is derived from FUNC-002.
+    api_feature = Entity(
+        entity_id="FEAT-002",
+        source_ref=_github_source_ref("78", "Feature"),
+        type="DocumentedFeature",
+        title="Payments API",
+        state="active",
+        state_origin="derived",
+        purpose="The API the checkout page charges a customer's payment method through.",
+        surface_type="API",
+        owners=["team-payments"],
+        functionalities=["FUNC-002"],
+    )
+
+    # No func_type: living-doc's values each anchor on a PageObject locator, and an API Feature has no PageObject.
+    api_functionality = Entity(
+        entity_id="FUNC-002",
+        source_ref=_github_source_ref("89", "Functionality"),
+        type="DocumentedFunctionality",
+        title="Charge a saved card",
+        state="active",
+        state_origin="authored",
+        narrative="Charges a customer's saved card and returns the payment id.",
+        notes=["The API reads a card token from the vault; it never stores the card number."],
+        acceptance_criteria=_functionality_acceptance_criteria("FUNC-002"),
+        parent="FEAT-002",
+        rationale="One call per charge keeps a retried request from charging the card twice.",
+    )
+
+    # Retired with its one Functionality, so its derived state is deprecated too; a Feature has no deprecation date.
+    # A page, as a PageObject header writes it: a source scan has no form for an API Feature yet (Parsers, "Relations").
+    feature_deprecated = Entity(
+        entity_id="FEAT-003",
+        source_ref=_azure_devops_source_ref("4105", "Feature"),
+        type="DocumentedFeature",
+        title="Legacy payment page",
+        state="deprecated",
+        state_origin="derived",
+        tags=["payments", "legacy"],
+        timestamps=_closed_timestamps(),
+        purpose="The legacy gateway's page where a customer typed in card details.",
+        surface_type="UI",
+        owners=["team-payments"],
+        functionalities=["FUNC-003"],
+        deprecation_reason="The checkout page took over the payment step.",
+        superseded_by="FEAT-001",
+        pages=[
+            PageRef(
+                is_primary=True,
+                route="/checkout/legacy-payment",
+                page_object="LegacyPaymentPage.ts",
+                owners=["team-payments"],
+                purpose="The screen where a customer typed in card details for the legacy gateway.",
+            )
+        ],
+    )
+
+    functionality_deprecated = Entity(
+        entity_id="FUNC-003",
+        source_ref=_azure_devops_source_ref("4106", "Functionality"),
+        type="DocumentedFunctionality",
+        title="Charge through the legacy gateway",
+        state="deprecated",
+        state_origin="authored",
+        tags=["payments", "legacy"],
+        timestamps=_closed_timestamps(),
+        narrative="Charges a card through the legacy payment gateway.",
+        source="https://dev.azure.com/absaoss/payments/_workitems/edit/3988",
+        preconditions=["The merchant account at the legacy gateway is still open."],
+        not_in_scope=["Saved cards."],
+        deprecated_at="2026-05-01",
+        deprecation_reason="Charging a saved card through the Payments API replaced it.",
+        superseded_by="FUNC-002",
+        parent="FEAT-003",
+        func_type="button_action",
+        rationale="Kept until every merchant account has moved to the Payments API.",
+    )
+
+    return [
+        user_story_active,
+        user_story_deprecated,
+        feature,
+        functionality,
+        user_story_successor,
+        api_feature,
+        api_functionality,
+        feature_deprecated,
+        functionality_deprecated,
+    ]
 
 
 def _scenarios() -> list[Scenario]:
@@ -258,6 +421,79 @@ def _scenarios() -> list[Scenario]:
             acceptance_criteria=[AcLink(id="US-002-01")],
         ),
     ]
+
+
+# The Entity fields each type carries beyond EntityCore's, which every entity has. A field belongs to a type when an
+# authoring format writes it for that type: docs/authoring/parsers.md's "Issue body", "Feature header" and
+# "PageObject header" key tables, and living-doc's docs/guides/living-doc-header-types.md sections 1 to 3. Never read
+# from the model: it accepts any field on any type.
+_CONTENT_FIELDS_BY_TYPE: dict[DocType, frozenset[str]] = {
+    "DocumentedUserStory": frozenset(
+        {
+            "narrative",
+            "source",
+            "notes",
+            "business_value",
+            "acceptance_criteria",
+            "preconditions",
+            "not_in_scope",
+            "deprecated_at",
+            "deprecation_reason",
+            "superseded_by",
+        }
+    ),
+    "DocumentedFeature": frozenset(
+        {
+            "purpose",
+            "notes",
+            "deprecation_reason",
+            "superseded_by",
+            "surface_type",
+            "owners",
+            "user_stories",
+            "functionalities",
+            "external_dependencies",
+            "feature_dependencies",
+            "stub_reason",
+            "wizard_steps",
+            "pages",
+        }
+    ),
+    "DocumentedFunctionality": frozenset(
+        {
+            "narrative",
+            "source",
+            "notes",
+            "acceptance_criteria",
+            "preconditions",
+            "not_in_scope",
+            "deprecated_at",
+            "deprecation_reason",
+            "superseded_by",
+            "parent",
+            "func_type",
+            "rationale",
+        }
+    ),
+}
+
+
+def _never_carried_paths(root: str, doc_type: DocType) -> frozenset[str]:
+    """`root`'s leaf paths whose top-level Entity field `doc_type` does not carry, with every path below that field."""
+    carried = _CONTENT_FIELDS_BY_TYPE[doc_type] | set(EntityCore.model_fields)
+    prefix = f"{root}[]."
+    return frozenset(
+        path
+        for path in field_occupancy_paths({root: Entity})
+        if path.removeprefix(prefix).split(".")[0].removesuffix("[]") not in carried
+    )
+
+
+# R12 check 3's exceptions: per doc-source root, the paths its type never carries. full_sample leaves exactly these
+# empty, since only a record no producer writes could fill one; a collector's own full-sample test may use them too.
+NEVER_CARRIED_PATHS: dict[str, frozenset[str]] = {
+    root: _never_carried_paths(root, doc_type) for root, doc_type in doc_source.ROOT_TYPES.items()
+}
 
 
 def _metadata(*, transform: bool) -> Metadata:
@@ -305,12 +541,17 @@ def _doc_entities_sample() -> doc_entities.DocEntitiesResult:
 
 
 def _doc_source_sample() -> doc_source.DocSourceResult:
+    """The entity set split by type, each record in its type's root, as a collector writes it."""
     entities = _entities()
+    by_root = {
+        root: [entity for entity in entities if entity.type == doc_type]
+        for root, doc_type in doc_source.ROOT_TYPES.items()
+    }
     return doc_source.DocSourceResult(
         metadata=_metadata(transform=False),
-        user_stories=list(entities),
-        features=list(entities),
-        functionalities=list(entities),
+        user_stories=by_root["user_stories"],
+        features=by_root["features"],
+        functionalities=by_root["functionalities"],
     )
 
 
@@ -367,6 +608,9 @@ def _not_loaded_warnings() -> list[ContractWarning]:
 
 
 def _generator_ready_sample() -> generator_ready.GeneratorReadyResult:
+    """The whole entity set, unfiltered, so selection_summary counts every entity and criterion as included."""
+    entities = _entities()
+    criteria = sum(len(entity.acceptance_criteria) for entity in entities)
     return generator_ready.GeneratorReadyResult(
         metadata=_metadata(transform=True),
         document=generator_ready.Document(
@@ -374,15 +618,15 @@ def _generator_ready_sample() -> generator_ready.GeneratorReadyResult:
             version="1.4.0",
             view="inner",
             selection_summary=generator_ready.SelectionSummary(
-                total_entities=4,
-                included_entities=4,
+                total_entities=len(entities),
+                included_entities=len(entities),
                 excluded_entities=0,
-                total_acceptance_criteria=6,
-                included_acceptance_criteria=6,
+                total_acceptance_criteria=criteria,
+                included_acceptance_criteria=criteria,
                 excluded_acceptance_criteria=0,
             ),
         ),
-        content=generator_ready.Content(entities=_entities()),
+        content=generator_ready.Content(entities=entities),
         warnings=_not_loaded_warnings(),
     )
 
@@ -401,9 +645,11 @@ def _entity_coverage(rows: list[coverage_matrix.AcCoverage], **fields: Any) -> c
 
 
 def _coverage_matrix_sample() -> coverage_matrix.CoverageMatrixResult:
-    """Each row status once - covered, partially_covered (1 of 3), not_covered - plus a deprecated row and an
-    entity with no counted row. US-001 is 44.4 (1 + 1/3 + 0 over 3 rows), US-002 100.0, FUNC-001 None; the
-    matrix is 58.3 (7/3 over 4 rows), not the 72.2 mean of the two entity percentages."""
+    """What one coverage run over the entity set and the ui-tests sample gives: an entity per User Story and
+    Functionality, in the set's order, a row per counted criterion, and planned_summary over the planned ones.
+    Each row status occurs - covered, partially_covered (1 of 3), not_covered - with deprecated rows and entities
+    with no counted row. US-001 is 44.4 (1 + 1/3 + 0 over 3 rows), US-002 100.0, FUNC-002 0.0 (no scenario links
+    it); the matrix is 33.3 (7/3 over 7 rows), not the 48.1 mean of the three entity percentages."""
     user_story = _entity_coverage(
         [
             coverage_matrix.AcCoverage(
@@ -445,12 +691,52 @@ def _coverage_matrix_sample() -> coverage_matrix.CoverageMatrixResult:
     functionality = _entity_coverage(
         [], entity_id="FUNC-001", type="DocumentedFunctionality", title="Validate card number", state="active"
     )
-    entities = [user_story, deprecated_user_story, functionality]
+    successor_user_story = _entity_coverage(
+        [], entity_id="US-010", type="DocumentedUserStory", title="Unified checkout", state="active"
+    )
+    api_functionality = _entity_coverage(
+        [
+            coverage_matrix.AcCoverage(
+                ac_id="FUNC-002-01",
+                state="active",
+                status="not_covered",
+                aspects=[_aspect("visa"), _aspect("mastercard")],
+            ),
+            coverage_matrix.AcCoverage(
+                ac_id="FUNC-002-04",
+                state="active",
+                status="not_covered",
+                keyword=_DECLINE_REASON_KEYWORD,
+                aspects=[_aspect(reason) for reason in _DECLINE_REASONS],
+            ),
+            coverage_matrix.AcCoverage(ac_id="FUNC-002-05", state="deprecated", status="not_covered"),
+        ],
+        entity_id="FUNC-002",
+        type="DocumentedFunctionality",
+        title="Charge a saved card",
+        state="active",
+    )
+    deprecated_functionality = _entity_coverage(
+        [],
+        entity_id="FUNC-003",
+        type="DocumentedFunctionality",
+        title="Charge through the legacy gateway",
+        state="deprecated",
+    )
+    entities = [
+        user_story,
+        deprecated_user_story,
+        functionality,
+        successor_user_story,
+        api_functionality,
+        deprecated_functionality,
+    ]
     return coverage_matrix.CoverageMatrixResult(
         metadata=_metadata(transform=True),
         document=coverage_matrix.Document(view="inner"),
         entities=entities,
-        planned_summary=coverage_matrix.PlannedSummary(total=2, backlog=1, by_target_version={"1.6.0": 1}),
+        # US-001-02 and FUNC-002-02 are targeted, US-001-03 and FUNC-002-03 backlog.
+        planned_summary=coverage_matrix.PlannedSummary(total=4, backlog=2, by_target_version={"1.6.0": 1, "1.7.0": 1}),
         summary=coverage_matrix.CoverageSummary.from_rows(
             row for entity in entities for row in entity.acceptance_criteria
         ),
@@ -483,8 +769,9 @@ _BUILDERS: dict[str, Callable[[], ContractResult]] = {
 
 
 def full_sample(contract: str) -> ContractResult:
-    """R12 check 3: one valid, deterministic instance of `contract`, covering every optional field jointly.
-    Always unfiltered - filtering by view is a transform's job.
+    """R12 check 3: one valid, deterministic instance of `contract`, built from the one entity set, covering every
+    optional field jointly; in doc-source, every one but NEVER_CARRIED_PATHS. Always unfiltered - filtering by
+    view is a transform's job.
 
     @param contract: one of the six contracts' CONTRACT_ID (e.g. "doc-entities-v1.0.0").
     @return: a fresh, schema-valid instance of that contract's result model.

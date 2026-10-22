@@ -37,7 +37,7 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 |---|---|---|---|---|
 | `INVALID_CONTRACT_ID` | error | utilities | `schema_version` missing or unparseable (hand-edited JSON); on read, an expected contract's version this `utilities` does not ship (a file from another `utilities` version); on write, an unknown id | R5 step 1 fails; an unshipped version fails before step 3, with the pin hint |
 | `CONTRACT_MISMATCH` | error | utilities | not a contract the slot expects (a test catalog where documentation is expected) | R5 step 2 fails; names the expected set |
-| `SCHEMA_VALIDATION_FAILED` | error | utilities | schema or model validation fails (a missing field; an unknown field from a newer library) | R5 step 3 fails; on write, no file is written |
+| `SCHEMA_VALIDATION_FAILED` | error | utilities | schema or model validation fails (a missing field; an unknown field from a newer library; a record in another type's `doc-source` root; a date-time without its offset) | R5 step 3 fails; on write, no file is written |
 | `MISSING_INPUT` | error | toolkit | a needed input is absent (a coverage run with no documentation or no test input) | validation stops |
 | `UNKNOWN_PRODUCER` | error | toolkit | no adapter recognises the producer name (a file from an unknown tool) | validation stops |
 | `PROJECT_MISMATCH` | error | toolkit | inputs carry different project ids, or one has none | validation stops |

@@ -35,6 +35,8 @@ holds the records; every field path starts there.
 
 - Each contract module declares `CONTRACT_ID` and `RECORD_ROOTS`; one registry collects them → `contracts/registry.py::CONTRACTS`
   - Why: stats, schema export and the test helpers read one declaration, so a renamed root leaves none behind.
+- Each `doc-source` root holds one type: `user_stories[]` User Stories, `features[]` Features, `functionalities[]` Functionalities → `contracts/doc_source.py::DocSourceResult`
+  - Why: the root names the type, and a reader that trusts it must not meet another type there.
 - Both issue-tracker collectors, GitHub and Azure DevOps, write `doc-entities.json` → `contracts/doc_entities.py::DocEntitiesResult`
 - The file name is the contract, never the source system; the writer is named in `metadata.producer.name` (R6) → `contracts/envelope.py::Producer`
 - `generator-ready` carries the `doc-entities` entity model unchanged under `content.entities[]` → `contracts/generator_ready.py::Content`

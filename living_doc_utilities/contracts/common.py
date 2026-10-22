@@ -19,13 +19,17 @@ Shared value objects used by every contract model: the extra="forbid" base class
 the acceptance-criterion grammar, entity identity/provenance, and timestamps.
 """
 
-from datetime import datetime
 from typing import Annotated, Iterable, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 # Version fields never carry a leading "v".
 VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
+
+# An RFC 3339 date-time's shape, offset required; schema_export adds it beside every `format: date-time`.
+# It checks the shape only: the model (AwareDatetime) rejects an impossible date such as month 13. It ends in `$`, not
+# a lookahead RE2-based validators cannot compile, so Python's re.search lets a trailing newline through to the model.
+DATE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$"
 
 # AC id = parent id + sequence, conventionally zero-padded (e.g. "US-001-01"); the digit width is not enforced.
 # Only a User Story or a Functionality owns criteria, so a Feature (FEAT-) or foreign prefix is never an AC parent.
@@ -62,11 +66,11 @@ class ViewDocument(ContractModel):
 
 
 class Timestamps(ContractModel):
-    """Creation, update and close timestamps for an entity."""
+    """Creation, update and close timestamps for an entity, each with its UTC offset."""
 
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    closed_at: Optional[datetime] = None
+    created_at: Optional[AwareDatetime] = None
+    updated_at: Optional[AwareDatetime] = None
+    closed_at: Optional[AwareDatetime] = None
 
 
 class SourceRef(ContractModel):

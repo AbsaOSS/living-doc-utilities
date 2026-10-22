@@ -41,27 +41,35 @@ Read before: [Pipeline rules](pipeline-rules.md) · Next: [Rendering](rendering.
 ## Check 3: full-sample test
 
 `full_sample(contract_id)` returns a valid, deterministic instance of any contract → `contracts/testing.py::full_sample`.
-Its state-consistent records jointly fill every optional field:
+Its state-consistent records jointly fill, in each root, every optional field their type carries:
 
 - an active entity with every optional aspect set;
-- a deprecated entity with its deprecation fields;
+- a deprecated entity of each type with its deprecation fields;
 - a deprecated acceptance criterion with a planned-removal version;
 - a planned acceptance criterion with a target version, and one without;
+- criteria with every criterion field on a User Story and on a Functionality;
 - a Feature with a derived state and a `stub_reason`;
 - every [field prepared for Azure DevOps](entities-and-state.md#fields-prepared-for-azure-devops);
 - in `generator-ready`, what was not loaded: a dropped criterion's `MALFORMED_AC` with every location field, an `UNPARSED_AC_LINE`, and a `MISSING_ENTITY_ID` that names no entity ([warning fields](errors.md#how-codes-are-reported)).
 
-Three properties of the sample:
+Properties of the sample:
 
-- No record carries a field its own state makes meaningless → `contracts/testing.py::full_sample`
+- No record carries a field its state or its type makes meaningless; a contract with a root per type holds each record in its type's root → `contracts/testing.py::full_sample`
   - Why: the sample stays something a real pipeline could produce.
-- The contracts' samples agree: each coverage row and scenario link names a criterion the entities hold, with its aspects and keyword, and the dropped criterion is in none of them → `contracts/testing.py::full_sample`
+- One id names one entity across the sample's roots → `contracts/testing.py::full_sample`
+  - Why: the toolkit's shared input validation stops at a repeated id ([step 6](errors.md#shared-input-validation-order)).
+- Each `doc-source` root fills every path except those its type never carries → `contracts/testing.py::NEVER_CARRIED_PATHS`
+  - Why: R11 counts per root, and such a path can only be filled by a record no producer writes.
+- The contracts' samples agree on one entity set → `contracts/testing.py::full_sample`:
+  - `doc-entities`, `doc-source` and `generator-ready` hold the same records;
+  - `coverage-matrix` is one coverage run over them and `ui-tests`: a row per counted criterion, the planned ones in `planned_summary`;
+  - each coverage row and scenario link names a criterion the set holds, with its aspects and keyword; the dropped criterion is in none.
   - Why: the toolkit computes the matrix from the other two; its tests compare samples one run could produce.
 - The sample takes no view: transforms filter it, generators set `document.view` → `contracts/testing.py::full_sample`
 
 Each kind of component uses the sample differently:
 
-- A transform runs over it in every view and shows no field loss (R11 below) → transforms
+- A transform runs its command over the written sample in every view, input validation included, and shows no field loss (R11 below) → transforms
 - A generator renders it per view and asserts what each view shows and hides → `contracts/testing.py::shown_paths`
 - A collector runs over a fully authored fixture; every contract field has non-zero occupancy, bar documented exceptions → collectors
   - Why: ordinary fixtures fill only what a test cares about; field loss hides behind them.

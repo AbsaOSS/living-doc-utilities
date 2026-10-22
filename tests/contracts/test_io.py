@@ -18,6 +18,7 @@
 
 import json
 import os
+from datetime import datetime
 
 import pytest
 from pydantic import ConfigDict
@@ -391,6 +392,128 @@ def test_ui_test_catalog_round_trips_through_write_and_read(tmp_path):
     assert isinstance(loaded, UiTestCatalogResult)
     assert loaded.feature_files[0].feature_file == "checkout.feature"
     assert loaded.feature_files[0].linked_to_user_story[0].entity_id == "US-001"
+
+
+# ---------------------------------------------------------------------------
+# Date-times: a value that is no RFC 3339 date-time with an offset fails at the schema step, on read and on write.
+# ---------------------------------------------------------------------------
+
+_DATE_TIME_FIELDS = {"generated_at": "$.metadata.generated_at", "closed_at": "$.entities[0].timestamps.closed_at"}
+
+
+def _doc_entities_result_with_date_time(field: str, value: str) -> DocEntitiesResult:
+    # model_copy(update=...) skips validators, so the value reaches write_artifact's schema step as written.
+    result = _valid_doc_entities_result(producer=_matching_producer())
+    if field == "generated_at":
+        return result.model_copy(update={"metadata": result.metadata.model_copy(update={field: value})})
+    entity = result.entities[0]
+    timestamps = entity.timestamps.model_copy(update={field: value})
+    return result.model_copy(update={"entities": [entity.model_copy(update={"timestamps": timestamps})]})
+
+
+def _assert_failed_at_the_schema_step(error: ContractError, field: str) -> None:
+    assert error.code == Code.SCHEMA_VALIDATION_FAILED
+    assert error.message.startswith(f"{_DATE_TIME_FIELDS[field]}: ")
+    assert "passed schema validation" not in error.message
+
+
+def _doc_entities_file_with_date_time(tmp_path, field: str, value):
+    path = tmp_path / "doc-entities.json"
+    payload = json.loads(_valid_doc_entities_result().model_dump_json())
+    if field == "generated_at":
+        payload["metadata"]["generated_at"] = value
+    else:
+        payload["entities"][0]["timestamps"][field] = value
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("field", list(_DATE_TIME_FIELDS))
+@pytest.mark.parametrize("value", factories.NOT_RFC_3339_DATE_TIMES)
+def test_read_artifact_fails_a_date_time_that_is_no_rfc_3339_date_time_at_the_schema_step(field, value, tmp_path):
+    """read_artifact stops the value at R5 step 3, and the message names the field."""
+    path = _doc_entities_file_with_date_time(tmp_path, field, value)
+
+    with pytest.raises(ContractError) as excinfo:
+        io.read_artifact(path, "doc-entities")
+
+    _assert_failed_at_the_schema_step(excinfo.value, field)
+
+
+@pytest.mark.parametrize("field", list(_DATE_TIME_FIELDS))
+def test_read_artifact_fails_a_unix_time_number_at_the_schema_step(field, tmp_path):
+    """A Unix time written as a JSON number, which the model would read as UTC, stops at R5 step 3."""
+    path = _doc_entities_file_with_date_time(tmp_path, field, 1772323200)
+
+    with pytest.raises(ContractError) as excinfo:
+        io.read_artifact(path, "doc-entities")
+
+    _assert_failed_at_the_schema_step(excinfo.value, field)
+
+
+# Dumping a str from a datetime field warns that the value is unexpected; that value is the point here.
+@pytest.mark.filterwarnings("ignore:Pydantic serializer warnings:UserWarning")
+@pytest.mark.parametrize("field", list(_DATE_TIME_FIELDS))
+@pytest.mark.parametrize("value", factories.NOT_RFC_3339_DATE_TIMES)
+def test_write_artifact_fails_a_date_time_that_is_no_rfc_3339_date_time_and_writes_nothing(field, value, tmp_path):
+    """write_artifact stops the value at its schema step, names the field and creates no file."""
+    destination = tmp_path / "doc-entities.json"
+
+    with pytest.raises(ContractError) as excinfo:
+        io.write_artifact(_doc_entities_result_with_date_time(field, value), destination)
+
+    _assert_failed_at_the_schema_step(excinfo.value, field)
+    assert not destination.exists()
+    assert _leftover_tmp_files(tmp_path) == []
+
+
+def test_write_artifact_fails_a_naive_datetime_at_the_schema_step(tmp_path):
+    """A naive datetime object dumps without an offset, so the schema step stops it before the model does."""
+    destination = tmp_path / "doc-entities.json"
+
+    with pytest.raises(ContractError) as excinfo:
+        io.write_artifact(_doc_entities_result_with_date_time("generated_at", datetime(2026, 3, 1)), destination)
+
+    _assert_failed_at_the_schema_step(excinfo.value, "generated_at")
+    assert list(tmp_path.iterdir()) == []
+
+
+# Python's `re.search`, which jsonschema applies a `pattern` with, lets `$` match before a final newline, so a
+# trailing newline passes the schema step here; an ECMA-262 validator rejects it there. The pattern stays without a
+# lookahead, which RE2-based validators cannot compile, so the model step is what stops it in Python.
+_TRAILING_NEWLINE = "2026-03-01T00:00:00Z\n"
+_MODEL_LOCATIONS = {"generated_at": "metadata.generated_at", "closed_at": "entities.0.timestamps.closed_at"}
+
+
+def _assert_failed_at_the_model_step(error: ContractError, field: str) -> None:
+    assert error.code == Code.SCHEMA_VALIDATION_FAILED
+    assert "passed schema validation but failed model validation" in error.message
+    assert _MODEL_LOCATIONS[field] in error.message
+
+
+@pytest.mark.parametrize("field", list(_DATE_TIME_FIELDS))
+def test_read_artifact_fails_a_date_time_with_a_trailing_newline_at_the_model_step(field, tmp_path):
+    """A trailing newline passes Python's pattern check, and the model still fails it as SCHEMA_VALIDATION_FAILED."""
+    path = _doc_entities_file_with_date_time(tmp_path, field, _TRAILING_NEWLINE)
+
+    with pytest.raises(ContractError) as excinfo:
+        io.read_artifact(path, "doc-entities")
+
+    _assert_failed_at_the_model_step(excinfo.value, field)
+
+
+# Dumping a str from a datetime field warns that the value is unexpected; that value is the point here.
+@pytest.mark.filterwarnings("ignore:Pydantic serializer warnings:UserWarning")
+@pytest.mark.parametrize("field", list(_DATE_TIME_FIELDS))
+def test_write_artifact_fails_a_date_time_with_a_trailing_newline_and_writes_nothing(field, tmp_path):
+    """write_artifact's model step fails the value the pattern let through, and creates no file."""
+    destination = tmp_path / "doc-entities.json"
+
+    with pytest.raises(ContractError) as excinfo:
+        io.write_artifact(_doc_entities_result_with_date_time(field, _TRAILING_NEWLINE), destination)
+
+    _assert_failed_at_the_model_step(excinfo.value, field)
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_read_artifact_accepts_a_string_path_as_well_as_a_path_object(tmp_path):

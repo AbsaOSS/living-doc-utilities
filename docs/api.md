@@ -26,7 +26,7 @@ table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module
 | `contracts.common` | the closed base model, `AcceptanceCriterion`, `EntityCore`, `SourceRef`, shared patterns | none |
 | `contracts.envelope` | the metadata envelope: `Metadata`, `Producer`, `Run`, `Source`, `Stats`, `ContractWarning` | none |
 | `contracts.doc_entities` | the `doc-entities` result model, `Entity`, `PageRef` | none |
-| `contracts.doc_source` | the `doc-source` result model | none |
+| `contracts.doc_source` | the `doc-source` result model, `ROOT_TYPES` | none |
 | `contracts.ui_tests` | the `ui-tests` result model, `Scenario`, `AcLink` | none |
 | `contracts.generator_ready` | the `generator-ready` result model | none |
 | `contracts.coverage_matrix` | the `coverage-matrix` result model, `CoverageSummary.from_rows()` | none |
@@ -39,7 +39,7 @@ table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module
 | `contracts.io` | `read_artifact()`, `write_artifact()` | none |
 | `contracts.stats` | `compute_stats()` for `metadata.stats` | none |
 | `contracts.lineage` | `LineageTable`, `Dropped`, `assert_complete()`, `check_field_loss()` | none |
-| `contracts.testing` | `full_sample()`, `shown_paths()` for component tests | none |
+| `contracts.testing` | `full_sample()`, `shown_paths()`, `NEVER_CARRIED_PATHS` for component tests | none |
 | `contracts.check_no_vendored_schemas` | the vendored-schema check, runnable with `python -m` | none |
 | `authoring.normalize` | `normalize()`, `normalize_framed()`, `SourceFormat` | none |
 | `authoring.framing` | `Frame`, `FramedLine`, `Role`, `sections()`, `criterion_blocks()`, the structural `Problem` kinds | none |
@@ -68,12 +68,12 @@ Where each part is defined: [contracts](contracts.md) and [authoring](authoring.
 
 | Install | Adds | Needed for |
 |---|---|---|
-| `living-doc-utilities==0.7.0` | `pydantic`, `jsonschema` | every module marked "none" above |
-| `living-doc-utilities[github]==0.7.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
-| `living-doc-utilities[html]==0.7.0` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
+| `living-doc-utilities==0.8.0` | `pydantic`, `jsonschema` | every module marked "none" above |
+| `living-doc-utilities[github]==0.8.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
+| `living-doc-utilities[html]==0.8.0` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
 
 - The extras are declared in `pyproject.toml` → `pyproject.toml::optional-dependencies`
-- Extras combine: `pip install "living-doc-utilities[github,html]==0.7.0"` → `pyproject.toml::optional-dependencies`
+- Extras combine: `pip install "living-doc-utilities[github,html]==0.8.0"` → `pyproject.toml::optional-dependencies`
 - Importing a module never needs the `html` extra; calling `convert_html_to_markdown()` or `sanitize_html_fragment()` does → `tests/authoring/test_isolation.py::test_nh3_is_imported_only_inside_a_function_that_needs_it`
 - A clean install of the wheel with each extra proves which module imports where → `Makefile::import-matrix`
 
@@ -140,7 +140,7 @@ def fetch_issue(repository, number):
 
 The version lives in `pyproject.toml` → `pyproject.toml::version`. The rules for pinning and changing it:
 
-- Pin exactly: `living-doc-utilities==0.7.0` plus your extras; no ranges, pre-releases or git-SHA pins.
+- Pin exactly: `living-doc-utilities==0.8.0` plus your extras; no ranges, pre-releases or git-SHA pins.
 - The version stays `0.x` until every component of the ecosystem reaches `1.0` together, as one release.
 - A contract or public-API change bumps the minor version (`0.5.0` → `0.6.0`).
 - A parser or helper fix bumps the patch version (`0.5.0` → `0.5.1`).

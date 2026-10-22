@@ -51,6 +51,16 @@ from living_doc_utilities.contracts.ui_test_catalog import (
 )
 from living_doc_utilities.contracts.ui_tests import AcLink, Scenario
 
+# Values the schemas' date-time pattern rejects: no offset, a date alone, a Unix time, a space for `T`, a snapshot
+# placeholder. AwareDatetime itself accepts the Unix time and the space, so only the schema step stops those two.
+NOT_RFC_3339_DATE_TIMES = [
+    "2026-03-01T00:00:00",
+    "2026-03-01",
+    "1772323200",
+    "2026-03-01 00:00:00+00:00",
+    "<normalized-for-snapshot>",
+]
+
 
 def _build(model: Callable[..., Any], defaults: dict[str, Any], **overrides: Any) -> Any:
     fields = dict(defaults)
@@ -144,7 +154,7 @@ def feature(entity_id: str = "FEAT-001", **overrides: Any) -> Entity:
             "state": "active",
             "state_origin": "derived",
             "purpose": "The checkout page.",
-            "surface_type": "page",
+            "surface_type": "UI",
             "owners": ["team-payments"],
             "user_stories": ["US-001"],
             "functionalities": ["FUNC-001"],
@@ -166,7 +176,7 @@ def functionality(entity_id: str = "FUNC-001", **overrides: Any) -> Entity:
             "state_origin": "authored",
             "narrative": "Validates the card number.",
             "parent": "FEAT-001",
-            "func_type": "API",
+            "func_type": "field_validation",
             "acceptance_criteria": [acceptance_criterion(parent_id=entity_id)],
         },
         **overrides,
