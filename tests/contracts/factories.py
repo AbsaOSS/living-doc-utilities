@@ -51,6 +51,16 @@ from living_doc_utilities.contracts.ui_test_catalog import (
 )
 from living_doc_utilities.contracts.ui_tests import AcLink, Scenario
 
+# Values the schemas' date-time pattern rejects: no offset, a date alone, a Unix time, a space for `T`, a snapshot
+# placeholder. AwareDatetime itself accepts the Unix time and the space, so only the schema step stops those two.
+NOT_RFC_3339_DATE_TIMES = [
+    "2026-03-01T00:00:00",
+    "2026-03-01",
+    "1772323200",
+    "2026-03-01 00:00:00+00:00",
+    "<normalized-for-snapshot>",
+]
+
 
 def _build(model: Callable[..., Any], defaults: dict[str, Any], **overrides: Any) -> Any:
     fields = dict(defaults)

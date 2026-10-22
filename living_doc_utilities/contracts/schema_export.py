@@ -27,7 +27,8 @@ from typing import Any, Iterator, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from living_doc_utilities.contracts import registry
+from living_doc_utilities.contracts import doc_source, registry
+from living_doc_utilities.contracts.common import DATE_TIME_PATTERN
 from living_doc_utilities.contracts.envelope import Stats
 
 # R1/R2: every exported schema declares its dialect and identifies itself.
@@ -106,6 +107,19 @@ def _rewrite_pattern_maps(node: Any) -> None:
     elif isinstance(node, list):
         for item in node:
             _rewrite_pattern_maps(item)
+
+
+def _add_date_time_patterns(node: Any) -> None:
+    """Adds `common.py::DATE_TIME_PATTERN` beside every `format: date-time`: in 2020-12 `format` is only an
+    annotation, so without a `pattern` the schema step and any outside validator accept what the model rejects."""
+    if isinstance(node, dict):
+        if node.get("format") == "date-time":
+            node["pattern"] = DATE_TIME_PATTERN
+        for value in node.values():
+            _add_date_time_patterns(value)
+    elif isinstance(node, list):
+        for item in node:
+            _add_date_time_patterns(item)
 
 
 def _inject_own_field_occupancy_enum(schema: dict[str, Any], paths: list[str]) -> None:
@@ -221,8 +235,19 @@ _CROSS_FIELD_RULES: dict[str, list[dict[str, Any]]] = {
 }
 
 
+# Each record root's items hold only that root's type, keyed by contract id, then root
+# (`doc_source.py::DocSourceResult._check_each_root_holds_its_type`).
+_ROOT_ITEM_RULES: dict[str, dict[str, dict[str, Any]]] = {
+    doc_source.CONTRACT_ID: {
+        root: {"properties": {"type": {"const": doc_type}}, "required": ["type"]}
+        for root, doc_type in doc_source.ROOT_TYPES.items()
+    },
+}
+
+
 def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) -> None:
-    """Applies _CROSS_FIELD_RULES to `schema`'s $defs, plus `source_inputs[]: minItems 1` (R7) for transforms.
+    """Applies _CROSS_FIELD_RULES to `schema`'s $defs and _ROOT_ITEM_RULES to its record roots' items, plus
+    `source_inputs[]: minItems 1` (R7) for transforms.
     Unencoded, no JSON Schema keyword: `common.py::check_ac_ids_owned`, `coverage_matrix.py::PlannedSummary`,
     `coverage_matrix.py::CoverageSummary` (recomputed by `EntityCoverage` and `CoverageMatrixResult`),
     `generator_ready.py::SelectionSummary` and `envelope.py::Source` (their model_validators are Pydantic-only)."""
@@ -232,6 +257,9 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
         target_def = defs.get(def_name)
         if isinstance(target_def, dict):
             target_def.setdefault("allOf", []).extend(rules)
+
+    for root, rule in _ROOT_ITEM_RULES.get(contract_id, {}).items():
+        schema["properties"][root]["items"].update(rule)
 
     if registry.CONTRACTS[contract_id].is_transform:
         metadata_def = defs["Metadata"]
@@ -275,7 +303,7 @@ def generate_schema(
     contract_id: str, model: type[BaseModel], record_roots: dict[str, type[BaseModel]]
 ) -> dict[str, Any]:
     """Builds one contract's full JSON Schema: the raw pydantic schema with the R1/R2 header
-    keys added and the R9 map post-processing applied.
+    keys added, the R9 map post-processing applied, the date-time pattern and the cross-field rules added.
 
     @param contract_id: the contract's versioned id, e.g. "doc-entities-v1.0.0".
     @param model: the contract's top-level result model.
@@ -284,6 +312,7 @@ def generate_schema(
     """
     raw_schema = model.model_json_schema()
     _rewrite_pattern_maps(raw_schema)
+    _add_date_time_patterns(raw_schema)
     _inject_own_field_occupancy_enum(raw_schema, field_occupancy_paths(record_roots))
     _inject_cross_field_constraints(raw_schema, contract_id)
 

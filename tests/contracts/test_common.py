@@ -14,12 +14,15 @@
 # limitations under the License.
 #
 
-"""Shared models in `common.py`: AC state/version/removal_planned rules and header, `SourceRef`, `Timestamps`."""
+"""Shared models in `common.py`: AC state/version/removal_planned rules and header, `SourceRef`, `Timestamps` and
+the date-time pattern."""
+
+import re
 
 import pytest
 from pydantic import ValidationError
 
-from living_doc_utilities.contracts.common import AcceptanceCriterion, SourceRef, Timestamps
+from living_doc_utilities.contracts.common import DATE_TIME_PATTERN, AcceptanceCriterion, SourceRef, Timestamps
 from tests.contracts import factories
 
 
@@ -191,3 +194,49 @@ def test_timestamps_default_to_none():
     assert timestamps.created_at is None
     assert timestamps.updated_at is None
     assert timestamps.closed_at is None
+
+
+# The RFC 3339 shape `DATE_TIME_PATTERN` checks, and what the model (AwareDatetime) checks beyond it.
+_AWARE_DATE_TIMES = [
+    "2026-03-01T00:00:00Z",
+    "2026-03-01T00:00:00+02:00",
+    "2026-03-01T00:00:00.123Z",
+    "2026-03-01t00:00:00z",
+]
+
+
+@pytest.mark.parametrize("value", _AWARE_DATE_TIMES)
+def test_an_aware_rfc_3339_date_time_passes_the_pattern_and_the_model(value):
+    """A date-time with its offset matches `DATE_TIME_PATTERN` and validates as a Timestamps value."""
+    assert re.search(DATE_TIME_PATTERN, value)
+    assert Timestamps(created_at=value).created_at.utcoffset() is not None
+
+
+@pytest.mark.parametrize("value", factories.NOT_RFC_3339_DATE_TIMES)
+def test_a_value_that_is_no_rfc_3339_date_time_fails_the_pattern(value):
+    """No offset, a date alone, a Unix time, a space for `T` and a snapshot placeholder all fail the pattern."""
+    assert re.search(DATE_TIME_PATTERN, value) is None
+
+
+@pytest.mark.parametrize("field", ["created_at", "updated_at", "closed_at"])
+@pytest.mark.parametrize("value", ["2026-03-01T00:00:00", "2026-03-01"])
+def test_the_model_rejects_a_date_time_without_an_offset(field, value):
+    """Each Timestamps field is an AwareDatetime: a value without a UTC offset fails the model too."""
+    with pytest.raises(ValidationError, match=field) as excinfo:
+        Timestamps(**{field: value})
+
+    assert [error["type"] for error in excinfo.value.errors()] == ["timezone_aware"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["2026-13-01T00:00:00Z", "2026-02-30T00:00:00Z", "2026-03-01T25:00:00Z", "2026-03-01T00:61:00Z"],
+    ids=["month-13", "february-30", "hour-25", "minute-61"],
+)
+def test_an_impossible_date_passes_the_pattern_and_fails_the_model(value):
+    """The pattern checks the shape only; the model rejects an impossible month, day, hour or minute."""
+    assert re.search(DATE_TIME_PATTERN, value)
+    with pytest.raises(ValidationError, match="closed_at") as excinfo:
+        Timestamps(closed_at=value)
+
+    assert [error["type"] for error in excinfo.value.errors()] == ["datetime_from_date_parsing"]

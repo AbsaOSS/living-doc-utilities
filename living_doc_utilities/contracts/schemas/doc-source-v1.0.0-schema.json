@@ -715,7 +715,8 @@
         "generated_at": {
           "format": "date-time",
           "title": "Generated At",
-          "type": "string"
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?([Zz]|[+-]\\d{2}:\\d{2})$"
         },
         "stats": {
           "$ref": "#/$defs/Stats"
@@ -1249,13 +1250,14 @@
     },
     "Timestamps": {
       "additionalProperties": false,
-      "description": "Creation, update and close timestamps for an entity.",
+      "description": "Creation, update and close timestamps for an entity, each with its UTC offset.",
       "properties": {
         "created_at": {
           "anyOf": [
             {
               "format": "date-time",
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?([Zz]|[+-]\\d{2}:\\d{2})$"
             },
             {
               "type": "null"
@@ -1268,7 +1270,8 @@
           "anyOf": [
             {
               "format": "date-time",
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?([Zz]|[+-]\\d{2}:\\d{2})$"
             },
             {
               "type": "null"
@@ -1281,7 +1284,8 @@
           "anyOf": [
             {
               "format": "date-time",
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?([Zz]|[+-]\\d{2}:\\d{2})$"
             },
             {
               "type": "null"
@@ -1316,21 +1320,45 @@
     },
     "user_stories": {
       "items": {
-        "$ref": "#/$defs/Entity"
+        "$ref": "#/$defs/Entity",
+        "properties": {
+          "type": {
+            "const": "DocumentedUserStory"
+          }
+        },
+        "required": [
+          "type"
+        ]
       },
       "title": "User Stories",
       "type": "array"
     },
     "features": {
       "items": {
-        "$ref": "#/$defs/Entity"
+        "$ref": "#/$defs/Entity",
+        "properties": {
+          "type": {
+            "const": "DocumentedFeature"
+          }
+        },
+        "required": [
+          "type"
+        ]
       },
       "title": "Features",
       "type": "array"
     },
     "functionalities": {
       "items": {
-        "$ref": "#/$defs/Entity"
+        "$ref": "#/$defs/Entity",
+        "properties": {
+          "type": {
+            "const": "DocumentedFunctionality"
+          }
+        },
+        "required": [
+          "type"
+        ]
       },
       "title": "Functionalities",
       "type": "array"

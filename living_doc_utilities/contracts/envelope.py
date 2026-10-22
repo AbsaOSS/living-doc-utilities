@@ -19,10 +19,9 @@ The shared metadata envelope: one model reused by every contract, parametrised o
 metadata.stats.field_occupancy's key enum, which schema_export.py fills in per contract.
 """
 
-from datetime import datetime
 from typing import Annotated, Literal, Optional
 
-from pydantic import Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, Field, StringConstraints, model_validator
 
 from living_doc_utilities.contracts.common import AC_ID_PATTERN, ContractModel, DocType
 
@@ -132,7 +131,7 @@ class Metadata(ContractModel):
     producer: Producer
     run: Run = Field(default_factory=Run)
     source: Source
-    generated_at: datetime
+    generated_at: AwareDatetime
     stats: Stats
     source_inputs: list[SourceInputEntry] = Field(default_factory=list)
 
@@ -159,7 +158,7 @@ class ContractWarning(ContractModel):
 
 def check_transform_source_inputs(metadata: Metadata) -> None:
     """R7: a transform output's metadata.source_inputs[] always has at least one entry (a
-    transform always has at least its documentation input); only a collector output
-    legitimately carries an empty list."""
+    transform always reads at least one input, though not always a documentation input);
+    only a collector output legitimately carries an empty list."""
     if not metadata.source_inputs:
         raise ValueError("metadata.source_inputs must have at least one entry for a transform output (R7)")

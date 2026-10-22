@@ -134,6 +134,22 @@ def test_metadata_source_inputs_defaults_to_empty_list():
     assert result.source_inputs == []
 
 
+@pytest.mark.parametrize("generated_at", ["2026-03-01T00:00:00", "2026-03-01"])
+def test_metadata_generated_at_rejects_a_date_time_without_an_offset(generated_at):
+    """`Metadata.generated_at` is an AwareDatetime: a value without a UTC offset fails the model."""
+    with pytest.raises(ValidationError, match="generated_at") as excinfo:
+        factories.metadata(generated_at=generated_at)
+
+    assert [error["type"] for error in excinfo.value.errors()] == ["timezone_aware"]
+
+
+def test_metadata_generated_at_keeps_an_aware_date_time_and_dumps_it_in_rfc_3339():
+    """An aware value validates and dumps with its offset, as every producer writes it."""
+    metadata = factories.metadata(generated_at="2026-03-01T02:00:00+02:00")
+
+    assert metadata.model_dump(mode="json")["generated_at"] == "2026-03-01T02:00:00+02:00"
+
+
 def test_contract_warning_code_pattern_rejects_lowercase():
     """ContractWarning.code rejects a lowercase value."""
     with pytest.raises(ValidationError):

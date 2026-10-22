@@ -36,6 +36,7 @@ from living_doc_utilities.contracts import (
     ui_test_catalog,
     ui_tests,
 )
+from living_doc_utilities.contracts.common import DATE_TIME_PATTERN
 from living_doc_utilities.contracts.envelope import AUDIT_FIELD_PATH_PATTERN
 from tests.contracts import factories
 
@@ -364,6 +365,13 @@ def _ac_coverage_keyword_row_without_an_aspects_key() -> coverage_matrix.AcCover
     return coverage_matrix.AcCoverage.model_validate({**row, "keyword": "payment_field"})
 
 
+def _doc_source_with_a_feature_in_user_stories() -> dict:
+    result = doc_source.DocSourceResult(metadata=factories.metadata(), user_stories=[factories.user_story()])
+    data = json.loads(result.model_dump_json())
+    data["user_stories"].append(json.loads(factories.feature().model_dump_json()))
+    return data
+
+
 def _generator_ready_with_empty_source_inputs() -> dict:
     result = generator_ready.GeneratorReadyResult(
         metadata=factories.transform_metadata(),
@@ -497,6 +505,13 @@ REJECTION_CASES = [
         _ac_coverage_keyword_with_aspects_absent,
     ),
     RejectionCase(
+        "doc_source_record_in_another_type_s_root",
+        r"user_stories\[\] holds only 'DocumentedUserStory'",
+        doc_source.CONTRACT_ID,
+        lambda: doc_source.DocSourceResult(metadata=factories.metadata(), user_stories=[factories.feature()]),
+        _doc_source_with_a_feature_in_user_stories,
+    ),
+    RejectionCase(
         "generator_ready_with_empty_source_inputs",
         "source_inputs must have at least one entry",
         generator_ready.CONTRACT_ID,
@@ -551,6 +566,38 @@ def test_transform_output_source_inputs_minitems_is_mirrored_into_the_schema(con
     metadata_def = schema["$defs"]["Metadata"]
 
     assert metadata_def["properties"]["source_inputs"]["minItems"] == 1
+
+
+def test_doc_source_root_items_require_their_root_s_type():
+    """Each doc-source record root's items require the one type `doc_source.py::ROOT_TYPES` gives that root."""
+    properties = _committed_schema(doc_source.CONTRACT_ID)["properties"]
+
+    for root, doc_type in doc_source.ROOT_TYPES.items():
+        items = properties[root]["items"]
+        assert items["$ref"] == "#/$defs/Entity", root
+        assert items["properties"] == {"type": {"const": doc_type}}, root
+        assert items["required"] == ["type"], root
+
+
+def _date_time_nodes(node: Any) -> list[dict]:
+    """Every schema node that declares `format: date-time`."""
+    if isinstance(node, dict):
+        own = [node] if node.get("format") == "date-time" else []
+        return own + [found for value in node.values() for found in _date_time_nodes(value)]
+    if isinstance(node, list):
+        return [found for item in node for found in _date_time_nodes(item)]
+    return []
+
+
+@pytest.mark.parametrize("contract_id", CONTRACT_IDS)
+def test_every_date_time_field_of_a_committed_schema_carries_the_rfc_3339_pattern(contract_id):
+    """Beside `format`, which 2020-12 only annotates, every date-time field asserts `common.py::DATE_TIME_PATTERN`."""
+    schema = _committed_schema(contract_id)
+    nodes = _date_time_nodes(schema)
+
+    # Guards the check from passing on no node: every contract has metadata.generated_at.
+    assert schema["$defs"]["Metadata"]["properties"]["generated_at"] in nodes
+    assert all(node.get("pattern") == DATE_TIME_PATTERN for node in nodes), nodes
 
 
 def test_collector_output_with_empty_source_inputs_still_passes_jsonschema():

@@ -14,14 +14,50 @@
 # limitations under the License.
 #
 
-"""The doc-source contract: its three list record roots and their reuse of doc-entities' `Entity` model."""
+"""The doc-source contract: its three list record roots, the one type each holds, and their reuse of doc-entities'
+`Entity` model."""
 
+import json
+from typing import get_args
+
+import jsonschema
 import pytest
 from pydantic import ValidationError
 
+from living_doc_utilities.contracts import compat, io, schema_export
+from living_doc_utilities.contracts.codes import Code, ContractError
+from living_doc_utilities.contracts.common import DocType
 from living_doc_utilities.contracts.doc_entities import Entity
-from living_doc_utilities.contracts.doc_source import CONTRACT_ID, RECORD_ROOTS, DocSourceResult
+from living_doc_utilities.contracts.doc_source import CONTRACT_ID, RECORD_ROOTS, ROOT_TYPES, DocSourceResult
 from tests.contracts import factories
+
+# One builder per type; each new record takes an id of its own, so only its root is wrong.
+_RECORD_BY_TYPE = {
+    "DocumentedUserStory": lambda: factories.user_story(entity_id="US-002"),
+    "DocumentedFeature": lambda: factories.feature(entity_id="FEAT-002"),
+    "DocumentedFunctionality": lambda: factories.functionality(entity_id="FUNC-002"),
+}
+
+# Every root with every type it must not hold.
+_MISPLACED = [
+    (root, doc_type) for root, root_type in ROOT_TYPES.items() for doc_type in _RECORD_BY_TYPE if doc_type != root_type
+]
+_MISPLACED_IDS = [f"{doc_type}-in-{root}" for root, doc_type in _MISPLACED]
+
+
+def _type_pure_result(**metadata_overrides) -> DocSourceResult:
+    return DocSourceResult(
+        metadata=factories.metadata(**metadata_overrides),
+        user_stories=[factories.user_story()],
+        features=[factories.feature()],
+        functionalities=[factories.functionality()],
+    )
+
+
+def _with_a_misplaced_record(root: str, doc_type: str) -> DocSourceResult:
+    # model_copy(update=...) skips validators, so the misplaced record reaches write_artifact's schema step.
+    result = _type_pure_result(producer=factories.producer(utilities_version=compat.installed_utilities_version()))
+    return result.model_copy(update={root: [*getattr(result, root), _RECORD_BY_TYPE[doc_type]()]})
 
 
 def test_doc_source_uses_the_three_list_record_roots():
@@ -74,3 +110,79 @@ def test_doc_source_forbids_unknown_top_level_field():
     """`DocSourceResult` rejects an unrecognised top-level field."""
     with pytest.raises(ValidationError):
         DocSourceResult(metadata=factories.metadata(), items=[])
+
+
+# ---------------------------------------------------------------------------
+# One entity type per record root, in the model, the committed schema, and both io helpers.
+# ---------------------------------------------------------------------------
+
+
+def test_root_types_name_one_type_per_record_root():
+    """`doc_source.py::ROOT_TYPES` gives each record root, and only those, the type its name says, and every
+    documentation type a root."""
+    assert ROOT_TYPES == {
+        "user_stories": "DocumentedUserStory",
+        "features": "DocumentedFeature",
+        "functionalities": "DocumentedFunctionality",
+    }
+    assert set(ROOT_TYPES) == set(RECORD_ROOTS)
+    assert sorted(ROOT_TYPES.values()) == sorted(get_args(DocType))
+
+
+def test_a_type_pure_doc_source_validates_in_the_model_the_schema_and_both_io_helpers(tmp_path):
+    """Each record in its type's root passes Pydantic and the committed schema, is written and reads back."""
+    result = _type_pure_result(producer=factories.producer(utilities_version=compat.installed_utilities_version()))
+    destination = tmp_path / "doc-source.json"
+
+    DocSourceResult.model_validate(result.model_dump())
+    jsonschema.validate(instance=json.loads(result.model_dump_json()), schema=schema_export.load_schema(CONTRACT_ID))
+    io.write_artifact(result, destination)
+    loaded = io.read_artifact(destination, "doc-source")
+
+    assert loaded.model_dump(exclude={"metadata"}) == result.model_dump(exclude={"metadata"})
+
+
+@pytest.mark.parametrize("root, doc_type", _MISPLACED, ids=_MISPLACED_IDS)
+def test_a_record_in_another_type_s_root_is_rejected_by_the_model(root, doc_type):
+    """The model names the root, the record's index and its type, and the one type the root holds."""
+    data = _with_a_misplaced_record(root, doc_type).model_dump()
+    message = rf"{root}\[1\] is a '{doc_type}' record .*{root}\[\] holds only '{ROOT_TYPES[root]}'"
+
+    with pytest.raises(ValidationError, match=message):
+        DocSourceResult.model_validate(data)
+
+
+@pytest.mark.parametrize("root, doc_type", _MISPLACED, ids=_MISPLACED_IDS)
+def test_a_record_in_another_type_s_root_is_rejected_by_the_committed_schema(root, doc_type):
+    """The exported schema rejects the same record at its `type`, as Pydantic does."""
+    data = json.loads(_with_a_misplaced_record(root, doc_type).model_dump_json())
+
+    errors = list(jsonschema.Draft202012Validator(schema_export.load_schema(CONTRACT_ID)).iter_errors(data))
+
+    assert [(error.json_path, error.validator) for error in errors] == [(f"$.{root}[1].type", "const")]
+
+
+@pytest.mark.parametrize("root, doc_type", _MISPLACED, ids=_MISPLACED_IDS)
+def test_read_artifact_rejects_a_record_in_another_type_s_root_as_schema_validation_failed(root, doc_type, tmp_path):
+    """read_artifact stops such a file at R5 step 3, naming the record's `type` path."""
+    path = tmp_path / "doc-source.json"
+    path.write_text(_with_a_misplaced_record(root, doc_type).model_dump_json(), encoding="utf-8")
+
+    with pytest.raises(ContractError) as excinfo:
+        io.read_artifact(path, "doc-source")
+
+    assert excinfo.value.code == Code.SCHEMA_VALIDATION_FAILED
+    assert excinfo.value.message.startswith(f"$.{root}[1].type: ")
+
+
+@pytest.mark.parametrize("root, doc_type", _MISPLACED, ids=_MISPLACED_IDS)
+def test_write_artifact_rejects_a_record_in_another_type_s_root_and_writes_nothing(root, doc_type, tmp_path):
+    """write_artifact fails such a result as SCHEMA_VALIDATION_FAILED and creates no file."""
+    destination = tmp_path / "doc-source.json"
+
+    with pytest.raises(ContractError) as excinfo:
+        io.write_artifact(_with_a_misplaced_record(root, doc_type), destination)
+
+    assert excinfo.value.code == Code.SCHEMA_VALIDATION_FAILED
+    assert excinfo.value.message.startswith(f"$.{root}[1].type: ")
+    assert list(tmp_path.iterdir()) == []
