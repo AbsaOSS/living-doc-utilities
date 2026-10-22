@@ -569,8 +569,7 @@ def test_transform_output_source_inputs_minitems_is_mirrored_into_the_schema(con
 
 
 def test_doc_source_root_items_require_their_root_s_type():
-    """Each doc-source record root's items are `allOf` the Entity reference and the one type
-    `doc_source.py::ROOT_TYPES` gives that root."""
+    """Each doc-source root's items are `allOf` the Entity reference and a `const` on its `ROOT_TYPES` type."""
     properties = _committed_schema(doc_source.CONTRACT_ID)["properties"]
 
     for root, doc_type in doc_source.ROOT_TYPES.items():
