@@ -118,8 +118,7 @@ def test_doc_source_forbids_unknown_top_level_field():
 
 
 def test_root_types_name_one_type_per_record_root():
-    """`doc_source.py::ROOT_TYPES` gives each record root, and only those, the type its name says, and every
-    documentation type a root."""
+    """`ROOT_TYPES` maps each record root, and only those, to the type its name says, and covers every `DocType`."""
     assert ROOT_TYPES == {
         "user_stories": "DocumentedUserStory",
         "features": "DocumentedFeature",
