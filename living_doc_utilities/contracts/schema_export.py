@@ -258,8 +258,10 @@ def _inject_cross_field_constraints(schema: dict[str, Any], contract_id: str) ->
         if isinstance(target_def, dict):
             target_def.setdefault("allOf", []).extend(rules)
 
+    # Under allOf, never beside the $ref: a draft-07 or OpenAPI 3.0 tool ignores a $ref's sibling keywords.
     for root, rule in _ROOT_ITEM_RULES.get(contract_id, {}).items():
-        schema["properties"][root]["items"].update(rule)
+        root_schema = schema["properties"][root]
+        root_schema["items"] = {"allOf": [root_schema["items"], rule]}
 
     if registry.CONTRACTS[contract_id].is_transform:
         metadata_def = defs["Metadata"]

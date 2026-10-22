@@ -252,7 +252,7 @@ def _entities() -> list[Entity]:
         state="active",
         state_origin="derived",
         purpose="The page where a customer reviews and confirms an order.",
-        surface_type="page",
+        surface_type="UI",
         owners=["team-payments"],
         user_stories=["US-001"],
         functionalities=["FUNC-001"],
@@ -290,7 +290,7 @@ def _entities() -> list[Entity]:
         state_origin="authored",
         narrative="Validates the card number using the Luhn algorithm before submission.",
         parent="FEAT-001",
-        func_type="API",
+        func_type="field_validation",
         rationale="Prevents obviously invalid card numbers from reaching the payment gateway.",
     )
 
@@ -320,6 +320,7 @@ def _entities() -> list[Entity]:
         functionalities=["FUNC-002"],
     )
 
+    # No func_type: living-doc's values each anchor on a PageObject locator, and an API Feature has no PageObject.
     api_functionality = Entity(
         entity_id="FUNC-002",
         source_ref=_github_source_ref("89", "Functionality"),
@@ -331,7 +332,6 @@ def _entities() -> list[Entity]:
         notes=["The API reads a card token from the vault; it never stores the card number."],
         acceptance_criteria=_functionality_acceptance_criteria("FUNC-002"),
         parent="FEAT-002",
-        func_type="API",
         rationale="One call per charge keeps a retried request from charging the card twice.",
     )
 
@@ -347,7 +347,7 @@ def _entities() -> list[Entity]:
         tags=["payments", "legacy"],
         timestamps=_closed_timestamps(),
         purpose="The legacy gateway's page where a customer typed in card details.",
-        surface_type="page",
+        surface_type="UI",
         owners=["team-payments"],
         functionalities=["FUNC-003"],
         deprecation_reason="The checkout page took over the payment step.",
@@ -380,7 +380,7 @@ def _entities() -> list[Entity]:
         deprecation_reason="Charging a saved card through the Payments API replaced it.",
         superseded_by="FUNC-002",
         parent="FEAT-003",
-        func_type="API",
+        func_type="button_action",
         rationale="Kept until every merchant account has moved to the Payments API.",
     )
 

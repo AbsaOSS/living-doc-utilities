@@ -1320,14 +1320,20 @@
     },
     "user_stories": {
       "items": {
-        "$ref": "#/$defs/Entity",
-        "properties": {
-          "type": {
-            "const": "DocumentedUserStory"
+        "allOf": [
+          {
+            "$ref": "#/$defs/Entity"
+          },
+          {
+            "properties": {
+              "type": {
+                "const": "DocumentedUserStory"
+              }
+            },
+            "required": [
+              "type"
+            ]
           }
-        },
-        "required": [
-          "type"
         ]
       },
       "title": "User Stories",
@@ -1335,14 +1341,20 @@
     },
     "features": {
       "items": {
-        "$ref": "#/$defs/Entity",
-        "properties": {
-          "type": {
-            "const": "DocumentedFeature"
+        "allOf": [
+          {
+            "$ref": "#/$defs/Entity"
+          },
+          {
+            "properties": {
+              "type": {
+                "const": "DocumentedFeature"
+              }
+            },
+            "required": [
+              "type"
+            ]
           }
-        },
-        "required": [
-          "type"
         ]
       },
       "title": "Features",
@@ -1350,14 +1362,20 @@
     },
     "functionalities": {
       "items": {
-        "$ref": "#/$defs/Entity",
-        "properties": {
-          "type": {
-            "const": "DocumentedFunctionality"
+        "allOf": [
+          {
+            "$ref": "#/$defs/Entity"
+          },
+          {
+            "properties": {
+              "type": {
+                "const": "DocumentedFunctionality"
+              }
+            },
+            "required": [
+              "type"
+            ]
           }
-        },
-        "required": [
-          "type"
         ]
       },
       "title": "Functionalities",

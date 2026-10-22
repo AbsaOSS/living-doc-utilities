@@ -569,14 +569,30 @@ def test_transform_output_source_inputs_minitems_is_mirrored_into_the_schema(con
 
 
 def test_doc_source_root_items_require_their_root_s_type():
-    """Each doc-source record root's items require the one type `doc_source.py::ROOT_TYPES` gives that root."""
+    """Each doc-source record root's items are `allOf` the Entity reference and the one type
+    `doc_source.py::ROOT_TYPES` gives that root."""
     properties = _committed_schema(doc_source.CONTRACT_ID)["properties"]
 
     for root, doc_type in doc_source.ROOT_TYPES.items():
-        items = properties[root]["items"]
-        assert items["$ref"] == "#/$defs/Entity", root
-        assert items["properties"] == {"type": {"const": doc_type}}, root
-        assert items["required"] == ["type"], root
+        assert properties[root]["items"] == {
+            "allOf": [{"$ref": "#/$defs/Entity"}, {"properties": {"type": {"const": doc_type}}, "required": ["type"]}]
+        }, root
+
+
+def _refs_with_siblings(node: Any) -> list[dict]:
+    """Every schema node that holds a `$ref` beside another keyword."""
+    if isinstance(node, dict):
+        own = [node] if "$ref" in node and len(node) > 1 else []
+        return own + [found for value in node.values() for found in _refs_with_siblings(value)]
+    if isinstance(node, list):
+        return [found for item in node for found in _refs_with_siblings(item)]
+    return []
+
+
+@pytest.mark.parametrize("contract_id", CONTRACT_IDS)
+def test_no_ref_in_a_committed_schema_carries_a_sibling_keyword(contract_id):
+    """Each `$ref` stands alone, so a draft-07 or OpenAPI 3.0 tool, which ignores a `$ref`'s siblings, misses no rule."""
+    assert _refs_with_siblings(_committed_schema(contract_id)) == []
 
 
 def _date_time_nodes(node: Any) -> list[dict]:

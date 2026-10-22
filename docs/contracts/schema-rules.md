@@ -15,6 +15,7 @@ Read before: [Entities and state](entities-and-state.md) · Next: [Artifact rule
 - [R3: no schema version key](#r3-no-schema-version-key)
 - [R9: records are closed, maps are typed and keyed](#r9-records-are-closed-maps-are-typed-and-keyed)
 - [Cross-field rules](#cross-field-rules)
+- [Date-times](#date-times)
 - [R10: validators are selected from the schema](#r10-validators-are-selected-from-the-schema)
 
 ## Generated schemas
@@ -83,13 +84,17 @@ Each map constrains its keys with `propertyNames`:
 ## Cross-field rules
 
 - A model rule JSON Schema can express is exported as `allOf` with `if`/`then`/`else` → `contracts/schema_export.py::_CROSS_FIELD_RULES`
-- Each `doc-source` root's items require that root's `type`, as a `const` → `contracts/schema_export.py::_ROOT_ITEM_RULES`
+- Each `doc-source` root's items are `allOf` the `Entity` reference and a `const` on that root's `type` → `contracts/schema_export.py::_ROOT_ITEM_RULES`
+  - Why: draft-07 and OpenAPI 3.0 tools ignore keywords beside a `$ref`.
 - A transform output's schema also requires at least one `source_inputs[]` entry (R7) → `contracts/schema_export.py::_inject_cross_field_constraints`
+- Five rules stay Pydantic-only: AC ids owned by their entity, the planned-summary total, the selection-summary total, the coverage summaries recomputed from their rows, repositories naming a listed organisation → `contracts/schema_export.py::_inject_cross_field_constraints`
+- The read and write helpers re-validate with the model after the schema, so these five still fail → `contracts/io.py::_model_validate_or_raise`
+
+## Date-times
+
 - Every `date-time` field carries an RFC 3339 `pattern` beside its `format`, so a value needs its offset → `contracts/schema_export.py::_add_date_time_patterns`
   - Why: `format` only annotates in 2020-12; without the pattern, the schema step and outside validators accept what the model rejects.
 - The pattern checks the shape only; the model rejects an impossible date, such as month 13 → `contracts/common.py::Timestamps`
-- Five rules stay Pydantic-only: AC ids owned by their entity, the planned-summary total, the selection-summary total, the coverage summaries recomputed from their rows, repositories naming a listed organisation → `contracts/schema_export.py::_inject_cross_field_constraints`
-- The read and write helpers re-validate with the model after the schema, so these five still fail → `contracts/io.py::_model_validate_or_raise`
 
 ## R10: validators are selected from the schema
 
