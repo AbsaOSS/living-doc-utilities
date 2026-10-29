@@ -1,0 +1,113 @@
+#
+# Copyright 2026 ABSA Group Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Keeps this repository's agentic setup up to date: weekly, it runs agd update and opens a pull request
+# with the changes. Adapted from https://zejnilovic.github.io/agd/guides/automatic-updates/ to the ABSA
+# PR rules (check-pr-requirements.yml): the pull request closes an issue, and its branch and title carry
+# the issue number.
+name: Update the agentic setup
+
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# bash -eo pipefail instead of the default bash -e, so a failing agd update isn't hidden by tee.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      # A pinned agd release, and the SHA-256 of its agd file from the release's SHA256SUMS.
+      AGD_VERSION: 0.3.0
+      AGD_SHA256: 0a83043c533faea476e9f454eadf7ed693cf31296748f41540ab6321fc24978f
+      TITLE: Update the agentic setup
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install agd
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSLo "$HOME/.local/bin/agd" "https://github.com/Zejnilovic/agd/releases/download/v$AGD_VERSION/agd"
+          echo "$AGD_SHA256  $HOME/.local/bin/agd" | sha256sum -c -
+          chmod +x "$HOME/.local/bin/agd"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Check for a newer setup
+        id: check
+        run: |
+          code=0
+          agd status --check || code=$?
+          [ "$code" -le 1 ] || exit "$code"
+          echo "due=$code" >> "$GITHUB_OUTPUT"
+      - name: Update and open a pull request
+        if: steps.check.outputs.due == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          agd update | tee "$RUNNER_TEMP/update.txt"
+          # Only files this project edited are due, and the update leaves those alone.
+          [ -n "$(git status --porcelain)" ] || exit 0
+          version=$(awk '$1 == "source" && $2 == "agentic-defaults" { print $4 }' .agd.lock)
+
+          # One open issue carries the update until its pull request merges: reuse it, or open it.
+          issue=$(gh issue list --state open --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n 1)
+          if [ -z "$issue" ]; then
+            issue=$(gh issue create --title "$TITLE" \
+              --body 'A newer agentic-defaults release is out. The weekly `agd update` opens the pull request that closes this issue.')
+            issue=${issue##*/}
+          fi
+          branch="chore/$issue-agd-update"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A
+          git commit -q -m "#$issue: $TITLE" -m "$(cat "$RUNNER_TEMP/update.txt")"
+          git push -q --force origin "$branch"
+          {
+            echo '## Overview'
+            echo "The weekly \`agd update\` moved the agentic setup to agentic-defaults $version. Read the changes before you merge: they are instructions for agents."
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/update.txt"
+            echo '```'
+            echo
+            echo 'An `edited` line is a file this project changed, which the update left alone. Settle it after you merge, with `agd diff`, then `agd merge` or `agd reset`: the next run replaces this branch.'
+            echo
+            echo 'A pull request opened by GitHub Actions starts no checks: edit it, or close and reopen it, to run them.'
+            echo
+            echo '## Release Notes'
+            echo "- Updates the agentic setup to agentic-defaults $version."
+            echo
+            echo '## Related'
+            echo "Closes #$issue"
+          } > "$RUNNER_TEMP/body.md"
+          pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --head "$branch" --title "#$issue: $TITLE" --body-file "$RUNNER_TEMP/body.md"
+          fi
