@@ -29,7 +29,7 @@ Not responsible for: reading authored text; `authoring/` does that and produces 
 
 - Read and write a contract artifact only with `read_artifact()` and `write_artifact()`, never `json.load()` or `json.dump()` (R12). The read runs the compatibility check; the write validates in memory, then writes a temp file and renames it atomically.
 - A model change and its regenerated `schemas/*.json` (`make schemas`) land in the same commit. Never hand-edit a schema: the next regeneration overwrites it, and the edit masks a real mismatch between the model and its schema.
-- Check a new field name against `AbsaOSS/living-doc`'s canon before inventing one: `tools/examples_check.py`'s `PAIR_FIELD_MAP`, `REQUIRED_PO_KEYS_FULL` and `REQUIRED_PO_KEYS_XREF`, and `docs/guides/living-doc-header-types.md`.
+- Check a new field name against `AbsaOSS/living-doc`'s canon before inventing one: `tests/examples/examples_check.py`'s `PAIR_FIELD_MAP`, `REQUIRED_PO_KEYS_FULL` and `REQUIRED_PO_KEYS_XREF`, and `docs/guides/living-doc-header-types.md`.
   - Several first-version names were renamed to match it: `description` to `narrative`/`purpose`, `parent_feature` to `parent`, `user_story_ids` to `user_stories`, `functionality_ids` to `functionalities`.
   - Don't trust `living-doc`'s `docs/examples/_expected/*.json` for this: they predate this repo's contracts rewrite and are stale.
 - `docs/contracts/errors.md` lists exactly `ALL_CODES`, and a test keeps the two equal, so a new code needs its row there.

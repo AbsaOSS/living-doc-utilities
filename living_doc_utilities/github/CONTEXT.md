@@ -17,4 +17,5 @@ Helpers for GitHub Actions and the GitHub API: action input and output, the rate
 - `safe_call_decorator` logs with `exc_info=True` and re-raises each of `ConnectionError`/`Timeout`, `GithubException`, `RequestException` and any other `Exception`, including one from the rate limiter's own lookup.
   - Keep the rate limiter call inside the `try`.
   - A swallowed or unlogged failure would hide a real error behind a `None` that a caller reads as "no data".
-- `GithubRateLimiter` sleeps until the rate-limit reset when fewer than 5 calls remain; its reset math is a high-risk area.
+- `GithubRateLimiter` sleeps until the rate-limit reset when fewer than 5 calls remain.
+- High-risk: the rate-limiter reset math, GitHub API error handling including missing-permission responses, and the `INPUT_*` and `GITHUB_OUTPUT` I/O.

@@ -44,12 +44,16 @@ Commands are in `AGENTS.md` "This project"; `make install` expects an active vir
 - Never import from a collector, toolkit or generator package.
 - Import at module top. The only function-level imports are `nh3` in `authoring/url_policy.py` and `yaml` in `authoring/docs_export.py::_load_cases`, each with its inline `pylint: disable`. Add no other function-level import or inline lint disable.
 - Target Python 3.10: keep `X | Y` unions and `match` where they appear, and guard any 3.11+ standard-library use with `sys.version_info`.
-- Log with `logging` and lazy `%` formatting (`logger.info("msg %s", value)`); never `print`, and never an f-string in a log call.
+- Log with `logging` and lazy `%` formatting (`logger.info("msg %s", value)`); never `print`, never an f-string in a log call, and never a token or request headers.
+- Change an existing log text or error message only for a stated reason.
 - Leaf modules raise `ValueError`, `TypeError` or `KeyError` with a clear message; the consuming action turns it into its failure output.
+- Keep contract and parser logic pure, internal helpers private (`_name`), and the GitHub API, `requests` and filesystem boundaries explicit and mockable.
 - Input validation belongs in the consumer's `BaseActionInputs._validate()`, never in the shared contract models.
-- Docstrings: a module docstring of one to three lines; a function or class summary of at most three lines, then `@param`, `@return` and `@raises` only where they add information.
+- Docstrings: a module docstring of one to three lines saying what the module is for, with no rule quotations; a function or class summary of at most three lines, then `@param`, `@return` and `@raises` only where they add information (no `@return: None`, no tag that restates the name). No tutorial prose or long examples.
+- Comments explain only intent, edge cases and the why, in one line.
 - Cite a rule as `R<n>`, code in another file as `basename.py::Symbol`, and code in the same file by its bare name. Never cite a docs section number, an issue, a PR or a task id.
-- Add a dependency as [Dependencies](DEVELOPER.md#dependencies) says, and run `make import-matrix` after changing an import or a dependency.
+- Add a dependency as [Dependencies](DEVELOPER.md#dependencies) says, only one that supports Python 3.10 and is on PyPI, and run `make import-matrix` after changing an import or a dependency.
+- Verify an acceptance criterion against the code that realises it (the return annotation, the serialized field name, the guard position, the file contents), never by a green test with a matching name.
 - Write `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` and the `docs/` pages by [Writing documentation](DEVELOPER.md#writing-documentation), the only copy of the page rules. To review a changed page, check a sample of ten of its decision or fact items against the code their `path::symbol` names.
 - A change that implements a design-doc section deletes it from the design doc, describes what now exists in the live docs, and repoints its links, all in the same change. There is no design doc today.
 
@@ -69,7 +73,7 @@ Commands are in `AGENTS.md` "This project"; `make install` expects an active vir
   - `safe_call_decorator`'s log texts, and every error or log text a test asserts on.
 - A public API or contract change bumps `pyproject.toml` `version` ([Versioning](docs/api.md#versioning)), measured against the newest release tag. A version already ahead of that tag is unreleased: further changes land in it and owe no second bump.
 - Never create a release tag in a change: the owner tags `vX.Y.Z` after the merge, and both release workflows check the tag against `pyproject.toml`.
-- Never hand-edit generated output: change its source, run `make schemas` or `make docs`, and commit both together. `make qa` doesn't regenerate, and CI fails on any difference → [Regenerate](DEVELOPER.md#regenerate)
+- Never hand-edit generated output: change its source, run `make schemas` or `make docs`, and commit both together. `make qa` doesn't regenerate, and CI fails on any difference; keep those CI checks green, never relax them → [Regenerate](DEVELOPER.md#regenerate)
 - Write every generated or contract file (`make schemas`, `make docs`, `write_artifact`, `set_action_output`) with `newline="\n"`, so it is byte-identical on every OS. Check it by reading bytes: a text-mode read hides CRLF. Don't restate this in code comments or docstrings.
 - High-risk areas that need a closer review: `contracts/io.py`, `compat.py` and `validation.py`; `authoring/ac_grammar.py` and `normalize.py`; `github/utils.py`, `decorators.py` and the reset math in `rate_limiter.py`; the extras in `pyproject.toml`.
 - Check what downstream repositories see: a new required field breaks old payloads; a missing or malformed artifact must still fail safely; a new import must not need an extra that a caller lacks.
