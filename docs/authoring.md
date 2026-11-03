@@ -18,7 +18,7 @@ Read before: [README](../README.md) · Next: [Normalisation](authoring/normalisa
 `living_doc_utilities.authoring` turns authored text into entity data with pure `text -> data` functions and no I/O.
 Normalisation runs first and reshapes tokens by their position; the grammar alone knows what a valid value is.
 Parsers never raise: every piece of lost information becomes a coded warning.
-The canonical forms come from `AbsaOSS/living-doc`'s [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md) and [header types](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-header-types.md).
+The canonical forms come from `AbsaOSS/living-doc`'s [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/glossary.md) and [header types](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/authoring-formats.md).
 
 ## Decisions
 

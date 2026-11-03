@@ -425,7 +425,7 @@ def _scenarios() -> list[Scenario]:
 
 # The Entity fields each type carries beyond EntityCore's, which every entity has. A field belongs to a type when an
 # authoring format writes it for that type: docs/authoring/parsers.md's "Issue body", "Feature header" and
-# "PageObject header" key tables, and living-doc's docs/guides/living-doc-header-types.md sections 1 to 3. Never read
+# "PageObject header" key tables, and living-doc's docs/reference/authoring-formats.md sections 1 to 3. Never read
 # from the model: it accepts any field on any type.
 _CONTENT_FIELDS_BY_TYPE: dict[DocType, frozenset[str]] = {
     "DocumentedUserStory": frozenset(

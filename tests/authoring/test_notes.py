@@ -608,7 +608,7 @@ def test_a_note_whose_wrapped_line_reads_as_parent_feat_does_not_make_a_cross_re
 
 def test_a_cross_reference_header_is_still_detected_through_a_wrapped_purpose():
     """The companion case: `parent-feat:` on a real cross-reference header is still found, with the
-    canon's wrapped `purpose:` value in the value column (living-doc-header-types.md)."""
+    canon's wrapped `purpose:` value in the value column (authoring-formats.md)."""
     text = """\
 /* =============================================================================
  * LIVING DOC — FEAT-042 · Account Setup Wizard  [cross-reference]
