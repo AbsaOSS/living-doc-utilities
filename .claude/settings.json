@@ -1,14 +1,1 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(make install *)",
-      "Bash(echo \"install exit $?\")",
-      "Bash(grep -nA8 '^install:' Makefile)",
-      "Bash(echo \"qa exit $?\")",
-      "Bash(GITHUB_TOKEN=$\\(gh auth token\\) lychee --no-progress --no-cache --include-fragments -v docs/authoring.md docs/authoring/parsers.md docs/contracts/entities-and-state.md docs/contracts/rendering.md)",
-      "Bash(GITHUB_TOKEN=$\\(gh auth token\\) lychee --no-progress --include-fragments --verbose --format detailed docs/contracts/rendering.md docs/contracts/entities-and-state.md docs/authoring/parsers.md docs/authoring.md)",
-      "Bash(bash .claude/skills/context-md/check.sh)",
-      "Bash(echo \"exit $? \\(1 = no planning ids\\)\")"
-    ]
-  }
-}
+{}
