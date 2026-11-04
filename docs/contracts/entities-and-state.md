@@ -34,7 +34,7 @@ How a parser finds the id in a title: [Parsers, finding the entity id](../author
 
 ## State and state origin
 
-An entity's and an acceptance criterion's `state` is one of four values, as the [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md#acceptance-criterion-ac) defines them → `contracts/common.py::LifecycleState`.
+An entity's and an acceptance criterion's `state` is one of four values, as the [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/glossary.md#acceptance-criterion-ac) defines them → `contracts/common.py::LifecycleState`.
 
 | `state` | Meaning |
 |---|---|

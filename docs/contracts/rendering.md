@@ -47,7 +47,7 @@ Read before: [Component checks](component-checks.md) · Next: [Errors and warnin
 
 - `shown_paths(contract_id, view)` encodes which cells are shown, as field paths → `contracts/testing.py::shown_paths`
   - Why: generator tests assert against the table itself, not a copy that drifts.
-- What was not loaded is the canon's rule; this row only maps it onto the warning's fields ([living-doc document types, *What was not loaded*](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-document-types.md#technical-project)) → `contracts/envelope.py::ContractWarning`
+- What was not loaded is the canon's rule; this row only maps it onto the warning's fields ([living-doc rendering rules, *What was not loaded*](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/rendering-rules.md#what-was-not-loaded)) → `contracts/envelope.py::ContractWarning`
   - A warning's `ac_id` and `context` are never shown; `entity_id` only places it → `contracts/testing.py::shown_paths`
 - A warning's line links to `source_url` plus `#L<line_no>`; without `source_url`, the line shows as text → generators
   - Why: the line can sit in another file than its entity's `source_ref.url`; only the collector knows which.

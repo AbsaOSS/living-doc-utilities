@@ -22,7 +22,7 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 
 ## Common behaviour
 
-- Each parser accepts one layout, the canon of `AbsaOSS/living-doc`'s [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md) and [header types](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-header-types.md).
+- Each parser accepts one layout, the canon of `AbsaOSS/living-doc`'s [glossary](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/glossary.md) and [header types](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/authoring-formats.md).
 - Each parser returns `(parsed, warnings)` and never raises on malformed input; every information-losing skip is a coded warning → `tests/authoring/test_warning_coverage.py::test_information_losing_skip_produces_a_coded_warning_and_no_log_record`
   - Why: a caller always has a structured way to see what was lost.
 - Every authored line no field reads is reported, one warning per line → `authoring/accounting.py`
@@ -48,7 +48,7 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
   - Why: the normaliser and the parser read one result, so they cannot disagree about where a section or a list runs.
   - A boundary is structural, never read from a line's prose; no parser finds one itself.
 - Every parser reads a line's indent before deciding what the line belongs to; one line model serves them all → `authoring/framing.py::indented`
-  - Why: indentation is significant in every authored input (the canon's [Indentation](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-header-types.md#indentation) rule); a stripped line has lost its level.
+  - Why: indentation is significant in every authored input (the canon's [Indentation](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/authoring-formats.md#indentation) rule); a stripped line has lost its level.
   - The indent is counted after the comment marker and at most one space (`# `, ` * `); [rule 6](normalisation.md#rule-6-whitespace) has already turned a tab or non-breaking space into spaces: one per tab in a header, to GitHub's tab stop of 4 in an issue body.
 - In a bullet-list field, a line deeper than an open item's `- ` is that item's text: never a key, an `AC:` header or a section's end, whatever it reads like → `authoring/framing.py::BulletItemTracker`
   - Example: `#   - Migrated accounts carry` then `#     status: deprecated until re-verified.` is one `business_value` item; no `status` key is read.
@@ -85,7 +85,7 @@ Read before: [Acceptance-criterion grammar](ac-grammar.md) · Next: [URLs and HT
 - A header key's own-line text counts as before the first bullet → `authoring/feature_header.py::_read_keys`
 - The `UNPARSED_BULLET_LINE` context names the contract field, not the authored key or heading → `authoring/issue_body.py::unparsed_bullet_warning`
 - An id list is comma-separated; blank or `none` means empty → `authoring/issue_body.py::split_id_list`
-- Every entity type carries an optional `notes` bullet list, the canon's [one place for human context](https://github.com/AbsaOSS/living-doc/blob/master/docs/guides/living-doc-glossary.md#core-entities) → `contracts/doc_entities.py::EntityContent`
+- Every entity type carries an optional `notes` bullet list, the canon's [one place for human context](https://github.com/AbsaOSS/living-doc/blob/master/docs/reference/glossary.md#core-entities) → `contracts/doc_entities.py::EntityContent`
   - Nothing ever reads a note's text: it drives no state, nothing is derived from it, and it is never validated, whatever it reads like (`status: deprecated` stays free text) → `tests/authoring/test_notes.py::test_a_field_shaped_note_changes_no_derived_state_and_raises_no_warning`
     - Why: anything that must drive behaviour has to be a typed field; a note exists so a recordable fact needs no new field.
     - It does not decide how its own file is read either: a note saying `parent-feat:` leaves a PageObject header a full header, and one saying `LIVING DOC` is not a banner title → `tests/authoring/test_notes.py::test_a_note_whose_wrapped_line_reads_as_parent_feat_does_not_make_a_cross_reference_header`, `::test_a_note_that_mentions_living_doc_is_still_a_note`
