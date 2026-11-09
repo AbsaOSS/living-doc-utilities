@@ -80,9 +80,9 @@ jobs:
             echo "authoring_docs_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Any Markdown change runs the tests job too: tests/docs/ checks every tracked Markdown file against the page
-          # list, and the pages' structure, code maps, anchors and examples.
-          if echo "$changed_files" | grep -E '\.md$' > /dev/null; then
+          # Any Markdown change runs the tests job too: tests/docs/ checks every tracked Markdown file (.md or .markdown,
+          # in any case) against the page list, and the pages' structure, code maps, anchors and examples.
+          if echo "$changed_files" | grep -iE '\.(md|markdown)$' > /dev/null; then
             echo "docs_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "docs_changed=false" >> "$GITHUB_OUTPUT"
