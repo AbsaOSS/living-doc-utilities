@@ -175,4 +175,3 @@ cython_debug/
 
 run_script.sh
 output/
-.claude/settings.json
