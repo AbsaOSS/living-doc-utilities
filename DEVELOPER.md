@@ -195,7 +195,7 @@ Depth is where a page sits in the folder tree. Deeper means more detail.
 | every example runs or validates | `tests/docs/test_examples.py` |
 | the error page lists exactly `ALL_CODES`, kind and emitter included | `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes` |
 | links and `#fragments` resolve; README's absolute links are checked against the checkout (`--remap`) | `.github/workflows/link-check.yml::lychee` |
-| a pull request that changes only pages or code maps still runs these tests | `.github/workflows/test.yml::docs_changed` |
+| a pull request that changes only Markdown (a page, a code map, any tracked `.md`) still runs these tests | `.github/workflows/test.yml::docs_changed` |
 | the generated table is current | `.github/workflows/test.yml::docs-regeneration-check` |
 
 To add a page: put it at its depth, add it to `tests/docs/pages.py::APPROVED_PAGES`, and link it from its hub; add its

@@ -80,8 +80,8 @@ What realises each fact of [ac-grammar.md](ac-grammar.md):
 - The block's content level is the indent of its first bullet → `authoring/ac_grammar.py::_ExtensionReader`
 - A line fits no level when it is shallower than the content level, or sits between a sub-list's key and its items → `tests/authoring/test_ac_grammar.py::test_a_bullet_between_a_sub_key_and_its_items_is_misindented_and_dropped`
 - The first item of a sub-list decides how far the list reaches → `authoring/ac_grammar.py::_SubList`
-- This gives `preconditions = ["An account exists."]` and `aspect = ["security"]`, with no warning → `tests/authoring/test_ac_grammar.py::test_a_bullet_back_at_criterion_level_closes_an_indented_sub_list`
-- The same block written flat, with `- An account exists.` at the key's indent, puts `Aspect: security` into `preconditions` → `tests/authoring/test_ac_grammar.py::test_flat_sub_list_keeps_every_later_bullet_in_line_order`
+- A nested sub-list ends at the first line at or above its key's indent, read as a criterion line, with no warning → `tests/authoring/test_ac_grammar.py::test_a_bullet_back_at_criterion_level_closes_an_indented_sub_list`
+- A flat sub-list takes every later bullet of the block, in line order → `tests/authoring/test_ac_grammar.py::test_flat_sub_list_keeps_every_later_bullet_in_line_order`
 - A line deeper than an item's `- ` is that item's text: a sub-key or `<key>:` there is not read as a key → `authoring/ac_grammar.py::_ExtensionReader`
 - A nested precondition stays in its parent's entry: `["An account exists.\n  - It is not locked."]` → `tests/authoring/test_ac_grammar.py::test_a_nested_precondition_item_is_kept_in_its_parents_string`
 - An unknown bare key is reported with exactly the lines deeper than it → `tests/authoring/test_ac_grammar.py::test_unknown_sub_key_is_reported_with_exactly_the_lines_deeper_than_it`
@@ -148,7 +148,7 @@ What realises each fact of [parsers.md](parsers.md):
 - Nothing ever reads a note's text → `tests/authoring/test_notes.py::test_a_field_shaped_note_changes_no_derived_state_and_raises_no_warning`
 - It does not decide how its own file is read either → `tests/authoring/test_notes.py::test_a_note_whose_wrapped_line_reads_as_parent_feat_does_not_make_a_cross_reference_header`, `tests/authoring/test_notes.py::test_a_note_that_mentions_living_doc_is_still_a_note`
 - The title is found by position, not by its prose, so an item may quote the whole `LIVING DOC — <id> · <title>` form → `authoring/framing.py::Frame.title`, `tests/authoring/test_notes.py::test_a_note_quoting_a_whole_banner_title_is_still_a_note`
-- It is entity-level, plus a cross-reference page's own. A `notes:` inside a criterion block fills no criterion field and is reported instead → `tests/authoring/test_notes.py::test_an_ac_level_notes_key_in_an_issue_body_is_reported_and_reads_as_no_field`
+- `notes` is entity-level, plus a cross-reference page's own; a `notes:` inside a criterion block fills no field and is reported → `tests/authoring/test_notes.py::test_an_ac_level_notes_key_in_an_issue_body_is_reported_and_reads_as_no_field`
 - `deprecation_reason` stays its own typed field and does not move into a note → `contracts/doc_entities.py::EntityContent`
 - `parse_issue_body(text, title, entity_type)` reads a GitHub issue body → `authoring/issue_body.py::parse_issue_body`
 - Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a field → `authoring/issue_body.py::_SECTIONS_BY_TYPE`

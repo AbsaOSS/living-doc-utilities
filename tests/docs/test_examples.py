@@ -57,13 +57,23 @@ def test_json_example_parses_and_validates(block):
         model.model_validate(payload)
 
 
+_ANY_MARKER_RE = re.compile(r"^<!--\s*example\s*:", re.I)
+
+
 def malformed_markers(page: str, text: str) -> list[str]:
-    """Each `<!-- example: ... -->` line not in the `module.Model` form, which would leave its block unvalidated."""
-    return [
-        f"{page}: {line.strip()!r} is no '<!-- example: module.Model -->' marker"
-        for line in text.splitlines()
-        if line.strip().startswith("<!-- example:") and not _MODEL_MARKER_RE.match(line.strip())
-    ]
+    """Each example marker, in any spacing or case, that is not `<!-- example: module.Model -->` right above a `json`
+    block: it would leave a block unvalidated."""
+    lines = [line.strip() for line in text.splitlines()]
+    problems: list[str] = []
+    for index, line in enumerate(lines):
+        if not _ANY_MARKER_RE.match(line):
+            continue
+        below = next((later for later in lines[index + 1 :] if later), "")
+        if not _MODEL_MARKER_RE.match(line):
+            problems.append(f"{page}: {line!r} is no '<!-- example: module.Model -->' marker")
+        elif below != "```json":
+            problems.append(f"{page}: {line!r} is not right above a 'json' block")
+    return problems
 
 
 @pytest.mark.parametrize("page", sorted(APPROVED_PAGES))
@@ -74,14 +84,32 @@ def test_every_example_marker_names_a_module_and_a_model(page):
 
 @pytest.mark.parametrize(
     "marker",
-    ["<!-- example: contracts/envelope.py::Metadata -->", "<!-- example: contracts.envelope.metadata -->"],
-    ids=["path-and-symbol", "lowercase-model"],
+    [
+        "<!-- example: contracts/envelope.py::Metadata -->",
+        "<!-- example: contracts.envelope.metadata -->",
+        "<!--example: contracts.envelope.Metadata-->",
+        "<!-- Example: contracts.envelope.Metadata -->",
+    ],
+    ids=["path-and-symbol", "lowercase-model", "no-spaces", "capitalised"],
 )
 def test_planted_malformed_example_marker_is_reported(marker):
-    """The old `path::Model` form and a lowercase model name are each reported, naming the page."""
+    """The old `path::Model` form, a lowercase model name, other spacing and other case are each reported."""
     assert malformed_markers("docs/x.md", f"{marker}\n```json\n{{}}\n```\n") == [
         f"docs/x.md: {marker!r} is no '<!-- example: module.Model -->' marker"
     ]
+
+
+def test_planted_example_marker_above_a_block_that_is_not_json_is_reported():
+    """Only a `json` block is validated, so a marker above any other block would check nothing."""
+    marker = "<!-- example: contracts.envelope.Metadata -->"
+    assert malformed_markers("docs/x.md", f"{marker}\n```python\npass\n```\n") == [
+        f"docs/x.md: {marker!r} is not right above a 'json' block"
+    ]
+
+
+def test_a_well_formed_example_marker_above_a_json_block_passes():
+    """The form the pages use, right above a `json` block, is no problem."""
+    assert malformed_markers("docs/x.md", "<!-- example: contracts.envelope.Metadata -->\n```json\n{}\n```\n") == []
 
 
 def test_the_pages_carry_examples():

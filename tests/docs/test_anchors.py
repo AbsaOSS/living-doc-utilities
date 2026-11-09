@@ -180,6 +180,27 @@ def test_every_depth_two_and_three_page_has_a_code_map():
     assert problems == []
 
 
+def misplaced_code_maps(code_maps: dict[str, str]) -> list[str]:
+    """Each page whose code map is not the `CONTEXT.md` in the page's own folder."""
+    return [
+        f"{page}: its code map is {code_map}, not {beside} beside it"
+        for page, code_map in code_maps.items()
+        if code_map != (beside := f"{os.path.dirname(page)}/CONTEXT.md")
+    ]
+
+
+def test_every_code_map_sits_beside_its_page():
+    """Each page's code map is the `CONTEXT.md` in the page's own folder (DEVELOPER.md, "Writing documentation")."""
+    assert misplaced_code_maps(CODE_MAPS) == []
+
+
+def test_planted_code_map_away_from_its_page_is_reported():
+    """A page paired with a `CONTEXT.md` outside its folder fails, naming the page and the map it should use."""
+    assert misplaced_code_maps({"docs/authoring/x.md": "docs/CONTEXT.md"}) == [
+        "docs/authoring/x.md: its code map is docs/CONTEXT.md, not docs/authoring/CONTEXT.md beside it"
+    ]
+
+
 def test_planted_page_without_its_code_map_entry_is_reported():
     """A page whose code map has no `###` opening with a link to it, or one that carries no anchor, fails."""
     other = "## Code map\n\n### Other\n\nWhat realises [other.md](other.md):\n\n- a fact → `contracts/io.py::x`\n"

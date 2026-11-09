@@ -180,7 +180,7 @@ What realises each fact of [rendering.md](rendering.md):
 - A row with a `keyword` lists that keyword's values as aspects; one without aspects fails validation → `contracts/coverage_matrix.py::AcCoverage._check_keyword_has_aspects`
 - An aspect's own status is `covered` or `not_covered` → `contracts/coverage_matrix.py::AspectCoverage`
 - `covered` is evidence-backed by `scenario_ids` for an `AspectCoverage` and for an `AcCoverage` with no aspects → `contracts/coverage_matrix.py::_check_status_evidence`
-- When an `AcCoverage` has aspects, its `status` is derived from the aspects instead (see table above), and its own top-level `scenario_ids` is not checked → `contracts/testing.py::_coverage_matrix_sample`
+- When an `AcCoverage` has aspects, its `status` is derived from them, and its own top-level `scenario_ids` is not checked → `contracts/testing.py::_coverage_matrix_sample`
 - Counted criteria are `active` and `deprecated`, in both views → `contracts/coverage_matrix.py::CountedState`
 - `in_review` criteria are not counted; a linked scenario is the warning `IN_REVIEW_AC_HAS_TESTS` → `contracts/codes.py::Code`
 - `planned` criteria, backlog or targeted, are not counted; a linked scenario is the warning `PLANNED_AC_HAS_TESTS` → `contracts/codes.py::Code`
@@ -204,7 +204,7 @@ What realises each fact of [rendering.md](rendering.md):
 What realises each fact of [errors.md](errors.md):
 
 - Every code is registered once, with its kind and emitter → `contracts/codes.py::ALL_CODES`
-- A test keeps the table below equal to the registry, kind and emitter included → `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes`
+- A test keeps the code table equal to the registry, kind and emitter included → `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes`
 - A hard error is raised with a code, a message and an optional context → `contracts/codes.py::ContractError`
 - A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context`, and five optional fields for where it belongs → `contracts/envelope.py::ContractWarning`
 - Kinds and emitters are the values of `CodeKind` and `Emitter` → `contracts/codes.py::CodeKind`, `contracts/codes.py::Emitter`

@@ -12,9 +12,9 @@ The code maps of the three hub pages, `api.md`, `contracts.md` and `authoring.md
 
 What realises each fact of [api.md](api.md):
 
-- A test keeps this table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module`
+- A test keeps the module table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module`
 - The extras are declared in `pyproject.toml` → `pyproject.toml::optional-dependencies`
-- Extras combine: `pip install "living-doc-utilities[github,html]==0.8.0"` → `pyproject.toml::optional-dependencies`
+- Extras combine in one install, e.g. `living-doc-utilities[github,html]` → `pyproject.toml::optional-dependencies`
 - Importing a module never needs the `html` extra; calling `convert_html_to_markdown()` or `sanitize_html_fragment()` does → `tests/authoring/test_isolation.py::test_nh3_is_imported_only_inside_a_function_that_needs_it`
 - A clean install of the wheel with each extra proves which module imports where → `Makefile::import-matrix`
 - `get_action_input(name, default="")` reads `INPUT_<NAME>`, with hyphens as underscores → `github/utils.py::get_action_input`
