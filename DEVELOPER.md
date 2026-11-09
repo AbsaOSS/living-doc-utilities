@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Anyone who changes this repository reads this page. It covers setup, the quality gates, the generated files, the
-release, and the rules for writing documentation.
+This page is how to change this repository: setup, the quality gates, the generated files, the release, and the
+rules for writing documentation.
 
 Read before: [README](README.md)
 
@@ -134,7 +134,10 @@ Depth is where a page sits in the folder tree. Deeper means more detail.
 ### Every page
 
 1. `# Title`.
-2. `## Purpose`: 1 to 3 sentences, who reads the page and what they get; then `Read before:` and `Next:` links where the page sits on a reading path.
+2. `## Purpose`: 1 to 3 sentences, what the page is for ("This page is …", "This page defines …"); then
+   `Read before:` and `Next:` links where the page sits on a reading path.
+   - `README.md` is the exception: its Purpose says what the library does and where it sits in the ecosystem.
+     Why: GitHub and PyPI show the README as the front page, so it opens with the library, not the page.
 3. `## Contents`: links to every other `##` chapter of the page, and nothing else.
 4. Only the parts the page needs.
 
@@ -143,8 +146,8 @@ Depth is where a page sits in the folder tree. Deeper means more detail.
 | Part | Form | Checked against |
 |---|---|---|
 | Principle | at most 5 short sentences: the core idea | review |
-| Decision list | one line per decision: `decision → path::symbol` where the code realises it | code |
-| Fact list | one line per fact the code relies on: `fact → path::symbol`, or a test | code |
+| Decision list | one line per decision; the page's code map names where the code realises it | code, through the code map |
+| Fact list | one line per fact the code relies on; the page's code map names its `path::symbol`, or a test | code, through the code map |
 | Why | one indented `Why:` line under a rule, decision or fact, at most 20 words | review |
 | Option list | every available option with a one-line meaning; complete | the enum, extra, flag or code list in code |
 | Example | at most 20 lines; run by a test or generated | tests, generators |
@@ -159,19 +162,27 @@ Depth is where a page sits in the folder tree. Deeper means more detail.
 
 ### Anchors
 
+- A page states facts for people and carries no `path::symbol`. The `CONTEXT.md` beside the pages holds their code
+  maps: `docs/CONTEXT.md`, `docs/contracts/CONTEXT.md` and `docs/authoring/CONTEXT.md`.
+  - A code map is a `## Code map` chapter with one `###` per page, opening with a link to it; then one line per
+    fact: `fact → path::symbol`. `tests/docs/pages.py::CODE_MAPS` pairs each depth-2 and depth-3 page with its map.
+  - Why: an agent needs the anchor; a reader needs the fact.
+- `DEVELOPER.md` may carry anchors: its readers work in the `Makefile`, the workflows and the scripts.
+- A changed fact changes the page and its code map together.
 - `path` is relative to the repository root; `living_doc_utilities/` may be left out: `contracts/io.py::read_artifact`.
 - `symbol` is a module-level name, or a dotted one for a member: `Entity._check_state_origin`.
 - A test is `tests/<path>.py::test_name`; a non-Python file names a text it contains: `Makefile::qa`.
 - Never use line numbers; they drift.
 - A rule another component must realise names that component instead of an anchor: `→ collectors`, `→ toolkit`.
-- On a depth-2 or depth-3 page, every top-level list item ends in `→` and an anchor, a component or a link.
-- Items under a lead-in that carries `→` inherit it, e.g. a rule's lead-in `` `bullet_marker` → `…::RULE_BULLET_MARKER`: ``.
+  The page keeps that `→ component`, and any `→ [link]`.
+- Every code-map item ends in `→` and an anchor, a component or a link, or sits under a lead-in that does.
 - `README.md` is also the PyPI description, so it links repository files as `https://github.com/AbsaOSS/living-doc-utilities/blob/master/<path>`.
 
 ### Examples
 
 - A test runs every `python` block of a page, each in a fresh namespace and a temporary directory.
-- A `json` block must parse; with `<!-- example: path::Model -->` right above it, it must also validate as that model.
+- A `json` block must parse; with `<!-- example: module.Model -->` right above it, it must also validate as that
+  model, e.g. `<!-- example: contracts.envelope.Metadata -->`.
 - Write each example self-contained: it builds its own input, and an `assert` states what it shows.
 - A `shell` block is a command line, not an example; it is not run.
 
@@ -179,12 +190,14 @@ Depth is where a page sits in the folder tree. Deeper means more detail.
 
 | Check | Where |
 |---|---|
-| page list, `Purpose` then `Contents`, Contents links, no orphan page, README links absolute | `tests/docs/test_page_structure.py` |
-| every `path::symbol` resolves; no line-number anchor; every list item says where it is realised; `docs/api.md` lists every module | `tests/docs/test_anchors.py` |
+| page list and depths, `Purpose` then `Contents`, Contents links, no orphan page, README links absolute | `tests/docs/test_page_structure.py` |
+| every `path::symbol` on a page or in a code map resolves; no line-number anchor; no anchor on a page but `DEVELOPER.md`; every depth-2 and depth-3 page has its `###` in a code map, each item saying where it is realised; `docs/api.md` lists every module | `tests/docs/test_anchors.py` |
 | every example runs or validates | `tests/docs/test_examples.py` |
 | the error page lists exactly `ALL_CODES`, kind and emitter included | `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes` |
 | links and `#fragments` resolve; README's absolute links are checked against the checkout (`--remap`) | `.github/workflows/link-check.yml::lychee` |
-| a pull request that changes only pages still runs these tests | `.github/workflows/test.yml::docs_changed` |
+| a pull request that changes only Markdown (a page, a code map, any tracked `.md` or `.markdown`, in any case) still runs these tests | `.github/workflows/test.yml::docs_changed` |
 | the generated table is current | `.github/workflows/test.yml::docs-regeneration-check` |
 
-To add a page: put it at its depth, add it to `tests/docs/pages.py::APPROVED_PAGES`, and link it from its hub.
+To add a page: put it at its depth, add it to `tests/docs/pages.py::APPROVED_PAGES`, and link it from its hub; add its
+`###` to the code map beside it and pair the two in `tests/docs/pages.py::CODE_MAPS`. The page list check reads the
+pages git tracks, so `git add` a new page before you run it.

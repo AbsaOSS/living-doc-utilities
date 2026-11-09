@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Maintainers of a collector, transform or generator read this page. It defines the checks every component's QA
-runs, and the helpers in this library that run them: R12 and the lineage part of R11.
+This page defines the checks every component's QA runs, and the helpers in this library that run them: R12 and
+the lineage part of R11.
 
 Read before: [Pipeline rules](pipeline-rules.md) · Next: [Rendering](rendering.md)
 
@@ -19,28 +19,28 @@ Read before: [Pipeline rules](pipeline-rules.md) · Next: [Rendering](rendering.
 ## R12: no component mirrors a contract
 
 - Outside this library, no repository commits a copy of a schema or defines its own contract model → [checks 1 and 2](#check-1-no-vendored-schemas)
-- Components import the shared models and validate against the schemas shipped in the installed library → `contracts/schema_export.py::load_schema`
+- Components import the shared models and validate against the schemas shipped in the installed library
 - Every component's QA run carries the three checks below → collectors, toolkit, generators
   - Why not a model-similarity heuristic: internal models look like records, and a renamed mirror would escape it.
 
 ## Check 1: no vendored schemas
 
-- The check fails on any git-tracked `*-schema.json` or `*.schema.json` outside `tests/` and an allow-list → `contracts/check_no_vendored_schemas.py::find_vendored_schemas`
+- The check fails on any git-tracked `*-schema.json` or `*.schema.json` outside `tests/` and an allow-list
   - Why: a vendored copy is a fork that looks like a cache; it stops tracking the library, and nothing reports it.
-- Run it from a repository root: `python -m living_doc_utilities.contracts.check_no_vendored_schemas [--allow DIR]` → `contracts/check_no_vendored_schemas.py::main`
-- It reads git's index, so a file not yet added is not seen → `contracts/check_no_vendored_schemas.py::find_vendored_schemas`
-- This library allows only its own schema folder → `Makefile::no-vendored-schemas`
+- Run it from a repository root: `python -m living_doc_utilities.contracts.check_no_vendored_schemas [--allow DIR]`
+- It reads git's index, so a file not yet added is not seen
+- This library allows only its own schema folder
 
 ## Check 2: one read path and one write path
 
-- Artifacts are read only with `read_artifact` and written only with `write_artifact` → `contracts/io.py::read_artifact`
-- Each entry point asserts, and mypy checks, that input and result are shared contract types, never a `dict` → `contracts/registry.py::ContractResult`
+- Artifacts are read only with `read_artifact` and written only with `write_artifact`
+- Each entry point asserts, and mypy checks, that input and result are shared contract types, never a `dict`
   - Why: it catches a mirror model or raw-dict handling slipping back onto the data path.
 - What the two helpers do: [Artifact rules, reading and writing](artifact-rules.md#reading-and-writing).
 
 ## Check 3: full-sample test
 
-`full_sample(contract_id)` returns a valid, deterministic instance of any contract → `contracts/testing.py::full_sample`.
+`full_sample(contract_id)` returns a valid, deterministic instance of any contract.
 Its state-consistent records jointly fill, in each root, every optional field their type carries:
 
 - an active entity with every optional aspect set;
@@ -54,40 +54,40 @@ Its state-consistent records jointly fill, in each root, every optional field th
 
 Properties of the sample:
 
-- No record carries a field its state or its type makes meaningless; a contract with a root per type holds each record in its type's root → `contracts/testing.py::full_sample`
+- No record carries a field its state or its type makes meaningless; a contract with a root per type holds each record in its type's root
   - Why: the sample stays something a real pipeline could produce.
-- One id names one entity across the sample's roots → `contracts/testing.py::full_sample`
+- One id names one entity across the sample's roots
   - Why: the toolkit's shared input validation stops at a repeated id ([step 6](errors.md#shared-input-validation-order)).
-- Each `doc-source` root fills every path except those its type never carries → `contracts/testing.py::NEVER_CARRIED_PATHS`
+- Each `doc-source` root fills every path except those its type never carries
   - Why: R11 counts per root, and such a path can only be filled by a record no producer writes.
-- The contracts' samples agree on one entity set → `contracts/testing.py::full_sample`:
+- The contracts' samples agree on one entity set:
   - `doc-entities`, `doc-source` and `generator-ready` hold the same records;
   - `coverage-matrix` is one coverage run over them and `ui-tests`: a row per counted criterion, the planned ones in `planned_summary`;
   - each coverage row and scenario link names a criterion the set holds, with its aspects and keyword; the dropped criterion is in none.
   - Why: the toolkit computes the matrix from the other two; its tests compare samples one run could produce.
-- The sample takes no view: transforms filter it, generators set `document.view` → `contracts/testing.py::full_sample`
+- The sample takes no view: transforms filter it, generators set `document.view`
 
 Each kind of component uses the sample differently:
 
 - A transform runs its command over the written sample in every view, input validation included, and shows no field loss (R11 below) → transforms
-- A generator renders it per view and asserts what each view shows and hides → `contracts/testing.py::shown_paths`
+- A generator renders it per view and asserts what each view shows and hides
 - A collector runs over a fully authored fixture; every contract field has non-zero occupancy, bar documented exceptions → collectors
   - Why: ordinary fixtures fill only what a test cares about; field loss hides behind them.
 
 ## R11: a transform proves it lost nothing
 
-- Each transform declares its own lineage table in its own repository: every input path maps to an output path or to `Dropped(reason)` → `contracts/lineage.py::LineageTable`
+- Each transform declares its own lineage table in its own repository: every input path maps to an output path or to `Dropped(reason)`
   - Why: a table kept in another repository than its code goes stale on the first refactor.
-- This library ships only the machinery; no transform's table lives here → `contracts/lineage.py::Dropped`
-- `assert_complete(table, input_contract)` fails on any input leaf path the table says nothing about → `contracts/lineage.py::assert_complete`
+- This library ships only the machinery; no transform's table lives here
+- `assert_complete(table, input_contract)` fails on any input leaf path the table says nothing about
   - Why: a newly added field cannot be forgotten.
-- The transform-time check compares the input's `selected_stats` (R7) with the output's stats → `contracts/lineage.py::check_field_loss`
-- A mapped path with input occupancy above 0 and output occupancy 0 is a hard `FIELD_LOSS`, naming each path → `contracts/lineage.py::check_field_loss`
+- The transform-time check compares the input's `selected_stats` (R7) with the output's stats
+- A mapped path with input occupancy above 0 and output occupancy 0 is a hard `FIELD_LOSS`, naming each path
 - The comparison runs against the one documentation input, which makes it well defined → [One documentation source](pipeline-rules.md#one-project-one-pipeline-one-documentation-source)
-- A transform without a documentation input compares against its one input → `contracts/lineage.py::check_field_loss`
+- A transform without a documentation input compares against its one input
 - A partial drop, occupancy reduced but not to 0, is not an error at transform time; it is reported later → transforms
   - Why: a transform cannot tell a legitimate record filter from a bug at that point.
-- R11 guards transforms only; the authoring-to-collector stage, with no JSON input to compare, has golden-entity tests and snapshot CI → `tests/authoring/golden/test_golden_entities.py::test_golden_entities_match_hand_written_json`
+- R11 guards transforms only; the authoring-to-collector stage, with no JSON input to compare, has golden-entity tests and snapshot CI
 
 ## Example
 

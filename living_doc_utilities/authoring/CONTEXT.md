@@ -12,7 +12,7 @@ Not responsible for: fetching documents from a tracker. A parser sees document t
 
 - Entry points: the `frame_*` functions in `framing.py`, `normalize.py::normalize`, `ac_grammar.py::parse_acceptance_criteria`, and the parsers in `issue_body.py`, `feature_header.py`, `page_object.py` and `scenario.py`.
 - Depends on: `contracts/`; `nh3` (the `html` extra) only at call time.
-- Docs: [Authoring](../../docs/authoring.md)
+- Docs: [Authoring](../../docs/authoring.md); its pages' code map, fact by fact: [docs/authoring/CONTEXT.md](../../docs/authoring/CONTEXT.md)
 
 ## Conventions
 

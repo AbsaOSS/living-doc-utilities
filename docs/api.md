@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Consumers of the library read this page. It lists every module, what it does and which extra it needs, and it
+This page is the library's module reference: every module, what it does and which extra it needs. It also
 defines how to pin the package.
 
 Read before: [README](../README.md)
@@ -19,7 +19,7 @@ Read before: [README](../README.md)
 ## Modules
 
 Import from the module, e.g. `from living_doc_utilities.contracts.io import read_artifact`. A test keeps this
-table complete → `tests/docs/test_anchors.py::test_api_page_lists_every_module`.
+table complete.
 
 | Module | Purpose | Extra |
 |---|---|---|
@@ -72,10 +72,10 @@ Where each part is defined: [contracts](contracts.md) and [authoring](authoring.
 | `living-doc-utilities[github]==0.8.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
 | `living-doc-utilities[html]==0.8.0` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
 
-- The extras are declared in `pyproject.toml` → `pyproject.toml::optional-dependencies`
-- Extras combine: `pip install "living-doc-utilities[github,html]==0.8.0"` → `pyproject.toml::optional-dependencies`
-- Importing a module never needs the `html` extra; calling `convert_html_to_markdown()` or `sanitize_html_fragment()` does → `tests/authoring/test_isolation.py::test_nh3_is_imported_only_inside_a_function_that_needs_it`
-- A clean install of the wheel with each extra proves which module imports where → `Makefile::import-matrix`
+- The extras are declared in `pyproject.toml`
+- Extras combine: `pip install "living-doc-utilities[github,html]==0.8.0"`
+- Importing a module never needs the `html` extra; calling `convert_html_to_markdown()` or `sanitize_html_fragment()` does
+- A clean install of the wheel with each extra proves which module imports where
 
 ## Contract models
 
@@ -95,13 +95,13 @@ Reading and writing a file: [Artifact rules](contracts/artifact-rules.md#reading
 
 ## GitHub helpers
 
-- `get_action_input(name, default="")` reads `INPUT_<NAME>`, with hyphens as underscores → `github/utils.py::get_action_input`
-- `set_action_output(name, value)` appends one `name=value` line, LF-terminated, to the file `$GITHUB_OUTPUT` names → `github/utils.py::set_action_output`
-- `set_action_output` raises `KeyError` when `GITHUB_OUTPUT` is unset, and `OSError` when the file cannot be written → `github/utils.py::set_action_output`
-- `GithubRateLimiter(client)` wraps a call; with fewer than 5 calls left it sleeps until the reset time plus 5 seconds → `github/rate_limiter.py::GithubRateLimiter`
-- `safe_call_decorator(rate_limiter)` rate-limits a call, logs any failure with its traceback, and re-raises it, as [R13](contracts/pipeline-rules.md#r13-a-collector-collects-everything-it-was-configured-for-or-fails) requires → `github/decorators.py::safe_call_decorator`
-- `debug_log_decorator` logs a call's arguments and result at debug level → `github/decorators.py::debug_log_decorator`
-- In 0.5.0 the decorators moved from `living_doc_utilities.decorators`, which no longer exists → `github/decorators.py::safe_call_decorator`
+- `get_action_input(name, default="")` reads `INPUT_<NAME>`, with hyphens as underscores
+- `set_action_output(name, value)` appends one `name=value` line, LF-terminated, to the file `$GITHUB_OUTPUT` names
+- `set_action_output` raises `KeyError` when `GITHUB_OUTPUT` is unset, and `OSError` when the file cannot be written
+- `GithubRateLimiter(client)` wraps a call; with fewer than 5 calls left it sleeps until the reset time plus 5 seconds
+- `safe_call_decorator(rate_limiter)` rate-limits a call, logs any failure with its traceback, and re-raises it, as [R13](contracts/pipeline-rules.md#r13-a-collector-collects-everything-it-was-configured-for-or-fails) requires
+- `debug_log_decorator` logs a call's arguments and result at debug level
+- In 0.5.0 the decorators moved from `living_doc_utilities.decorators`, which no longer exists
 
 ```python
 import os
@@ -130,15 +130,15 @@ def fetch_issue(repository, number):
 
 ## Action inputs and logging
 
-- `BaseActionInputs` is the base class of a GitHub Action's inputs; a subclass implements `_validate()` and `_print_effective_configuration()` → `inputs/action_inputs.py::BaseActionInputs`
-- `validate_user_configuration()` returns true when `_validate()` reports no errors → `inputs/action_inputs.py::BaseActionInputs.validate_user_configuration`
-- `get_github_token()` reads the `GITHUB_TOKEN` input → `inputs/action_inputs.py::BaseActionInputs.get_github_token`
-- `setup_logging()` logs to stdout at `DEBUG` when `INPUT_VERBOSE_LOGGING=true` or `RUNNER_DEBUG=1`, else at `INFO` → `logging_config.py::setup_logging`
-- Shared constant: the `GITHUB_TOKEN` input name → `constants.py::GITHUB_TOKEN`
+- `BaseActionInputs` is the base class of a GitHub Action's inputs; a subclass implements `_validate()` and `_print_effective_configuration()`
+- `validate_user_configuration()` returns true when `_validate()` reports no errors
+- `get_github_token()` reads the `GITHUB_TOKEN` input
+- `setup_logging()` logs to stdout at `DEBUG` when `INPUT_VERBOSE_LOGGING=true` or `RUNNER_DEBUG=1`, else at `INFO`
+- Shared constant: the `GITHUB_TOKEN` input name
 
 ## Versioning
 
-The version lives in `pyproject.toml` → `pyproject.toml::version`. The rules for pinning and changing it:
+The version lives in `pyproject.toml`. The rules for pinning and changing it:
 
 - Pin exactly: `living-doc-utilities==0.8.0` plus your extras; no ranges, pre-releases or git-SHA pins.
 - The version stays `0.x` until every component of the ecosystem reaches `1.0` together, as one release.
