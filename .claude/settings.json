@@ -1,34 +1,6 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(cd /Users/admin/repos/AbsaOSS/living-doc-toolkit && sed -n '/^## Code map/,/^## [^C]/p' packages/core/CONTEXT.md | head -40; echo ====; sed -n '/^## Code map/,/^## [^C]/p' ../living-doc-generator-markdown/CONTEXT.md | head -30; echo ===; head -12 packages/core/CONTEXT.md)",
-      "Bash(xargs python3 -c ' *)",
-      "Bash(python3 /private/tmp/claude-502/-Users-admin-repos-AbsaOSS-living-doc-utilities/3f2748d9-8dc8-49f1-a102-82b363d44c3e/scratchpad/purposes.py .)",
-      "Bash(git -C ../living-doc-toolkit show 0601fa1:tests/docs/pages.py)",
-      "Bash(python3 -c \"import living_doc_utilities, sys; print\\(living_doc_utilities.__file__, sys.executable\\)\")",
-      "Bash(python3 /private/tmp/claude-502/-Users-admin-repos-AbsaOSS-living-doc-utilities/3f2748d9-8dc8-49f1-a102-82b363d44c3e/scratchpad/masked_diff.py 2ba4aa5)",
-      "Bash(pylint --disable=use-implicit-booleaness-not-comparison,redefined-outer-name,protected-access,unsupported-membership-test,unsubscriptable-object,unidiomatic-typecheck,unused-argument tests/docs/*.py)",
-      "Bash(mypy tests/docs/pages.py)",
-      "Bash(python3 /private/tmp/claude-502/-Users-admin-repos-AbsaOSS-living-doc-utilities/3f2748d9-8dc8-49f1-a102-82b363d44c3e/scratchpad/plant.py)",
-      "Bash(grep -n \"^### Every page\\\\|^2\\\\. \\\\`## Purpose\\\\`\\\\|^### Anchors\\\\|^### Checks\\\\|carries no \\\\`path::symbol\\\\`\\\\|code-map item ends\\\\|example: module.Model\\\\|To add a page\" DEVELOPER.md)",
-      "Bash(python3 -c ' *)",
-      "Bash(bash .claude/skills/context-md/check.sh --base origin/master)",
-      "Bash(python -m pytest tests/docs -q)",
-      "Bash(python3 -m pytest tests/docs -q -p no:cacheprovider)",
-      "Bash(python3 /private/tmp/claude-502/-Users-admin-repos-AbsaOSS-living-doc-utilities/3f2748d9-8dc8-49f1-a102-82b363d44c3e/scratchpad/m.py)",
-      "Bash(grep -rn '```json' docs README.md DEVELOPER.md)",
-      "Bash(python3 /private/tmp/claude-502/-Users-admin-repos-AbsaOSS-living-doc-utilities/3f2748d9-8dc8-49f1-a102-82b363d44c3e/scratchpad/c.py)",
-      "Bash(grep -rn '^ *```json' docs README.md DEVELOPER.md)",
-      "Bash(bash .claude/skills/context-md/check.sh)",
-      "Bash(grep -i '\\\\.md$')",
-      "Bash(grep -n \"accounting.py\\\\`$\\\\|us-001-customer-login.md\\\\`$\\\\|living-doc-collector-gh\")",
-      "Bash(python3 /private/tmp/claude-502/-Users-admin-repos-AbsaOSS-living-doc-utilities/3f2748d9-8dc8-49f1-a102-82b363d44c3e/scratchpad/md.py)",
-      "Bash(python3 -c \"import markdown_it; print\\(markdown_it.__version__\\)\")",
-      "Bash(grep -n \"Every authored line\\\\|canon commit\\\\|Other repositories compare\\\\|accounting.py\\\\`\" docs/authoring/CONTEXT.md)",
-      "Bash(grep -n \"^### Every page\\\\|^2\\\\. \\\\`## Purpose\\\\`\\\\|README.md\\\\` is the exception\\\\|^### Anchors\\\\|carries no \\\\`path::symbol\\\\`\\\\|code-map item ends\\\\|^### Checks\\\\|no anchor on a page but\\\\|changes only pages or code maps\\\\|^To add a page\\\\|example: module.Model\" DEVELOPER.md)"
-    ],
-    "additionalDirectories": [
-      "/Users/admin/repos/AbsaOSS/living-doc-generator-markdown"
-    ]
+    "allow": [],
+    "additionalDirectories": []
   }
 }
