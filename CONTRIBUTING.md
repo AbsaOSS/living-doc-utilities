@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Anyone who wants to contribute reads this page. It covers reporting a bug, proposing a feature, the AI-free
-principle, and how to name and describe a branch and a pull request.
+This page is how to contribute: reporting a bug, proposing a feature, the AI-free principle, and how to name and
+describe a branch and a pull request.
 
 Read before: [README](README.md)
 

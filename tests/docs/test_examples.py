@@ -24,7 +24,7 @@ import pytest
 
 from tests.docs.pages import APPROVED_PAGES, code_blocks, read_page
 
-_MODEL_MARKER_RE = re.compile(r"^<!-- example: (?P<path>[\w./]+)\.py::(?P<model>\w+) -->$")
+_MODEL_MARKER_RE = re.compile(r"^<!-- example: (?P<module>[\w.]+)\.(?P<model>[A-Z]\w*) -->$")
 
 
 def _examples(info: str) -> list:
@@ -50,12 +50,38 @@ def test_json_example_parses_and_validates(block):
     payload = json.loads(block.code)
     marker_m = _MODEL_MARKER_RE.match(block.line_above)
     if marker_m:
-        module_path = marker_m.group("path")
-        module_name = module_path.replace("/", ".")
+        module_name = marker_m.group("module")
         if not module_name.startswith("living_doc_utilities."):
             module_name = f"living_doc_utilities.{module_name}"
         model = getattr(importlib.import_module(module_name), marker_m.group("model"))
         model.model_validate(payload)
+
+
+def malformed_markers(page: str, text: str) -> list[str]:
+    """Each `<!-- example: ... -->` line not in the `module.Model` form, which would leave its block unvalidated."""
+    return [
+        f"{page}: {line.strip()!r} is no '<!-- example: module.Model -->' marker"
+        for line in text.splitlines()
+        if line.strip().startswith("<!-- example:") and not _MODEL_MARKER_RE.match(line.strip())
+    ]
+
+
+@pytest.mark.parametrize("page", sorted(APPROVED_PAGES))
+def test_every_example_marker_names_a_module_and_a_model(page):
+    """A marker in another form matches nothing, so its `json` block would only be parsed; it fails instead."""
+    assert malformed_markers(page, read_page(page)) == []
+
+
+@pytest.mark.parametrize(
+    "marker",
+    ["<!-- example: contracts/envelope.py::Metadata -->", "<!-- example: contracts.envelope.metadata -->"],
+    ids=["path-and-symbol", "lowercase-model"],
+)
+def test_planted_malformed_example_marker_is_reported(marker):
+    """The old `path::Model` form and a lowercase model name are each reported, naming the page."""
+    assert malformed_markers("docs/x.md", f"{marker}\n```json\n{{}}\n```\n") == [
+        f"docs/x.md: {marker!r} is no '<!-- example: module.Model -->' marker"
+    ]
 
 
 def test_the_pages_carry_examples():

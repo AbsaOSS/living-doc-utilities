@@ -21,6 +21,7 @@ Not responsible for: collecting, transforming or rendering documentation; the co
 - `living_doc_utilities/logging_config.py`, `constants.py`: `setup_logging()` and the `GITHUB_TOKEN` input name.
 - `tests/`: the pytest suite, mirroring the package → [CONTEXT.md](tests/CONTEXT.md)
 - `docs/`: the live docs for people; every module and the extra it needs: [Modules](docs/api.md#modules).
+- `docs/CONTEXT.md`, `docs/contracts/CONTEXT.md`, `docs/authoring/CONTEXT.md`: the pages' code maps, where the code realises each fact a page states → [CONTEXT.md](docs/CONTEXT.md)
 - `scripts/import_matrix.sh`: the clean-venv import check behind `make import-matrix`.
 
 ## How it fits together
@@ -54,7 +55,7 @@ Commands are in `AGENTS.md` "This project"; `make install` expects an active vir
 - Cite a rule as `R<n>`, code in another file as `basename.py::Symbol`, and code in the same file by its bare name. Never cite a docs section number, an issue, a PR or a task id.
 - Add a dependency as [Dependencies](DEVELOPER.md#dependencies) says, only one that supports Python 3.10 and is on PyPI, and run `make import-matrix` after changing an import or a dependency.
 - Verify an acceptance criterion against the code that realises it (the return annotation, the serialized field name, the guard position, the file contents), never by a green test with a matching name.
-- Write `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` and the `docs/` pages by [Writing documentation](DEVELOPER.md#writing-documentation), the only copy of the page rules. To review a changed page, check a sample of ten of its decision or fact items against the code their `path::symbol` names.
+- Write `README.md`, `DEVELOPER.md`, `CONTRIBUTING.md` and the `docs/` pages by [Writing documentation](DEVELOPER.md#writing-documentation), the only copy of the page rules. To review a changed page, check a sample of ten of its decision or fact items against the code its code map names.
 - A change that implements a design-doc section deletes it from the design doc, describes what now exists in the live docs, and repoints its links, all in the same change. There is no design doc today.
 
 ## Key decisions

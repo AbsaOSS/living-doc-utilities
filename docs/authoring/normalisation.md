@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Anyone who changes how authored text is cleaned up reads this page. It defines where normalisation runs, the
-five source formats, the eight rules, and the generated worked examples.
+This page defines how authored text is cleaned up before it is parsed: where normalisation runs, the five source
+formats, the eight rules, and the generated worked examples.
 
 Read before: [Authoring](../authoring.md) · Next: [Acceptance-criterion grammar](ac-grammar.md)
 
@@ -16,35 +16,35 @@ Read before: [Authoring](../authoring.md) · Next: [Acceptance-criterion grammar
 
 ## Where normalisation runs
 
-- `normalize(text, fmt, entity_type)` absorbs small formatting variance before anything parses the text → `authoring/normalize.py::normalize`
-- It runs in three phases → `authoring/normalize.py::normalize_framed`:
-  1. Rule 6 on each line's indent, line by line and blind to context → `authoring/normalize.py::_prepare`
-  2. The framing pass: where the header starts and ends, and where each root-level section or key begins and ends → `authoring/framing.py::Frame`
-  3. Every other rule, line by line, by the section the frame put the line in → `authoring/normalize.py::_rewrite_markdown`
+- `normalize(text, fmt, entity_type)` absorbs small formatting variance before anything parses the text
+- It runs in three phases:
+  1. Rule 6 on each line's indent, line by line and blind to context
+  2. The framing pass: where the header starts and ends, and where each root-level section or key begins and ends
+  3. Every other rule, line by line, by the section the frame put the line in
   - Why: framing reads indents, so it needs rule 6 first; every other rule needs to know a line's section.
-- A boundary is structural: the frame decides it once, from a line's position and syntax, never its prose → `authoring/framing.py::Frame`
+- A boundary is structural: the frame decides it once, from a line's position and syntax, never its prose
   - Why: a prose test, blind to where its line sits, took a note for a boundary and dropped data silently.
-  - A line deeper than an open bullet item's marker is that item's text: never a key, an `AC:` header or a section's end → `authoring/framing.py::BulletItemTracker`
-  - A banner's title is the first line after its opening rule, whatever it reads like → `authoring/framing.py::Frame.title`
-  - The parser of the format reads the same frame, so the two cannot disagree about where a section runs ([Parsers](parsers.md#common-behaviour)) → `authoring/framing.py::sections`
-- The frame reports structural problems only: no frame found, a frame never closed, a key between the header's end and `Feature:`, a line inside the header without its comment marker, an `AC:` line in a criterion block that is read as text, a ` * ` line between a PageObject comment's early `*/` and the header's real end → `authoring/framing.py::Problem`
+  - A line deeper than an open bullet item's marker is that item's text: never a key, an `AC:` header or a section's end
+  - A banner's title is the first line after its opening rule, whatever it reads like
+  - The parser of the format reads the same frame, so the two cannot disagree about where a section runs ([Parsers](parsers.md#common-behaviour))
+- The frame reports structural problems only: no frame found, a frame never closed, a key between the header's end and `Feature:`, a line inside the header without its comment marker, an `AC:` line in a criterion block that is read as text, a ` * ` line between a PageObject comment's early `*/` and the header's real end
   - Why: which fields are required is checked above the parser; the parsers stay lenient.
-- It rewrites a header only when the header names an entity: its title, found by position, carries an entity id → `authoring/framing.py::names_an_entity`
+- It rewrites a header only when the header names an entity: its title, found by position, carries an entity id
   - Why: an entity exists only with an id, and only then does a parser read the header; with no header there is nothing to normalise.
-  - A text with no header comes back as written, with no change recorded → `tests/authoring/test_normalize.py::test_a_text_with_no_header_is_not_normalised`
-  - No line outside the header is rewritten, not even its tabs: a comment above it, in the Gherkin body or in a JSDoc block → `tests/authoring/test_normalize.py::test_a_line_outside_the_header_is_never_rewritten_not_even_its_tabs`
-- It rewrites only structural positions: a heading value, a bullet marker, a criterion header's segments, an entity title → `authoring/normalize.py::normalize`
-- It never touches fenced code, Gherkin step text, TypeScript or free prose → `tests/authoring/test_normalize_cases.py::test_normalisation_case`
-- A rewritten criterion header or bullet keeps the indent its author gave it; only rule 6 changes an indent → `tests/authoring/test_normalize.py::test_feature_header_criterion_header_keeps_its_authors_indent_when_rewritten`
+  - A text with no header comes back as written, with no change recorded
+  - No line outside the header is rewritten, not even its tabs: a comment above it, in the Gherkin body or in a JSDoc block
+- It rewrites only structural positions: a heading value, a bullet marker, a criterion header's segments, an entity title
+- It never touches fenced code, Gherkin step text, TypeScript or free prose
+- A rewritten criterion header or bullet keeps the indent its author gave it; only rule 6 changes an indent
   - Why: a parser reads what a line belongs to from its indent, so moving one line would move it to another parent.
 - It never validates a value's meaning; the grammar does that → [Acceptance-criterion grammar](ac-grammar.md)
-- It returns the text plus one `Change` per rule fired: `line`, `rule`, `before`, `after` → `authoring/normalize.py::Change`
+- It returns the text plus one `Change` per rule fired: `line`, `rule`, `before`, `after`
   - A single rewritten line can produce several entries, one per rule that fired on it (for example separator, casing and version together in one AC header).
-- An entity title goes through the same rules 5 and 5b on its own → `authoring/normalize.py::normalize_title`
-- One helper marks the lines inside a fenced code block, for both `normalize` and the grammar → `authoring/normalize.py::compute_fence_flags`
+- An entity title goes through the same rules 5 and 5b on its own
+- One helper marks the lines inside a fenced code block, for both `normalize` and the grammar
   - Why: the two modules can never disagree about where a fence starts or ends.
 
-Which sections hold bullet lists, per entity type → `authoring/normalize.py::TYPE_PROFILES`:
+Which sections hold bullet lists, per entity type:
 
 | Entity type | Bullet sections |
 |---|---|
@@ -54,7 +54,7 @@ Which sections hold bullet lists, per entity type → `authoring/normalize.py::T
 
 ## Source formats
 
-Five formats exist → `authoring/normalize.py::SourceFormat`. Content lines are the lines `normalize` inspects;
+Five formats exist. Content lines are the lines `normalize` inspects;
 every other line passes through byte for byte.
 
 | Format | Content lines | Parsed by |
@@ -65,7 +65,7 @@ every other line passes through byte for byte.
 | `PAGE_OBJECT` | a PageObject file's leading `/* ... */` comment: its `* key: value` lines, when its title names an entity | `page_object.parse_page_object` |
 | `HTML_MARKDOWN` | the text `convert_html_to_markdown` makes from Azure DevOps HTML; the same rules as `ISSUE_BODY` | `html_to_markdown.convert_html_to_markdown`, then `issue_body.parse_issue_body` |
 
-- `HTML_MARKDOWN` shares the Markdown frame and rules with `ISSUE_BODY` → `authoring/normalize.py::_rewrite_markdown`
+- `HTML_MARKDOWN` shares the Markdown frame and rules with `ISSUE_BODY`
   - Why: once the HTML is flattened to text, the two are structurally identical.
 
 ## Rules
@@ -75,20 +75,20 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 1: bullet marker
 
-`bullet_marker` → `authoring/normalize.py::RULE_BULLET_MARKER`:
+`bullet_marker`:
 
 - Rewrites: a leading `–`, `—`, `•`, `*` or `+` bullet marker to `-`, in a criterion block or a bullet section.
 - Never touches: a bullet-shaped character that is not the leading marker, or a line outside a bullet section or criterion block.
   - A Gherkin `*` step and a PageObject ` * key: value` line both start with `*` and stay untouched.
-  - In a PageObject header it reaches only the items of a `PO_BULLET_KEYS` key, inside the header comment's frame, so a later JSDoc block is never rewritten → `tests/authoring/test_notes.py::test_rule_one_does_not_reach_a_jsdoc_notes_block_further_down_the_file`
-    - The frame ends at the first line that ends in `*/`: the canon's banner form or a bare ` */` → `tests/authoring/test_framing.py::test_the_canon_banner_and_a_bare_close_both_end_the_frame`
-    - A `*/` inside a value does not end it, so rule 1 still reaches the items after that value → `tests/authoring/test_framing.py::test_a_comment_close_inside_a_value_does_not_end_the_frame`
+  - In a PageObject header it reaches only the items of a `PO_BULLET_KEYS` key, inside the header comment's frame, so a later JSDoc block is never rewritten
+    - The frame ends at the first line that ends in `*/`: the canon's banner form or a bare ` */`
+    - A `*/` inside a value does not end it, so rule 1 still reaches the items after that value
 - Why: authors, autocorrect and drafting aids emit an en-dash or a bullet dot; every extractor recognises only `-`.
 - Breaks if removed: the item is glued onto the previous bullet or reported as `UNPARSED_AC_LINE`; the entry is lost.
 
 ### Rule 2: criterion header separator
 
-`ac_header_separator` → `authoring/normalize.py::RULE_AC_HEADER_SEPARATOR`:
+`ac_header_separator`:
 
 - Rewrites: the separator between segments in `AC:<id> (<version> - <state>[ - removal planned <version>])` to exactly `" - "`.
 - Never touches: a hyphen inside a state token (`in-review`); the separator needs whitespace on at least one side.
@@ -97,7 +97,7 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 3: state casing
 
-`state_casing` → `authoring/normalize.py::RULE_STATE_CASING`:
+`state_casing`:
 
 - Rewrites: a `## Status` / `status:` value or a header's state segment to lowercase, spaces and hyphens to one `_` (`In Review` → `in_review`).
 - Also folds the fixed phrase `Removal Planned` to `removal planned`.
@@ -107,7 +107,7 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 4: version form
 
-`version_form` → `authoring/normalize.py::RULE_VERSION_FORM`:
+`version_form`:
 
 - Rewrites: a version token to `vX.Y.Z` with a lowercase `v` and three parts: `V1.2`, `1.2` and `v1.2` become `v1.2.0`.
 - Never touches: a version with no minor part (`v1`); the grammar then reports it as `MALFORMED_AC`.
@@ -117,10 +117,10 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 5: entity name dash
 
-`entity_name_dash` → `authoring/normalize.py::RULE_ENTITY_NAME_DASH`:
+`entity_name_dash`:
 
 - Rewrites: the dash between the two halves of a compound name to `" - "` (`Login Page–Validate Password Strength`).
-- In a `.feature` or PageObject banner it reaches only the line the frame placed as the title, and only when that line reads `LIVING DOC` → `authoring/normalize.py::_emit_title`
+- In a `.feature` or PageObject banner it reaches only the line the frame placed as the title, and only when that line reads `LIVING DOC`
 - An en-dash or em-dash always; a plain hyphen only with whitespace on at least one side.
 - Never touches: a hyphen inside a word, such as `Password-reset` or `Sign-in`.
 - Why: renderers and comparisons expect one separator; autocorrect turns a typed `-` into a dash.
@@ -128,7 +128,7 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 5b: title id separator
 
-`title_id_separator` → `authoring/normalize.py::RULE_TITLE_ID_SEPARATOR`:
+`title_id_separator`:
 
 - Rewrites: the character right after an entity id in a title to `" · "`: `US-001 - Customer Login` → `US-001 · Customer Login`.
 - Never touches: anything before the id, such as a `LIVING DOC — ` prefix or a historical `GH-` prefix.
@@ -137,40 +137,40 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 
 ### Rule 6: whitespace
 
-`whitespace` → `authoring/normalize.py::RULE_WHITESPACE`:
+`whitespace`:
 
 - Rewrites: CRLF line endings to LF, in every format.
-- Rewrites: a leading byte-order mark away, in every format — it belongs to the encoding, and left in place it would keep the first line from matching the opening rule → `tests/authoring/test_framing.py::test_a_leading_byte_order_mark_does_not_move_the_frames_start`
-- Runs first, on every line that has text, before the frame is decided; a whitespace-only line stays as written → `authoring/normalize.py::_prepare`
-- Rewrites: each tab or non-breaking space in a line's leading indentation to one space, in a PageObject header and a `.feature` header → `authoring/normalize.py::_fix_indentation_whitespace`
+- Rewrites: a leading byte-order mark away, in every format — it belongs to the encoding, and left in place it would keep the first line from matching the opening rule
+- Runs first, on every line that has text, before the frame is decided; a whitespace-only line stays as written
+- Rewrites: each tab or non-breaking space in a line's leading indentation to one space, in a PageObject header and a `.feature` header
   - The indent is counted after the comment marker and at most one space (`# `, ` * `).
-  - A tab right after the marker becomes the marker's own space: `#<tab>x` reads as `# x`, at indent 0, for every reader → `authoring/normalize.py::_prepared`
+  - A tab right after the marker becomes the marker's own space: `#<tab>x` reads as `# x`, at indent 0, for every reader
   - One character becomes one space, so tab-indented lines keep their levels relative to each other.
-- Rewrites: in an issue body, each non-breaking space in a line's leading indentation to one space, and each tab to the next multiple of 4 columns → `authoring/normalize.py::_prepare`
+- Rewrites: in an issue body, each non-breaking space in a line's leading indentation to one space, and each tab to the next multiple of 4 columns
   - Why 4: GitHub renders a tab to that stop, so the parser sees the levels the reader sees, even where tabs and spaces mix (`    - B` then `\t- C` are siblings).
   - A tab moves to the next stop, it does not add 4: two spaces and a tab are 4 columns, not 6.
   - A header keeps one space per tab: nothing renders it, and its indent starts after the comment marker, not at a tab stop.
-- Records each rewritten line as a `whitespace` change → `tests/authoring/test_normalize.py::test_feature_header_rule_6_is_recorded_per_line_with_its_before_and_after`
+- Records each rewritten line as a `whitespace` change
 - Never touches: a tab or non-breaking space inside a value, past its leading indentation, or any line of a fenced code block.
 - Why: a stray `\r` breaks comparisons, and a parser decides what a line belongs to by its indent in spaces ([Parsers, common behaviour](parsers.md#common-behaviour)).
 - Breaks if removed: a trailing `\r` corrupts equality checks and golden tests; a tab-indented line has no defined level, so an item or a sub-list can attach to the wrong parent.
 
 ### Rule 7: inline criterion description
 
-`inline_ac_description` → `authoring/normalize.py::RULE_INLINE_AC_DESCRIPTION`:
+`inline_ac_description`:
 
 - Rewrites: a description written on the header line (`AC:US-001-01 (v1.0.0 - active) — the description`) onto its own `- ` bullet.
 - Applies to the issue-body and feature-header formats, whose grammar expects the description as a bullet.
-- In a `.feature` header the new bullet sits two spaces deeper than its header, wherever the header is → `tests/authoring/test_normalize.py::test_feature_header_split_description_sits_one_level_below_its_header`
+- In a `.feature` header the new bullet sits two spaces deeper than its header, wherever the header is
 - Never touches: a scenario-file `# AC:` comment's inline description; only its separator is canonicalised.
 - Why: the grammar reads the description only as the block's first bullet; inline text would be lost.
 - Breaks if removed: the block has no description bullet, so the criterion is dropped with a `MALFORMED_AC` warning; the header still parses.
 
 ## Worked examples
 
-- Generated from `living_doc_utilities/authoring/normalisation_cases.yaml` by `make docs` → `authoring/docs_export.py::regenerate`
-- The same file is the test data: `tests/authoring/test_normalize_cases.py` runs every row → `tests/authoring/test_normalize_cases.py::test_normalisation_case`
-- Do not hand-edit the table; CI fails the build when it drifts → `.github/workflows/test.yml::docs-regeneration-check`
+- Generated from `living_doc_utilities/authoring/normalisation_cases.yaml` by `make docs`
+- The same file is the test data: `tests/authoring/test_normalize_cases.py` runs every row
+- Do not hand-edit the table; CI fails the build when it drifts
 
 <!-- over limit: generated, one row per test case in normalisation_cases.yaml -->
 <!-- BEGIN GENERATED: normalisation-examples -->
