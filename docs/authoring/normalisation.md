@@ -30,9 +30,10 @@ Read before: [Authoring](../authoring.md) · Next: [Acceptance-criterion grammar
 - The frame reports structural problems only: no frame found, a frame never closed, a key between the header's end and `Feature:`, a line inside the header without its comment marker, an `AC:` line in a criterion block that is read as text, a ` * ` line between a PageObject comment's early `*/` and the header's real end
   - Why: which fields are required is checked above the parser; the parsers stay lenient.
 - It rewrites a header only when the header names an entity: its title, found by position, carries an entity id
-  - Why: an entity exists only with an id, and only then does a parser read the header; with no header there is nothing to normalise.
-  - A text with no header comes back as written, with no change recorded
-  - No line outside the header is rewritten, not even its tabs: a comment above it, in the Gherkin body or in a JSDoc block
+  - Why: an entity exists only with an id, and only then does a parser read the header; with no header there is no header to rewrite.
+  - [Rule 6](#rule-6-whitespace) still removes a leading byte-order mark and CRLF line endings from every text, header or not, each recorded as `whitespace`
+  - Apart from that, a `FEATURE_HEADER` or `PAGE_OBJECT` text with no header, or with a header that names no entity, comes back as written
+  - Apart from that, in a `FEATURE_HEADER` or `PAGE_OBJECT` text no line outside the header is rewritten, not even its tabs: a comment above it, in the Gherkin body or in a JSDoc block
 - It rewrites only structural positions: a heading value, a bullet marker, a criterion header's segments, an entity title
 - It never touches fenced code, Gherkin step text, TypeScript or free prose
 - A rewritten criterion header or bullet keeps the indent its author gave it; only rule 6 changes an indent

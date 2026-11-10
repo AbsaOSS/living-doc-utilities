@@ -23,8 +23,9 @@ What realises each fact of [normalisation.md](normalisation.md):
 - The parser of the format reads the same frame, so the two cannot disagree about where a section runs → `authoring/framing.py::sections`
 - The frame reports structural problems only → `authoring/framing.py::Problem`
 - It rewrites a header only when the header names an entity: its title, found by position, carries an entity id → `authoring/framing.py::names_an_entity`
-- A text with no header comes back as written, with no change recorded → `tests/authoring/test_normalize.py::test_a_text_with_no_header_is_not_normalised`
-- No line outside the header is rewritten, not even its tabs: a comment above it, in the Gherkin body or in a JSDoc block → `tests/authoring/test_normalize.py::test_a_line_outside_the_header_is_never_rewritten_not_even_its_tabs`
+- Rule 6 still removes a leading byte-order mark and CRLF line endings from every text, header or not, each recorded as `whitespace` → `tests/authoring/test_normalize.py::test_rule_6_removes_a_byte_order_mark_and_crlf_endings_even_where_no_header_is_normalised`
+- Apart from that, a `FEATURE_HEADER` or `PAGE_OBJECT` text with no header, or with a header that names no entity, comes back as written → `tests/authoring/test_normalize.py::test_a_text_with_no_header_is_not_normalised`, `tests/authoring/test_normalize.py::test_a_header_whose_title_names_no_entity_is_not_normalised`
+- Apart from that, in a `FEATURE_HEADER` or `PAGE_OBJECT` text no line outside the header is rewritten, not even its tabs: a comment above it, in the Gherkin body or in a JSDoc block → `tests/authoring/test_normalize.py::test_a_line_outside_the_header_is_never_rewritten_not_even_its_tabs`
 - It rewrites only structural positions: a heading value, a bullet marker, a criterion header's segments, an entity title → `authoring/normalize.py::normalize`
 - It never touches fenced code, Gherkin step text, TypeScript or free prose → `tests/authoring/test_normalize_cases.py::test_normalisation_case`
 - A rewritten criterion header or bullet keeps the indent its author gave it; only rule 6 changes an indent → `tests/authoring/test_normalize.py::test_feature_header_criterion_header_keeps_its_authors_indent_when_rewritten`
