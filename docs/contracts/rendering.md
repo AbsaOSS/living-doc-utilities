@@ -68,7 +68,7 @@ Coverage is computed per aspect.
 - A breakdown is labelled with the row's `keyword`, a keyword criterion's one `placeholder_values` key, and "Aspect" when it is `null` ([Variants](../authoring/ac-grammar.md#variants)) → generators
   - Why: a generator reads the matrix alone; joining it with the documentation is the toolkit's work.
 - A row with a `keyword` lists that keyword's values as aspects; one without aspects fails validation
-- A bare `@AC:<id>` link covers every aspect of the criterion: a producer lists its scenario under each aspect's `scenario_ids` (`DEC-76`) → toolkit
+- A bare `@AC:<id>` link covers every aspect of the criterion: a producer lists its scenario under each aspect's `scenario_ids` → toolkit
 
 - An aspect's own status is `covered` or `not_covered`
 - `covered` is evidence-backed by `scenario_ids` for an `AspectCoverage` and for an `AcCoverage` with no aspects: `covered` if and only if `scenario_ids` has an entry

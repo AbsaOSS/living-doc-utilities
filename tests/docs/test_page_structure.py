@@ -16,14 +16,14 @@
 
 """The page-structure rules: `Purpose` then `Contents`, `Contents` links, no orphan page (DEVELOPER.md)."""
 
-import re
-
 import pytest
 
 from tests.docs.pages import (
+    _CODE_SPAN_RE,
     APPROVED_PAGES,
     REPO_BLOB_URL,
     REPO_ROOT,
+    _link_targets,
     check_contents_links,
     check_no_orphans,
     check_page_list,
@@ -31,6 +31,7 @@ from tests.docs.pages import (
     headings,
     read_page,
     tracked_markdown,
+    unfenced_lines,
 )
 
 _GOOD_PAGE = """# Title
@@ -104,11 +105,31 @@ def test_no_page_is_an_orphan():
     assert check_no_orphans({page: read_page(page) for page in APPROVED_PAGES}) == []
 
 
+def _relative_links(readme: str) -> list[str]:
+    """The targets of `readme`'s links that are neither absolute nor a fragment, every link form read as the orphan
+    check reads it: outside fenced code blocks, HTML comments and code spans."""
+    prose = _CODE_SPAN_RE.sub("", "\n".join(unfenced_lines(readme)))
+    return [target for target in _link_targets(prose) if not target.startswith(("#", "https://", "http://", "mailto:"))]
+
+
 def test_readme_links_work_on_pypi():
     """README.md is the PyPI long description, so it links repository files absolutely; relative links 404 there."""
-    targets = re.findall(r"\]\(([^)\s]+)\)", read_page("README.md"))
-    relative = [target for target in targets if not target.startswith(("#", "https://", "http://", "mailto:"))]
+    relative = _relative_links(read_page("README.md"))
     assert relative == [], f"README.md: use {REPO_BLOB_URL}<path> for these links: {relative}"
+
+
+@pytest.mark.parametrize(
+    "readme, relative",
+    [
+        ("See [the API][r].\n\n[r]: docs/api.md\n", ["docs/api.md"]),
+        ('See [the API](docs/api.md "t").\n', ["docs/api.md"]),
+        ("`[the API](docs/api.md)`\n\n```text\n[the API](docs/api.md)\n```\n", []),
+    ],
+    ids=["reference-style", "titled", "code-span-and-fence"],
+)
+def test_a_relative_readme_link_is_found_in_every_markdown_link_form(readme, relative):
+    """A relative reference-style or titled link breaks on PyPI as an inline one does; a link in code renders none."""
+    assert _relative_links(readme) == relative
 
 
 def test_an_absolute_repository_link_counts_as_a_link_into_the_tree():
