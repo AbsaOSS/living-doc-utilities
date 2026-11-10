@@ -181,6 +181,34 @@ def test_a_header_whose_title_names_no_entity_is_not_normalised():
 
 
 @pytest.mark.parametrize(
+    "text, entity_type, lines",
+    [
+        (
+            "# status: In Review\n# rationale:\n#   * Checked client-side.\n\nFeature: S\n",
+            "DocumentedFunctionality",
+            [1, 1, 2, 3, 4, 5],
+        ),
+        (
+            "# =====\n# LIVING DOC — Customer Login\n# =====\n# status: Active\n# =====\n\nFeature: S\n",
+            "DocumentedUserStory",
+            [1, 1, 2, 3, 4, 5, 6, 7],
+        ),
+    ],
+    ids=["no_header", "header_naming_no_entity"],
+)
+def test_rule_6_removes_a_byte_order_mark_and_crlf_endings_even_where_no_header_is_normalised(
+    text, entity_type, lines
+):
+    """Rule 6 runs on every text, header or not: the byte-order mark goes, recorded at line 1, and so does each CRLF
+    ending, recorded on its line; every other character comes back as written."""
+    result = normalize("\ufeff" + text.replace("\n", "\r\n"), SourceFormat.FEATURE_HEADER, entity_type)
+
+    assert result.text == text
+    assert {change.rule for change in result.changes} == {normalize_module.RULE_WHITESPACE}
+    assert [change.line for change in result.changes] == lines
+
+
+@pytest.mark.parametrize(
     "text, fmt, entity_type, outside",
     [
         (

@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Anyone who raises or handles a code reads this page. It is the one definition of every error and warning code:
-its kind, the component that emits it, and when.
+This page is the one definition of every error and warning code: its kind, the component that emits it, and
+when.
 
 Read before: [Rendering](rendering.md) · Next: back to [Documentation contracts](../contracts.md)
 
@@ -16,10 +16,10 @@ Read before: [Rendering](rendering.md) · Next: back to [Documentation contracts
 
 ## How codes are reported
 
-- Every code is registered once, with its kind and emitter → `contracts/codes.py::ALL_CODES`
-- A test keeps the table below equal to the registry, kind and emitter included → `tests/contracts/test_codes.py::test_error_page_lists_exactly_the_registered_codes`
-- A hard error is raised with a code, a message and an optional context → `contracts/codes.py::ContractError`
-- A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context`, and five optional fields for where it belongs → `contracts/envelope.py::ContractWarning`
+- Every code is registered once, with its kind and emitter
+- A test keeps the table below equal to the registry, kind and emitter included
+- A hard error is raised with a code, a message and an optional context
+- A warning is an entry in the artifact's `warnings[]`: `code`, `message`, `context`, and five optional fields for where it belongs
   - `entity_id`: the entity it names
   - `ac_id`: the criterion it names, only when that id is valid; an invalid one stays in `context`, as written
   - `line_no`: the 1-based input line
@@ -31,7 +31,7 @@ Read before: [Rendering](rendering.md) · Next: back to [Documentation contracts
 
 ## Codes
 
-Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contracts/codes.py::Emitter`.
+Kinds and emitters are the values of `CodeKind` and `Emitter`.
 
 | Code | Kind | Emitter | When | Effect |
 |---|---|---|---|---|
@@ -76,7 +76,7 @@ Kinds and emitters are the values of `contracts/codes.py::CodeKind` and `contrac
 | `TEMPLATE_KEY_MISSING` | error | generator | a template misses a required key | run fails |
 | `URL_FETCH_REFUSED` | warning | generator | the renderer refused to fetch an image or URL outside the template's own directory | logged; not fatal |
 
-- Generators read through `read_artifact`, so R5's three errors apply to them unchanged → `contracts/io.py::read_artifact`
+- Generators read through `read_artifact`, so R5's three errors apply to them unchanged
 - `TEMPLATE_KEY_MISSING` is never rendered as an empty section → generators
   - Why: an empty section in a published document reads as "nothing here", not "this failed".
 - `SOURCE_UNAVAILABLE` is hard by default and a warning only in a collector's opt-in partial mode → [R13](pipeline-rules.md#r13-a-collector-collects-everything-it-was-configured-for-or-fails)

@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Anyone who writes, parses or renders an acceptance criterion reads this page. It defines the header forms, the
-block extensions, and when a criterion is dropped or converted.
+This page defines the acceptance-criterion grammar: the header forms, the block extensions, and when a criterion
+is dropped or converted.
 
 Read before: [Normalisation](normalisation.md) · Next: [Parsers](parsers.md)
 
@@ -20,7 +20,7 @@ Read before: [Normalisation](normalisation.md) · Next: [Parsers](parsers.md)
 
 ## Header
 
-`parse_acceptance_criteria(text, entity_id)` reads every criterion in already-normalised text → `authoring/ac_grammar.py::parse_acceptance_criteria`.
+`parse_acceptance_criteria(text, entity_id)` reads every criterion in already-normalised text.
 It accepts only the canonical form that [normalisation](normalisation.md) produces; it has no tolerance of its own.
 
 | Header | State | Stored `version` / `removal_planned` |
@@ -31,32 +31,32 @@ It accepts only the canonical form that [normalisation](normalisation.md) produc
 | `AC:<id> (v<x.y.z> - active)` | `active` | `x.y.z` / none |
 | `AC:<id> (v<x.y.z> - deprecated - removal planned v<x.y.z>)` | `deprecated` | `x.y.z` / `x.y.z` |
 
-- `<id>` is the entity id, a hyphen and a sequence number, e.g. `US-001-01` → `contracts/common.py::AC_ID_PATTERN`
-- Only a User Story or a Functionality owns criteria, so `<id>` starts `US-` or `FUNC-`; `FEAT-001-01` is rejected → `tests/contracts/test_common.py::test_acceptance_criterion_id_rejects_a_prefix_that_owns_no_criteria`
-- Other modules check an id with one helper, never their own pattern → `authoring/ac_grammar.py::is_valid_ac_id`
-- A version is required unless the state is `planned` → `contracts/common.py::AcceptanceCriterion._check_version_required_unless_planned`
-- `removal planned` is required on `deprecated` and allowed nowhere else → `contracts/common.py::AcceptanceCriterion._check_removal_planned_only_when_deprecated`
+- `<id>` is the entity id, a hyphen and a sequence number, e.g. `US-001-01`
+- Only a User Story or a Functionality owns criteria, so `<id>` starts `US-` or `FUNC-`; `FEAT-001-01` is rejected
+- Other modules check an id with one helper, never their own pattern
+- A version is required unless the state is `planned`
+- `removal planned` is required on `deprecated` and allowed nowhere else
 - The stored version drops the header's `v` ([version format](../contracts/entities-and-state.md#version-format)).
-- A header may follow a comment leader: `###` in an issue body, `#` in a `.feature` file, `*` in a PageObject → `authoring/ac_grammar.py::parse_acceptance_criteria`
-- `entity_id` only names a warning's entity; that an id belongs to its entity is checked on the model → `contracts/common.py::check_ac_ids_owned`
+- A header may follow a comment leader: `###` in an issue body, `#` in a `.feature` file, `*` in a PageObject
+- `entity_id` only names a warning's entity; that an id belongs to its entity is checked on the model
 
 ## Block
 
-A criterion's block is the lines after its header. In a parser the frame bounds it, so the grammar finds no boundary itself → `authoring/ac_grammar.py::parse_frame_criteria`.
+A criterion's block is the lines after its header. In a parser the frame bounds it, so the grammar finds no boundary itself.
 
-- In a parser it ends where the [frame](parsers.md#common-behaviour) ends it: at the next criterion header, at a key at the key level or a `# ===` rule in a `.feature` header, at any heading in an issue body → `authoring/framing.py::criterion_blocks`
-- Over bare text, `parse_acceptance_criteria` finds the blocks itself: a block ends at the next `AC:` line, a `===` banner line, or a Markdown `##` to `######` heading → `authoring/ac_grammar.py::parse_acceptance_criteria`
-  - An `AC:` line deeper than the open bullet item's `- ` is that item's wrapped text and ends nothing → `tests/authoring/test_ac_grammar.py::test_a_line_wrapped_deeper_than_a_criterion_item_is_never_an_ac_header`
-- A criterion with nothing under its header is dropped with `MALFORMED_AC`, "has no description line"; the other criteria are read (`D22`) → `tests/authoring/test_ac_grammar.py::test_a_criterion_with_nothing_under_its_header_is_reported_and_the_rest_is_read`
-- Each line keeps its indent: only the comment leader (`#`, `###`, `*`) and one following space are removed → `authoring/ac_grammar.py::parse_acceptance_criteria`
+- In a parser it ends where the [frame](parsers.md#common-behaviour) ends it: at the next criterion header, at a key at the key level or a `# ===` rule in a `.feature` header, at any heading in an issue body
+- Over bare text, `parse_acceptance_criteria` finds the blocks itself: a block ends at the next `AC:` line, a `===` banner line, or a Markdown `##` to `######` heading
+  - An `AC:` line deeper than the open bullet item's `- ` is that item's wrapped text and ends nothing
+- A criterion with nothing under its header is dropped with `MALFORMED_AC`, "has no description line"; the other criteria are read
+- Each line keeps its indent: only the comment leader (`#`, `###`, `*`) and one following space are removed
   - Why: what a block line belongs to is read from its indent ([Extensions](#extensions)).
 - Blank lines are skipped, not treated as an end.
   - Why: an issue-body criterion heading gets one blank line before its bullets.
-- Lines inside a fenced code block are skipped → `authoring/normalize.py::compute_fence_flags`
+- Lines inside a fenced code block are skipped
 
 ## Extensions
 
-Each block line fills one field of the criterion → `contracts/common.py::AcceptanceCriterion`.
+Each block line fills one field of the criterion.
 
 | Block line | Fills |
 |---|---|
@@ -74,11 +74,11 @@ Each block line fills one field of the criterion → `contracts/common.py::Accep
 | a line whose indent fits no level (see below) | nothing: `MISINDENTED_LINE`, for it and each line deeper than it |
 | any other line | nothing: `UNPARSED_AC_LINE` |
 
-The block's content level is the indent of its first bullet → `authoring/ac_grammar.py::_ExtensionReader`.
+The block's content level is the indent of its first bullet.
 A line fits no level when it is shallower than the content level, or sits between a nested sub-list's key and its
-items (`- Aspect:` at 5 under `preconditions:` at 4 with items at 6) → `tests/authoring/test_ac_grammar.py::test_a_bullet_between_a_sub_key_and_its_items_is_misindented_and_dropped`
+items (`- Aspect:` at 5 under `preconditions:` at 4 with items at 6)
 
-The first item of a sub-list decides how far the list reaches → `authoring/ac_grammar.py::_SubList`:
+The first item of a sub-list decides how far the list reaches:
 
 | Sub-list items | Layout | The list ends at |
 |---|---|---|
@@ -93,37 +93,37 @@ The first item of a sub-list decides how far the list reaches → `authoring/ac_
 #     - Aspect: security
 ```
 
-This gives `preconditions = ["An account exists."]` and `aspect = ["security"]`, with no warning → `tests/authoring/test_ac_grammar.py::test_a_bullet_back_at_criterion_level_closes_an_indented_sub_list`
+This gives `preconditions = ["An account exists."]` and `aspect = ["security"]`, with no warning
 
-- The same block written flat, with `- An account exists.` at the key's indent, puts `Aspect: security` into `preconditions` → `tests/authoring/test_ac_grammar.py::test_flat_sub_list_keeps_every_later_bullet_in_line_order`
-- A line deeper than an item's `- ` is that item's text: a sub-key or `<key>:` there is not read as a key → `authoring/ac_grammar.py::_ExtensionReader`
-- A nested precondition stays in its parent's entry: `["An account exists.\n  - It is not locked."]` → `tests/authoring/test_ac_grammar.py::test_a_nested_precondition_item_is_kept_in_its_parents_string`
-- An unknown bare key is reported with exactly the lines deeper than it; none of them fills a field, and the next line at or above its indent is read normally → `tests/authoring/test_ac_grammar.py::test_unknown_sub_key_is_reported_with_exactly_the_lines_deeper_than_it`
+- The same block written flat, with `- An account exists.` at the key's indent, puts `Aspect: security` into `preconditions`
+- A line deeper than an item's `- ` is that item's text: a sub-key or `<key>:` there is not read as a key
+- A nested precondition stays in its parent's entry: `["An account exists.\n  - It is not locked."]`
+- An unknown bare key is reported with exactly the lines deeper than it; none of them fills a field, and the next line at or above its indent is read normally
   - Why: the canon allows `notes:` at entity level only; a nested note reading `Owner: x` would otherwise be read as a criterion line.
-- A bare `<key>:` with no deeper line right under it is a wrapped line, not a key: `- The dashboard shows the` then `following:` is one description → `tests/authoring/test_ac_grammar.py::test_a_bare_key_with_nothing_deeper_under_it_is_wrapped_text`
-  - Why: without an indent the two cannot be told apart, so the line is read as it always was; a flat `notes:` is read the same way, its bullets as criterion lines → `tests/authoring/test_ac_grammar.py::test_a_flat_unknown_key_is_read_as_wrapped_text_and_its_bullets_as_criterion_lines`
+- A bare `<key>:` with no deeper line right under it is a wrapped line, not a key: `- The dashboard shows the` then `following:` is one description
+  - Why: without an indent the two cannot be told apart, so the line is read as it always was; a flat `notes:` is read the same way, its bullets as criterion lines
 
 ## Variants
 
 A criterion that must hold for several values declares them once: `- Aspect: a, b`, or one named keyword, `- <name>: a, b`.
 The canon's rule: living-doc's header types, "AC variants".
 
-- A keyword is the other spelling of `Aspect:`: its values fill `aspect`, and `placeholder_values` keeps its one name → `tests/authoring/test_ac_grammar.py::test_a_keyword_named_in_the_description_fills_aspect_and_keeps_its_name`
+- A keyword is the other spelling of `Aspect:`: its values fill `aspect`, and `placeholder_values` keeps its one name
   - Why: coverage is per value either way; the name only reads better than "Aspect".
-- A `- <name>: <values>` bullet is a keyword only when the description names `{<name>}` → `authoring/ac_grammar.py::_ExtensionReader._read_keyword`
-  - Otherwise it is `UNPARSED_AC_LINE` and fills nothing → `tests/authoring/test_ac_grammar.py::test_a_bullet_whose_name_the_description_does_not_name_is_unparsed`
-- Names are compared folded: lowercase, with `-`, `_` and space equal; `- user role:` matches `{user-role}`, stored as `user_role` → `authoring/ac_grammar.py::_slug_placeholder_name`
-  - The folded name must match `^[A-Za-z_][A-Za-z0-9_]*$` → `contracts/common.py::PLACEHOLDER_NAME_PATTERN`
-  - [Normalisation](normalisation.md) never rewrites a name, as its `never_touched_ac_keyword_name_*` rows show → `tests/authoring/test_ac_grammar.py::test_each_keyword_name_form_normalisation_leaves_folds_to_one_slug`
-- `aspect` is reserved: a keyword named `aspect`, in any case, is `UNPARSED_AC_LINE` → `tests/authoring/test_ac_grammar.py::test_a_keyword_named_aspect_is_reserved_and_unparsed`
-- `Rationale:` is never a keyword, even with `{rationale}` in the description → `authoring/ac_grammar.py::_ExtensionReader._read_criterion_field`
-- `Aspect:` plus a keyword, two keywords, or `Aspect:` twice is `MALFORMED_AC`, and the criterion is dropped; no declaration wins → `authoring/ac_grammar.py::_Extensions.declares_two_variants`
+- A `- <name>: <values>` bullet is a keyword only when the description names `{<name>}`
+  - Otherwise it is `UNPARSED_AC_LINE` and fills nothing
+- Names are compared folded: lowercase, with `-`, `_` and space equal; `- user role:` matches `{user-role}`, stored as `user_role`
+  - The folded name must match `^[A-Za-z_][A-Za-z0-9_]*$`
+  - [Normalisation](normalisation.md) never rewrites a name, as its `never_touched_ac_keyword_name_*` rows show
+- `aspect` is reserved: a keyword named `aspect`, in any case, is `UNPARSED_AC_LINE`
+- `Rationale:` is never a keyword, even with `{rationale}` in the description
+- `Aspect:` plus a keyword, two keywords, or `Aspect:` twice is `MALFORMED_AC`, and the criterion is dropped; no declaration wins
   - Why: the canon allows one variant declaration per criterion; the author picks one.
-- A scenario links one value with `@AC:<id>/aspect:<value>` or `@AC:<id>/<name>:<value>` ([Parsers, scenarios](parsers.md#scenarios)) → `authoring/scenario.py::_parse_ac_tag`
+- A scenario links one value with `@AC:<id>/aspect:<value>` or `@AC:<id>/<name>:<value>` ([Parsers, scenarios](parsers.md#scenarios))
 
 ## Dropped criteria
 
-A criterion is skipped with a `MALFORMED_AC` warning when → `authoring/ac_grammar.py::_build_ac`:
+A criterion is skipped with a `MALFORMED_AC` warning when:
 
 - a line starts with `AC:` but is not `AC:<id> (...)`;
 - the id is missing or not id-shaped;
@@ -136,20 +136,20 @@ A criterion is skipped with a `MALFORMED_AC` warning when → `authoring/ac_gram
 - the block declares `Aspect:` and a keyword, two keywords, or `Aspect:` twice ([Variants](#variants));
 - in a scenario file, an `@AC:` tag has an invalid criterion id, a second parameter, an empty segment, a segment that is not `<param>:<value>`, an invalid parameter name, or a value that contains `:` ([Parsers, scenarios](parsers.md#scenarios)).
 
-In a parser, each line of a dropped criterion's block is reported too, one `AUTHORING_WARNING` per line, unless another warning already names it → `tests/authoring/test_accounting.py::test_every_line_of_a_dropped_criterion_is_reported_and_the_next_criterion_is_read`
+In a parser, each line of a dropped criterion's block is reported too, one `AUTHORING_WARNING` per line, unless another warning already names it
 
 ## Legacy descoped criteria
 
-- `AC:<id> (v<x.y.z> - descoped)` is converted to a version-less `planned` criterion, with a `LEGACY_AC_STATE` warning → `authoring/ac_grammar.py::_build_ac`
+- `AC:<id> (v<x.y.z> - descoped)` is converted to a version-less `planned` criterion, with a `LEGACY_AC_STATE` warning
   - Why: the retired state still appears in older documents; converting keeps the criterion instead of dropping it.
-- Any other `descoped` shape is `MALFORMED_AC` → `authoring/ac_grammar.py::_build_ac`
-- In a converted block, `descoped_reason:` becomes `rationale` → `authoring/ac_grammar.py::_parse_extensions`
-- `descoped_at:` and `future_release:` lines are dropped; the model has no field for them → `authoring/ac_grammar.py::_parse_extensions`
+- Any other `descoped` shape is `MALFORMED_AC`
+- In a converted block, `descoped_reason:` becomes `rationale`
+- `descoped_at:` and `future_release:` lines are dropped; the model has no field for them
 
 ## Rendering the header
 
-- `canonical_header()` renders `AC:<id> (v<x.y.z> - <state>)`, adding ` - removal planned v<x.y.z>` on `deprecated` → `contracts/common.py::AcceptanceCriterion.canonical_header`
-- A version-less criterion renders as `AC:<id> (planned)` → `contracts/common.py::AcceptanceCriterion.canonical_header`
+- `canonical_header()` renders `AC:<id> (v<x.y.z> - <state>)`, adding ` - removal planned v<x.y.z>` on `deprecated`
+- A version-less criterion renders as `AC:<id> (planned)`
   - Why: a generator renders a header without importing `authoring`.
 
 ## Example

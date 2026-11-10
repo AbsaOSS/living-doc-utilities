@@ -14,6 +14,7 @@ Not responsible for: reading authored text; `authoring/` does that and produces 
 - Used by: every collector, transformer and generator, and `authoring/`.
 - Depends on: `pydantic` and `jsonschema` only; every module imports with no extra.
 - Contracts: `schemas/*-schema.json`, generated → [Contracts](../../docs/contracts.md), [Schema rules](../../docs/contracts/schema-rules.md)
+- Code map of the contract pages, fact by fact: [docs/contracts/CONTEXT.md](../../docs/contracts/CONTEXT.md)
 
 ## Conventions
 

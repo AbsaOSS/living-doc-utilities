@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Collector authors start here. This page states how authored text becomes entity data, lists the design decisions
-with the code that realises them, and links to the page that defines each part.
+This page is the hub of the authoring rules: it states how authored text becomes entity data, lists the design
+decisions, and links to the page that defines each part.
 
 Read before: [README](../README.md) · Next: [Normalisation](authoring/normalisation.md)
 
@@ -22,22 +22,22 @@ The canonical forms come from `AbsaOSS/living-doc`'s [glossary](https://github.c
 
 ## Decisions
 
-- Every parser normalises a document's fields first and extracts them second, never the reverse → `authoring/normalize.py::normalize` · [normalisation](authoring/normalisation.md#where-normalisation-runs)
+- Every parser normalises a document's fields first and extracts them second, never the reverse · [normalisation](authoring/normalisation.md#where-normalisation-runs)
   - Why: a mis-cased or mis-dashed but well-formed header is corrected, not rejected.
-- The issue-body parser derives the entity id from the (normalised) title before the body is normalised, and a title with no id skips body normalisation entirely → `authoring/issue_body.py::parse_issue_body`
-  - The feature-header and PageObject parsers find the header first: only a header whose title names an entity is normalised and read, and nothing outside it → `authoring/framing.py::names_an_entity`
-- Where a section begins and ends is decided once, by position, before any rule rewrites a line or any parser reads one → `authoring/framing.py::Frame` · [normalisation](authoring/normalisation.md#where-normalisation-runs)
+- The issue-body parser derives the entity id from the (normalised) title before the body is normalised, and a title with no id skips body normalisation entirely
+  - The feature-header and PageObject parsers find the header first: only a header whose title names an entity is normalised and read, and nothing outside it
+- Where a section begins and ends is decided once, by position, before any rule rewrites a line or any parser reads one · [normalisation](authoring/normalisation.md#where-normalisation-runs)
   - Why: when the normaliser and the parser each found boundaries, they disagreed, and a note's text dropped data silently.
-- Normalisation never validates meaning; only `ac_grammar.py` knows the state vocabulary and the strict version shape → `tests/authoring/test_isolation.py::test_no_module_other_than_ac_grammar_validates_ac_state_or_version` · [grammar](authoring/ac-grammar.md)
+- Normalisation never validates meaning; only `ac_grammar.py` knows the state vocabulary and the strict version shape · [grammar](authoring/ac-grammar.md)
   - Why: two layers that both tolerated variance would disagree about what is valid.
-- The parsers share one grammar instead of reimplementing it → `tests/authoring/test_normalize_first.py::test_feature_header_issue_body_and_scenario_import_ac_grammar` · [grammar](authoring/ac-grammar.md#header)
-- One helper decides where a fenced code block starts and ends → `authoring/normalize.py::compute_fence_flags` · [normalisation](authoring/normalisation.md#where-normalisation-runs)
-- Parsers report, never raise or log → `authoring/issue_body.py::parse_issue_body` · [parsers](authoring/parsers.md#common-behaviour)
-- A warning is a `ContractWarning`, and its code is defined once → `contracts/envelope.py::ContractWarning` · [errors](contracts/errors.md#codes)
-- `authoring` stays source-agnostic: no GitHub- or Azure-DevOps-specific import → `tests/authoring/test_isolation.py::test_authoring_imports_nothing_github_or_azure_devops_specific`
-- `contracts` never imports `authoring`; the dependency runs one way → `tests/authoring/test_isolation.py::test_contracts_imports_nothing_from_authoring`
-- Status and relations are settled once per run, over every parsed entity → `authoring/status.py::derive_statuses` · [parsers](authoring/parsers.md#status-derivation)
-- One URL policy serves every consumer → `authoring/url_policy.py::safe_href` · [URLs and HTML](authoring/urls-and-html.md#url-policy)
+- The parsers share one grammar instead of reimplementing it · [grammar](authoring/ac-grammar.md#header)
+- One helper decides where a fenced code block starts and ends · [normalisation](authoring/normalisation.md#where-normalisation-runs)
+- Parsers report, never raise or log · [parsers](authoring/parsers.md#common-behaviour)
+- A warning is a `ContractWarning`, and its code is defined once · [errors](contracts/errors.md#codes)
+- `authoring` stays source-agnostic: no GitHub- or Azure-DevOps-specific import
+- `contracts` never imports `authoring`; the dependency runs one way
+- Status and relations are settled once per run, over every parsed entity · [parsers](authoring/parsers.md#status-derivation)
+- One URL policy serves every consumer · [URLs and HTML](authoring/urls-and-html.md#url-policy)
 
 ## Pages
 
