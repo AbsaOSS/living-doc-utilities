@@ -41,6 +41,11 @@ jobs:
     # Draft releases must be cut from master — the tag is created on this ref's
     # commit, so a dispatch from any other branch would tag a non-release commit.
     if: github.ref == 'refs/heads/master'
+    # Write to create the tag and the draft release; read for the release-notes generator's issue and PR queries.
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: read
 
     steps:
       - name: Checkout code
@@ -104,23 +109,22 @@ jobs:
           tag-name: ${{ github.event.inputs.tag-name }}
           from-tag-name: ${{ github.event.inputs.from-tag-name }}
           chapters: |
-            - {"title": "Entries to skip 🚫", "label": "duplicate"}
-            - {"title": "Entries to skip 🚫", "label": "invalid"}
-            - {"title": "Entries to skip 🚫", "label": "wontfix"}
-            - {"title": "Entries to skip 🚫", "label": "no RN"}
-            - {"title": "Breaking Changes 💥", "label": "breaking change"}
-            - {"title": "Security updates 👮", "label": "security"}
-            - {"title": "New Features 🎉", "label": "enhancement"}
-            - {"title": "Bugfixes 🛠", "label": "bug"}
-            - {"title": "Epics 📖", "label": "epic"}
-            - {"title": "Infrastructure ⚙️", "label": "infrastructure"}
+            - {"title": "Breaking Changes 💥", "labels": "breaking change, generic:breaking-change"}
+            - {"title": "New Features 🎉", "labels": "enhancement, type:feature"}
+            - {"title": "Bugfixes 🛠", "labels": "bug, type:bug"}
+            - {"title": "Security updates 👮", "labels": "security, scope:security"}
+            - {"title": "Technical debt 🧹", "labels": "tech debt, type:tech-debt, refactoring"}
+            - {"title": "Documentation 📜", "labels": "documentation, type:documentation"}
+            - {"title": "Infrastructure ⚙️", "labels": "infrastructure, scope:devops"}
+            - {"title": "Epics 📖", "labels": "epic, type:epic"}
             - {"title": "Silent-live 🤫", "label": "silent live"}
-            - {"title": "Documentation 📜", "label": "documentation"}
+            - {"title": "Operative 🗂️", "labels": "operative, type:operative, spike, type:spike, pointer, type:pointer", "hidden": true}
+            - {"title": "Entries to skip 🚫", "labels": "duplicate, generic:duplicate, invalid, wontfix, generic:wont-fix, no RN, pr:no-release-notes", "hidden": true}
           duplicity-scope: 'none'
           warnings: true
-          skip-release-notes-labels: "no RN,duplicate,invalid,wontfix"
+          skip-release-notes-labels: "no RN,pr:no-release-notes,duplicate,generic:duplicate,invalid,wontfix,generic:wont-fix"
           release-notes-title: '## [Rr]elease [Nn]otes'
-          print-empty-chapters: true
+          print-empty-chapters: false
           row-format-issue: '_{title}_ {developers} in {number}'
           row-format-pr: '_{title}_ {developers} in {number}'
           row-format-link-pr: true

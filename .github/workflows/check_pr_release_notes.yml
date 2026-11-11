@@ -21,6 +21,10 @@ on:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
     branches: [ master ]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   check-release-notes:
     runs-on: ubuntu-latest
@@ -38,5 +42,5 @@ jobs:
           github-repository: ${{ github.repository }}
           pr-number: ${{ github.event.number }}
           title: "## [Rr]elease [Nn]otes"
-          skip-labels: 'no RN'
+          skip-labels: 'no RN,pr:no-release-notes'
           skip-placeholders: 'TBD'
