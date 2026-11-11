@@ -41,6 +41,11 @@ jobs:
     # Draft releases must be cut from master — the tag is created on this ref's
     # commit, so a dispatch from any other branch would tag a non-release commit.
     if: github.ref == 'refs/heads/master'
+    # Write to create the tag and the draft release; read for the release-notes generator's issue and PR queries.
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: read
 
     steps:
       - name: Checkout code
