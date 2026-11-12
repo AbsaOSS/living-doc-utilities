@@ -68,12 +68,12 @@ Where each part is defined: [contracts](contracts.md) and [authoring](authoring.
 
 | Install | Adds | Needed for |
 |---|---|---|
-| `living-doc-utilities==0.8.0` | `pydantic`, `jsonschema` | every module marked "none" above |
-| `living-doc-utilities[github]==0.8.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
-| `living-doc-utilities[html]==0.8.0` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
+| `living-doc-utilities==0.8.1` | `pydantic`, `jsonschema` | every module marked "none" above |
+| `living-doc-utilities[github]==0.8.1` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
+| `living-doc-utilities[html]==0.8.1` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
 
 - The extras are declared in `pyproject.toml`
-- Extras combine: `pip install "living-doc-utilities[github,html]==0.8.0"`
+- Extras combine: `pip install "living-doc-utilities[github,html]==0.8.1"`
 - Importing a module never needs the `html` extra; calling `convert_html_to_markdown()` or `sanitize_html_fragment()` does
 - A clean install of the wheel with each extra proves which module imports where
 
@@ -140,7 +140,7 @@ def fetch_issue(repository, number):
 
 The version lives in `pyproject.toml`. The rules for pinning and changing it:
 
-- Pin exactly: `living-doc-utilities==0.8.0` plus your extras; no ranges, pre-releases or git-SHA pins.
+- Pin exactly: `living-doc-utilities==0.8.1` plus your extras; no ranges, pre-releases or git-SHA pins.
 - The version stays `0.x` until every component of the ecosystem reaches `1.0` together, as one release.
 - A contract or public-API change bumps the minor version (`0.5.0` → `0.6.0`).
 - A parser or helper fix bumps the patch version (`0.5.0` → `0.5.1`).
