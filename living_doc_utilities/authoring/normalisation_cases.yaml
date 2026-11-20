@@ -481,6 +481,16 @@
     A "# AC:" comment keeps its description inline - only the separator before it is
     canonicalised, no line is inserted.
 
+- id: rule7_inline_ac_description_scenario_file_whitespace
+  rule: inline_ac_description
+  format: scenario_file
+  entity_type: DocumentedUserStory
+  input: "# AC:US-001-01 (v1.0.0 - active) -  valid credentials land on the account dashboard  \n@AC:US-001-01\n"
+  expected: "# AC:US-001-01 (v1.0.0 - active) - valid credentials land on the account dashboard\n@AC:US-001-01\n"
+  note: >
+    Extra whitespace around a "# AC:" comment's inline description is removed and recorded,
+    though its separator already reads " - ".
+
 - id: rule2_rule3_rule4_scenario_file_combined
   rule: ac_header_separator
   format: scenario_file
