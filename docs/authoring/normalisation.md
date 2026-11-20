@@ -163,7 +163,7 @@ None of them knows the state vocabulary or the strict version shape; the [gramma
 - Rewrites: a description written on the header line (`AC:US-001-01 (v1.0.0 - active) — the description`) onto its own `- ` bullet.
 - Applies to the issue-body and feature-header formats, whose grammar expects the description as a bullet.
 - In a `.feature` header the new bullet sits two spaces deeper than its header, wherever the header is
-- Records each rewritten line as an `inline_ac_description` change; a scenario-file comment whose separator already reads ` - ` records none.
+- Records each line it rewrites as an `inline_ac_description` change; a scenario-file comment records none only when its text after the `(…)` is exactly ` - <description>`, with no extra whitespace.
 - Never touches: a scenario-file `# AC:` comment's inline description; only its separator is canonicalised.
 - Why: the grammar reads the description only as the block's first bullet; inline text would be lost.
 - Breaks if removed: the block has no description bullet, so the criterion is dropped with a `MALFORMED_AC` warning; the header still parses.
