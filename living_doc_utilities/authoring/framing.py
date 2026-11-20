@@ -378,7 +378,8 @@ def frame_feature_header(lines: list[FramedLine], bullet_sections: frozenset[str
     header outside that section is text and is reported, so the key always bounds the criteria. Neither is read
     on an open bullet item's text. A blank line without `#` is no header line and closes nothing, as a blank line
     in a Markdown list does not. With no rule at all there is no header; nothing outside the frame is read."""
-    end = next((i for i, framed in enumerate(lines) if _FEATURE_LINE_RE.match(framed.raw.strip())), len(lines))
+    feature = _feature_line(lines)
+    end = len(lines) if feature is None else feature
     rules = [i for i in range(end) if _FH_RULE_RE.match(lines[i].raw)]
     problems: list[Problem] = []
     if not rules:
@@ -413,6 +414,11 @@ def frame_feature_header(lines: list[FramedLine], bullet_sections: frozenset[str
                 problems.append(Problem(KEY_OUTSIDE_FRAME, framed.number))
             placed.append(_placed(framed, Role.OUTSIDE))
     return Frame(placed, problems + walk.problems)
+
+
+def _feature_line(lines: list[FramedLine]) -> Optional[int]:
+    """The index of the file's `Feature:` line, or None."""
+    return next((i for i, framed in enumerate(lines) if _FEATURE_LINE_RE.match(framed.raw.strip())), None)
 
 
 def _last_comment_line(lines: list[FramedLine], opening: int, end: int) -> int:
@@ -570,6 +576,27 @@ _GHERKIN_SECTION_RES = (
     (BACKGROUND, re.compile(r"^Background:\s*.*$")),
     (SCENARIO, re.compile(r"^Scenario(?:\s+Outline)?:\s*.*$")),
 )
+_RULE_LINE_RE = re.compile(r"^Rule:")
+
+
+def _gherkin_keyword(text: str) -> Optional[str]:
+    """The section keyword `text` opens with, or None."""
+    return next((name for name, keyword_re in _GHERKIN_SECTION_RES if keyword_re.match(text)), None)
+
+
+def feature_description(frame: Frame) -> list[FramedLine]:
+    """The Gherkin description under a `.feature` file's `Feature:` line: each line after it, up to the first
+    `Background:`, `Rule:` or scenario line, tag line or comment line, as Gherkin bounds it."""
+    start = _feature_line(frame.lines)
+    if start is None:
+        return []
+    description: list[FramedLine] = []
+    for framed in frame.lines[start + 1 :]:
+        text = framed.raw.strip()
+        if text.startswith(("#", "@")) or _RULE_LINE_RE.match(text) or _gherkin_keyword(text) is not None:
+            break
+        description.append(framed)
+    return description
 
 
 def frame_scenario_file(lines: list[FramedLine]) -> Frame:
@@ -580,7 +607,7 @@ def frame_scenario_file(lines: list[FramedLine]) -> Frame:
     section: Optional[str] = None
     for framed in lines:
         text = framed.line.text
-        keyword = next((name for name, keyword_re in _GHERKIN_SECTION_RES if keyword_re.match(text)), None)
+        keyword = _gherkin_keyword(text)
         if keyword is not None:
             section, role = keyword, Role.HEADING
         elif not text:

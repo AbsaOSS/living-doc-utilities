@@ -131,7 +131,7 @@ Each `##` heading maps by slug (lowercase, spaces and underscores as `_`) to a f
 `parse_feature_header(text, entity_type)` reads a User Story's or Functionality's `.feature` header.
 
 - The header runs from the first `# ===` rule to the last; it holds `# key: value` lines, and `# key:` lines with an indented bullet list
-  - Nothing outside it is read: not a line above the first rule or below the last
+  - Outside it, only the [description](#the-description-under-feature) is read: no other line above the first rule or below the last
   - A key below the last rule, above `Feature:`, is `AUTHORING_ERROR`
   - A comment above the first rule is no header line and is not reported: Gherkin's `# language:` sits on line 1
   - A header with only one rule never closes. It is still read, up to its last comment line before a tag or `Feature:`, and is reported as `AUTHORING_ERROR`
@@ -160,6 +160,16 @@ Keys:
 | `acceptance_criteria` (read by the [grammar](ac-grammar.md)) | yes | yes |
 | `business_value` (bullets) | yes | |
 | `parent`, `func_type`, `rationale` | | yes |
+
+### The description under `Feature:`
+
+- The Gherkin description under `Feature:` is the entity's `narrative`, for a User Story and a Functionality alike
+  - Why: an issue body fills the same field from `## Description`, so a `.feature` entity reaches the contract the same way.
+- It runs from the line after `Feature:` to the first `Background:`, `Rule:` or `Scenario` line, tag or comment
+  - `Example:` and `Scenario Template:` do not end it: the library reads neither as a scenario
+- Its lines join as `## Description`'s do: blank lines drop, and the rest join, stripped, with one space
+- It is free prose: no line of it is a key or a criterion, and `normalize` rewrites none of it
+- A file with no description keeps `narrative` as `None`, and nothing is reported
 
 ## PageObject header
 

@@ -15,9 +15,9 @@
 #
 
 """
-`.feature`-file header parsing for a User Story or a Functionality: the `# key: value` /
-`# key:` + bulleted-list comment block between two `# ===...===` banners, plus its
-`AC:<id> (v<version> - <state>)` blocks, parsed by `ac_grammar` alone.
+`.feature`-file header parsing for a User Story or a Functionality: the `# key: value` / `# key:` + bulleted-list
+comment block between two `# ===...===` banners, its `AC:<id> (v<version> - <state>)` blocks, parsed by
+`ac_grammar` alone, and the Gherkin description under `Feature:` as the `narrative`.
 """
 
 from dataclasses import dataclass, field
@@ -34,7 +34,7 @@ from living_doc_utilities.authoring.accounting import (
     structural_warnings,
     unplaced_lines,
 )
-from living_doc_utilities.authoring.framing import Frame, opening_value, sections
+from living_doc_utilities.authoring.framing import Frame, feature_description, opening_value, sections
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.issue_body import (
     _EXTRACTORS,
@@ -136,8 +136,8 @@ def _read_keys(frame: Frame, key_specs: dict[str, _SectionSpec], entity_id: str)
 
 
 def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[ParsedEntity], list[ContractWarning]]:
-    """Parses a User Story / Functionality `.feature` file's header block into a
-    `ParsedEntity`. Returns `(None, [MISSING_ENTITY_ID])` when the `LIVING DOC — ...` title
+    """Parses a User Story / Functionality `.feature` file's header block, and the description under its `Feature:`
+    line, into a `ParsedEntity`. Returns `(None, [MISSING_ENTITY_ID])` when the `LIVING DOC — ...` title
     line is missing or carries no parseable id."""
     _, frame = normalize_framed(text, SourceFormat.FEATURE_HEADER, entity_type)
     title = None if frame.title is None else extract_living_doc_title([frame.title.line.raw])
@@ -176,6 +176,8 @@ def parse_feature_header(text: str, entity_type: DocType) -> tuple[Optional[Pars
     acceptance_criteria, ac_warnings = parse_frame_criteria(frame, entity_id)
     warnings.extend(ac_warnings)
 
+    # Read as an issue body's `## Description` is, so one entity's narrative is the same text from either source.
+    keys.values["narrative"] = _EXTRACTORS[_SectionKind.PROSE]([framed.raw for framed in feature_description(frame)])
     parsed, build_warnings = _build_parsed_entity(
         entity_id, entity_type, title, acceptance_criteria, keys.values, keys.field_lines
     )
