@@ -73,6 +73,9 @@ Coverage is computed per aspect.
 - An aspect's own status is `covered` or `not_covered`
 - `covered` is evidence-backed by `scenario_ids` for an `AspectCoverage` and for an `AcCoverage` with no aspects: `covered` if and only if `scenario_ids` has an entry
   - When an `AcCoverage` has aspects, its `status` is derived from the aspects instead (see table above), and its own top-level `scenario_ids` is not checked — it can be empty on a `covered` row
+- A scenario tagged `@skip` is never listed in `scenario_ids`, of an `AcCoverage` or an `AspectCoverage` → toolkit
+  - Why: a skipped test proves nothing; counting it would overstate the coverage figure.
+- So a criterion or an aspect whose only scenarios are tagged `@skip` is `not_covered`
 - Counted criteria are `active` and `deprecated`, in both views
 - A coverage matrix's `document.view` changes presentation only, never which criteria are counted.
 - `in_review` criteria are not counted; a linked scenario is the warning `IN_REVIEW_AC_HAS_TESTS`
