@@ -19,6 +19,7 @@
 import pytest
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
+from living_doc_utilities.authoring.issue_body import parse_issue_body
 from living_doc_utilities.contracts.codes import Code
 
 _US_HEADER = """\
@@ -462,3 +463,96 @@ def test_a_blank_line_ends_nothing_so_a_deeper_line_after_it_is_the_items_text()
     assert warnings == []
     assert entity.business_value == ["Fewer support calls. status: deprecated"]
     assert entity.state is None
+
+
+# --- the description under `Feature:` is the entity's narrative ---------------------------------------
+
+
+def _with_body(body: str, entity_id: str = "US-001") -> str:
+    return (
+        "# =============================================================================\n"
+        f"# LIVING DOC — {entity_id} · Sample\n"
+        "# =============================================================================\n"
+        "# status:       active\n"
+        "# =============================================================================\n"
+        "\n"
+        f"@ID:{entity_id}\n"
+        f"{body}"
+    )
+
+
+@pytest.mark.parametrize(
+    "entity_id, entity_type",
+    [("US-001", "DocumentedUserStory"), ("FUNC-001", "DocumentedFunctionality")],
+)
+def test_the_description_under_feature_is_the_narrative_of_either_entity_type(entity_id, entity_type):
+    """A User Story's or a Functionality's Gherkin description fills its `narrative`, with no warning."""
+    text = _with_body(
+        "Feature: Sample\n"
+        "  As a library member, I can borrow a book from the online catalogue, so that I can take it home.\n"
+        "\n"
+        "  Scenario: Borrow\n"
+        "    Given a book\n",
+        entity_id,
+    )
+    entity, warnings = parse_feature_header(text, entity_type)
+
+    assert warnings == []
+    assert entity.narrative == (
+        "As a library member, I can borrow a book from the online catalogue, so that I can take it home."
+    )
+
+
+def test_a_wrapped_description_reads_as_the_same_text_under_an_issue_bodys_description():
+    """Lines of a description, a blank one among them, join as `## Description` joins: the same text either way."""
+    description = "  As a library member, I can borrow a book,\n\n  so that I can take it home.\n"
+    entity, _ = parse_feature_header(_with_body(f"Feature: Sample\n\n{description}"), "DocumentedUserStory")
+    from_issue, _ = parse_issue_body(f"## Description\n\n{description}", "US-001 Sample", "DocumentedUserStory")
+
+    assert entity.narrative == "As a library member, I can borrow a book, so that I can take it home."
+    assert entity.narrative == from_issue.narrative
+
+
+@pytest.mark.parametrize(
+    "construct",
+    [
+        "  Background:",
+        "  Rule: Members only",
+        "  Scenario: Borrow",
+        "  Scenario Outline: Borrow",
+        "  @AC:US-001-01",
+        "  # note",
+    ],
+    ids=["background", "rule", "scenario", "scenario_outline", "tag", "comment"],
+)
+def test_the_description_ends_at_the_first_gherkin_construct_after_it(construct):
+    """A `Background:`, `Rule:` or scenario line, a tag or a comment ends the description; nothing after it is read."""
+    text = _with_body(f"Feature: Sample\n  As a member, I can borrow a book.\n{construct}\n  Not the description.\n")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.narrative == "As a member, I can borrow a book."
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["Feature: Sample\n", "Feature: Sample\n\n  @AC:US-001-01\n  Scenario: Borrow\n    Given a book\n"],
+    ids=["nothing_after_feature", "a_scenario_right_after"],
+)
+def test_a_file_without_a_description_keeps_narrative_none_without_a_warning(body):
+    """No description under `Feature:` leaves `narrative` unset, and nothing is reported."""
+    entity, warnings = parse_feature_header(_with_body(body), "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.narrative is None
+
+
+def test_a_description_reading_like_a_key_or_a_criterion_is_prose_kept_as_authored():
+    """The description is free prose: `normalize` rewrites nothing in it, and no line of it is a key or a criterion."""
+    text = _with_body("Feature: Sample\n  status: deprecated, AC:US-001-09 (v1.0.0 - Active) stays as written.\n")
+    entity, warnings = parse_feature_header(text, "DocumentedUserStory")
+
+    assert warnings == []
+    assert entity.state == "active"
+    assert entity.acceptance_criteria == []
+    assert entity.narrative == "status: deprecated, AC:US-001-09 (v1.0.0 - Active) stays as written."

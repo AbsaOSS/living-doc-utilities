@@ -25,7 +25,7 @@ The canonical forms come from `AbsaOSS/living-doc`'s [glossary](https://github.c
 - Every parser normalises a document's fields first and extracts them second, never the reverse · [normalisation](authoring/normalisation.md#where-normalisation-runs)
   - Why: a mis-cased or mis-dashed but well-formed header is corrected, not rejected.
 - The issue-body parser derives the entity id from the (normalised) title before the body is normalised, and a title with no id skips body normalisation entirely
-  - The feature-header and PageObject parsers find the header first: only a header whose title names an entity is normalised and read, and nothing outside it
+  - The feature-header and PageObject parsers find the header first: only a header whose title names an entity is normalised and read, and nothing outside it but a `.feature` file's [description](authoring/parsers.md#the-description-under-feature)
 - Where a section begins and ends is decided once, by position, before any rule rewrites a line or any parser reads one · [normalisation](authoring/normalisation.md#where-normalisation-runs)
   - Why: when the normaliser and the parser each found boundaries, they disagreed, and a note's text dropped data silently.
 - Normalisation never validates meaning; only `ac_grammar.py` knows the state vocabulary and the strict version shape · [grammar](authoring/ac-grammar.md)

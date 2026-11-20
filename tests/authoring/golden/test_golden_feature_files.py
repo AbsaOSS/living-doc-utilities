@@ -38,6 +38,7 @@ def test_us_001_feature_header_matches_its_issue_body_golden_entity():
     assert entity.entity_id == expected["entity_id"]
     assert entity.title == expected["title"]
     assert entity.state == expected["state"]
+    assert entity.narrative == expected["narrative"]
     assert entity.business_value == expected["business_value"]
     assert [_ac_core(ac) for ac in entity.acceptance_criteria] == [
         (ac["id"], ac["state"], ac["version"], ac["description"], ac["removal_planned"])
@@ -65,6 +66,7 @@ def test_func_001_feature_header_matches_its_issue_body_golden_entity():
     assert entity.entity_id == expected["entity_id"]
     assert entity.title == expected["title"]
     assert entity.state == expected["state"]
+    assert entity.narrative == expected["narrative"]
     assert entity.parent == expected["parent"]
     assert entity.func_type == expected["func_type"]
     assert [_ac_core(ac) for ac in entity.acceptance_criteria] == [

@@ -162,7 +162,7 @@ What realises each fact of [parsers.md](parsers.md):
 - An item nested one space deeper than its parent is reported: the parser nests it, GitHub shows a sibling → `tests/authoring/test_accounting.py::test_an_item_nested_one_space_deeper_is_reported_as_github_renders_it_a_sibling`
 - `parse_feature_header(text, entity_type)` reads a User Story's or Functionality's `.feature` header → `authoring/feature_header.py::parse_feature_header`
 - The header runs from the first `# ===` rule to the last; it holds `# key: value` lines, and `# key:` lines with an indented bullet list → `authoring/framing.py::frame_feature_header`
-- Nothing outside it is read: not a line above the first rule or below the last → `authoring/framing.py::frame_feature_header`
+- Outside it, only the description is read: no other line above the first rule or below the last → `authoring/framing.py::frame_feature_header`
 - A key below the last rule, above `Feature:`, is `AUTHORING_ERROR` → `tests/authoring/test_accounting.py::test_a_key_below_the_closing_rule_is_reported`
 - A comment above the first rule is no header line and is not reported: Gherkin's `# language:` sits on line 1 → `tests/authoring/test_accounting.py::test_a_comment_above_the_opening_rule_is_no_header_line_and_is_not_reported`
 - A header with only one rule never closes → `tests/authoring/test_framing.py::test_a_feature_header_with_one_rule_is_read_to_its_last_comment_line_and_reported`
@@ -180,6 +180,12 @@ What realises each fact of [parsers.md](parsers.md):
 - `acceptance_criteria:` is structural → `tests/authoring/test_accounting.py::test_an_acceptance_criteria_keys_own_line_text_is_reported`
 - Written bare, as the canon writes it, nothing is unread and nothing is reported → `tests/authoring/test_accounting.py::test_an_acceptance_criteria_key_written_bare_is_not_reported`
 - The keys each entity type's header reads → `authoring/feature_header.py::_KEYS_BY_TYPE`
+- The Gherkin description under `Feature:` is the entity's `narrative`, for a User Story and a Functionality alike → `tests/authoring/test_feature_header.py::test_the_description_under_feature_is_the_narrative_of_either_entity_type`
+- It runs from the line after `Feature:` to the first `Background:`, `Rule:` or `Scenario` line, tag or comment → `authoring/framing.py::feature_description`
+- `Example:` and `Scenario Template:` do not end it: the library reads neither as a scenario → `authoring/framing.py::feature_description`
+- Its lines join as `## Description`'s do: blank lines drop, and the rest join, stripped, with one space → `tests/authoring/test_feature_header.py::test_a_wrapped_description_reads_as_the_same_text_under_an_issue_bodys_description`
+- It is free prose: no line of it is a key or a criterion, and `normalize` rewrites none of it → `tests/authoring/test_feature_header.py::test_a_description_reading_like_a_key_or_a_criterion_is_prose_kept_as_authored`
+- A file with no description keeps `narrative` as `None`, and nothing is reported → `tests/authoring/test_feature_header.py::test_a_file_without_a_description_keeps_narrative_none_without_a_warning`
 - `parse_page_object(text)` reads a PageObject file's leading `/* ... */` comment → `authoring/page_object.py::parse_page_object`
 - The comment ends at its first line that ends in `*/`; a `*/` inside a value does not end it → `authoring/framing.py::frame_page_object`
 - A key written on that last line is still read, without the comment's `*/` → `tests/authoring/test_framing.py::test_a_key_on_the_closing_line_is_still_read_without_the_close`
