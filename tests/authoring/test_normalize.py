@@ -76,7 +76,6 @@ def test_changes_name_every_rule_that_fired_on_one_line():
         normalize_module.RULE_AC_HEADER_SEPARATOR,
         normalize_module.RULE_STATE_CASING,
         normalize_module.RULE_VERSION_FORM,
-        normalize_module.RULE_INLINE_AC_DESCRIPTION,
     }
     expected_before = case["input"].splitlines()[0]
     expected_after = case["expected"].splitlines()[0]

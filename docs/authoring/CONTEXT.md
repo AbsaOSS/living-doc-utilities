@@ -54,6 +54,7 @@ What realises each fact of [normalisation.md](normalisation.md):
 - Rule `whitespace`: Records each rewritten line as a `whitespace` change → `tests/authoring/test_normalize.py::test_feature_header_rule_6_is_recorded_per_line_with_its_before_and_after`
 - Rule `inline_ac_description` → `authoring/normalize.py::RULE_INLINE_AC_DESCRIPTION`
 - Rule `inline_ac_description`: In a `.feature` header the new bullet sits two spaces deeper than its header, wherever the header is → `tests/authoring/test_normalize.py::test_feature_header_split_description_sits_one_level_below_its_header`
+- Rule `inline_ac_description`: Records each rewritten line as an `inline_ac_description` change; a scenario-file comment whose separator already reads ` - ` records none → `tests/authoring/test_normalize_cases.py::test_a_cases_canonical_output_normalises_with_no_change`
 - Generated from `living_doc_utilities/authoring/normalisation_cases.yaml` by `make docs` → `authoring/docs_export.py::regenerate`
 - The same file is the test data: `tests/authoring/test_normalize_cases.py` runs every row → `tests/authoring/test_normalize_cases.py::test_normalisation_case`
 - Do not hand-edit the table; CI fails the build when it drifts → `.github/workflows/test.yml::docs-regeneration-check`

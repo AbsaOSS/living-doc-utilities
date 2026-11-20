@@ -97,3 +97,12 @@ def test_normalisation_case(case):
     else:
         fired_rules = {change.rule for change in result.changes}
         assert case["rule"] in fired_rules, f"expected rule {case['rule']!r} to fire, got {fired_rules!r}"
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case["id"] for case in CASES])
+def test_a_cases_canonical_output_normalises_with_no_change(case):
+    """Each row's expected output is canonical: normalising it again returns it as is and records no change."""
+    result = normalize(case["expected"], SourceFormat(case["format"]), case["entity_type"])
+
+    assert result.text == case["expected"]
+    assert result.changes == []

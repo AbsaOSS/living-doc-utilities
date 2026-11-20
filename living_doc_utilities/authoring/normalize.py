@@ -251,13 +251,12 @@ def _rewrite_ac_header_content(
         return [f"AC:{ac_id} ({new_inner}){trail}"], fired
 
     desc_text = trail_m.group("desc").strip()
-    fired = set(fired)
-    fired.add(RULE_INLINE_AC_DESCRIPTION)
-
     if inline_description:
-        return [f"AC:{ac_id} ({new_inner}) - {desc_text}"], fired
+        new_trail = f" - {desc_text}"
+        fired = fired | _fired_if(new_trail != trail, RULE_INLINE_AC_DESCRIPTION)
+        return [f"AC:{ac_id} ({new_inner}){new_trail}"], fired
 
-    return [f"AC:{ac_id} ({new_inner})", f"{bullet_indent}- {desc_text}"], fired
+    return [f"AC:{ac_id} ({new_inner})", f"{bullet_indent}- {desc_text}"], fired | {RULE_INLINE_AC_DESCRIPTION}
 
 
 def _fired_if(changed: bool, rule: str) -> set[str]:
