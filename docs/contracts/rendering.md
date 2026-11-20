@@ -83,6 +83,15 @@ Coverage is computed per aspect.
 - The coverage matrix holds no row for an `in_review` or `planned` criterion
 - A scenario linked to one keeps its `@AC:` link in `ui-test-catalog`
 - Either warning names the scenario and the criterion → toolkit
+- A scenario tagged `@skip` is never listed in `scenario_ids`, of an `AcCoverage` or an `AspectCoverage` → toolkit
+  - Why: a skipped test proves nothing; counting it would overstate the coverage figure.
+- So a criterion or an aspect whose only scenarios are tagged `@skip` is `not_covered`
+- A `@skip` scenario that links a counted criterion is the warning `SKIPPED_SCENARIO`, once per scenario and criterion
+  - Why: `not_covered` alone hides that the test exists and is switched off.
+  - Its message names the scenario's id and title, as a generator never shows `ac_id` or `context` → toolkit
+- A `@skip` scenario that links an `in_review` or `planned` criterion gets only that criterion's warning
+- In `ui-test-catalog`, a `@skip` scenario keeps its `@AC:` links
+- A generator shows it as skipped, and its criteria as linked but not counted → generators
 
 ## Coverage summary
 
