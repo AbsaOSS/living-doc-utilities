@@ -186,6 +186,8 @@ What realises each fact of [rendering.md](rendering.md):
 - `planned` criteria, backlog or targeted, are not counted; a linked scenario is the warning `PLANNED_AC_HAS_TESTS` → `contracts/codes.py::Code`
 - The coverage matrix holds no row for an `in_review` or `planned` criterion → `contracts/coverage_matrix.py::CountedState`
 - A scenario linked to one keeps its `@AC:` link in `ui-test-catalog` → `contracts/ui_test_catalog.py::FeatureFileCatalog`
+- A `@skip` scenario that links a counted criterion is the warning `SKIPPED_SCENARIO` → `contracts/codes.py::Code`
+- In `ui-test-catalog`, a `@skip` scenario keeps its `@AC:` links → `contracts/ui_test_catalog.py::FeatureFileCatalog`
 - Every entity and the whole matrix carry a required `summary` → `contracts/coverage_matrix.py::CoverageSummary`
 - Each counted row weighs: `covered` 1, `not_covered` 0, `partially_covered` its covered aspects over its declared aspects → `contracts/coverage_matrix.py::AcCoverage.weight`
 - `coverage_pct` is the sum of the weights over `counted_acs`, times 100 → `contracts/coverage_matrix.py::CoverageSummary.from_rows`

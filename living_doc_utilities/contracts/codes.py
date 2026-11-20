@@ -74,6 +74,7 @@ class Code(Enum):
     FIELD_LOSS = CodeKind.ERROR, Emitter.TRANSFORM
     PLANNED_AC_HAS_TESTS = CodeKind.WARNING, Emitter.TRANSFORM
     IN_REVIEW_AC_HAS_TESTS = CodeKind.WARNING, Emitter.TRANSFORM
+    SKIPPED_SCENARIO = CodeKind.WARNING, Emitter.TRANSFORM
     STALE_AC_REF = CodeKind.WARNING, Emitter.TRANSFORM
 
     # --- Collectors (R13, and the authoring/parsing rules) ---

@@ -33,6 +33,7 @@ _KNOWN_CODES = [
     ("TEMPLATE_KEY_MISSING", CodeKind.ERROR, Emitter.GENERATOR),
     ("MISSING_INPUT", CodeKind.ERROR, Emitter.TOOLKIT),
     ("STALE_AC_REF", CodeKind.WARNING, Emitter.TRANSFORM),
+    ("SKIPPED_SCENARIO", CodeKind.WARNING, Emitter.TRANSFORM),
     ("URL_FETCH_REFUSED", CodeKind.WARNING, Emitter.GENERATOR),
 ]
 
@@ -80,7 +81,7 @@ def test_compat_raised_codes_are_registered_as_errors_emitted_by_utilities(name)
 def test_every_code_member_is_a_distinct_object():
     """Every Code member is a distinct object, none collapsed into another by a shared value."""
     # Guards Enum aliasing: `codes.py::Code.__new__` assigns unique sequential values, so members can't collapse.
-    assert len(set(Code)) == len(list(Code)) == 40
+    assert len(set(Code)) == len(list(Code)) == 41
 
 
 def test_every_code_has_a_kind_and_an_emitter():
