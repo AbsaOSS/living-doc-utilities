@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       tag-name:
-        description: 'New release tag; must match the pyproject.toml version. Syntax: "v[0-9]+.[0-9]+.[0-9]+", or "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+" for a release candidate.'
+        description: 'New release tag; must match the pyproject.toml version. Syntax: "v[0-9]+.[0-9]+.[0-9]+", or "v[0-9]+.[0-9]+.[0-9]+rc[1-9][0-9]?" (rc1 to rc99) for a release candidate.'
         required: true
       from-tag-name:
         description: 'Previous tag to compare against for the changelog (optional). Default: the newest published release that is not a pre-release.'

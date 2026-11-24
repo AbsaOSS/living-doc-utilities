@@ -117,7 +117,7 @@ Releasing is a two-stage GitHub Actions pipeline; no local tag or manual upload 
 
 A release candidate, such as `0.9.0rc1`, takes the same steps, with these differences:
 
-- `version` is `X.Y.ZrcN` and `tag-name` is `vX.Y.ZrcN`: one spelling, the one PyPI and pip show.
+- `version` is `X.Y.ZrcN` and `tag-name` is `vX.Y.ZrcN`, with `N` from 1 to 99: one spelling, the one PyPI and pip show.
 - The `README.md` pin stays in the final form, `X.Y.Z`.
   - Why: a plain `pip install` never takes a candidate; the README names the release it leads to.
 - The draft is a pre-release → `.github/workflows/release_draft.yml::prerelease`
