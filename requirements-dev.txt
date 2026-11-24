@@ -5,7 +5,7 @@
 # `github/` (the `github` extra) and exercise the HTML sanitiser (the `html` extra).
 PyGithub==2.10.0
 requests==2.34.2
-nh3==0.3.7
+nh3==0.3.8
 
 # Static analysis, formatting and type checking
 mypy==2.4.1
