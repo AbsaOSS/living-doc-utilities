@@ -110,8 +110,19 @@ Releasing is a two-stage GitHub Actions pipeline; no local tag or manual upload 
 
 - Publishing the draft is the approval gate for the PyPI upload.
 - To abort before step 5, delete the draft release and its tag.
-- `from-tag-name` scopes the release notes; without it, the latest tag is used.
+- `from-tag-name` scopes the release notes; without it, they start at the newest published release that is not a pre-release.
 - The notes take the bullet lines directly under each merged pull request's `## Release Notes`, up to its first line that is neither blank nor a bullet, so a bullet stays on one line → `.github/workflows/release_draft.yml::release-notes-title`
+
+### Release candidate
+
+A release candidate, such as `0.9.0rc1`, takes the same steps, with these differences:
+
+- `version` is `X.Y.ZrcN` and `tag-name` is `vX.Y.ZrcN`: one spelling, the one PyPI and pip show.
+- The `README.md` pin stays in the final form, `X.Y.Z`.
+  - Why: a plain `pip install` never takes a candidate; the README names the release it leads to.
+- The draft is a pre-release → `.github/workflows/release_draft.yml::prerelease`
+- Leave `from-tag-name` empty for a candidate and for the final release after it: both notes start at the previous final release.
+- The first change after a published candidate that needs a bump sets `version` to the next candidate or to `X.Y.Z` ([Versioning](docs/api.md#versioning)).
 
 ## Writing documentation
 
