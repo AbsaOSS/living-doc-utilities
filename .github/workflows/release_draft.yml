@@ -28,10 +28,10 @@ on:
   workflow_dispatch:
     inputs:
       tag-name:
-        description: 'New release tag; must match the pyproject.toml version. Syntax: "v[0-9]+.[0-9]+.[0-9]+".'
+        description: 'New release tag; must match the pyproject.toml version. Syntax: "v[0-9]+.[0-9]+.[0-9]+", or "v[0-9]+.[0-9]+.[0-9]+rc[1-9][0-9]?" (rc1 to rc99) for a release candidate.'
         required: true
       from-tag-name:
-        description: 'Previous tag to compare against for the changelog (optional). Default: latest tag.'
+        description: 'Previous tag to compare against for the changelog (optional). Default: the newest published release that is not a pre-release.'
         required: false
 
 jobs:
@@ -67,6 +67,11 @@ jobs:
         run: |
           set -euo pipefail
           tag="$TAG_NAME"
+          # One spelling: version-tag-check also takes -RCn, -BETA and others, which PyPI would publish respelled.
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(rc[1-9][0-9]?)?$ ]]; then
+            echo "::error::tag-name '$tag' is neither vX.Y.Z nor a release candidate vX.Y.ZrcN."
+            exit 1
+          fi
           project_version=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
           if [[ "$tag" != "v${project_version}" ]]; then
             echo "::error::tag-name '$tag' does not match pyproject.toml version '$project_version' (expected 'v${project_version}')."
@@ -82,7 +87,7 @@ jobs:
 
       - name: Check tag format
         id: check-version-tag
-        uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
+        uses: AbsaOSS/version-tag-check@b0c192179d5964006c99dc5765facbc7c69792d0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -92,7 +97,7 @@ jobs:
       - name: Check previous tag (if provided)
         if: ${{ github.event.inputs.from-tag-name }}
         id: check-version-from-tag
-        uses: AbsaOSS/version-tag-check@4145e48bf3f77a5afff2ec9afdd8afb6b53bce34
+        uses: AbsaOSS/version-tag-check@b0c192179d5964006c99dc5765facbc7c69792d0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -102,7 +107,7 @@ jobs:
 
       - name: Generate Release Notes
         id: generate_release_notes
-        uses: AbsaOSS/generate-release-notes@4592187ca123598c8f0bd6de06311c9f5cd8b773
+        uses: AbsaOSS/generate-release-notes@db47ecfef41ab9a7a26985e7df2bd3a020818cf8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -155,4 +160,6 @@ jobs:
           body: ${{ steps.generate_release_notes.outputs.release-notes }}
           tag_name: ${{ github.event.inputs.tag-name }}
           draft: true
-          prerelease: false
+          # A release candidate tag, vX.Y.ZrcN, drafts a pre-release: GitHub never marks it latest, and the next
+          # release's notes skip it and start at the previous final release.
+          prerelease: ${{ steps.generate_release_notes.outputs.prerelease }}

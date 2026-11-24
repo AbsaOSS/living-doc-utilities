@@ -140,10 +140,16 @@ def fetch_issue(repository, number):
 
 The version lives in `pyproject.toml`. The rules for pinning and changing it:
 
-- Pin exactly: `living-doc-utilities==0.9.0` plus your extras; no ranges, pre-releases or git-SHA pins.
+- Pin exactly: `living-doc-utilities==0.9.0` plus your extras; no ranges, git-SHA pins or pre-releases other than a release candidate.
+- Between release gates, you may pin a release candidate exactly: `living-doc-utilities==0.9.0rc1`.
+  - Why: you can test unreleased utilities code in CI before its final release.
+- At every gate, milestone and release, every pin is a final version.
+- A release candidate is a PyPI pre-release: a plain `pip install living-doc-utilities` never installs one.
 - The version stays `0.x` until every component of the ecosystem reaches `1.0` together, as one release.
 - A contract or public-API change bumps the minor version (`0.5.0` → `0.6.0`).
 - A parser or helper fix bumps the patch version (`0.5.0` → `0.5.1`).
+- After a release candidate, a change that needs a bump moves to the next candidate or the final version.
+  - Why: a fix to `0.9.0rc1` ships as `0.9.0rc2` or `0.9.0`, never `0.10.0`, so consumers re-pin once.
 - Every component sits on the same minor version; a released contract change means every reader and writer re-pins.
 - Fleet CI reports each component's pin: a warning between release gates, an error at every gate, milestone and release → living-doc CI
 - Patch versions may differ between components.

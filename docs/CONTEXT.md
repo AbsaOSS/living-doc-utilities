@@ -30,6 +30,7 @@ What realises each fact of [api.md](api.md):
 - `setup_logging()` logs to stdout at `DEBUG` when `INPUT_VERBOSE_LOGGING=true` or `RUNNER_DEBUG=1`, else at `INFO` → `logging_config.py::setup_logging`
 - Shared constant: the `GITHUB_TOKEN` input name → `constants.py::GITHUB_TOKEN`
 - The version lives in `pyproject.toml` → `pyproject.toml::version`
+- A release candidate is published as `X.Y.ZrcN`, which PyPI holds as a pre-release → [Release candidate](../DEVELOPER.md#release-candidate)
 
 ### Documentation contracts
 
