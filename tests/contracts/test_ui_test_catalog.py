@@ -27,12 +27,14 @@ from pydantic import ValidationError
 from living_doc_utilities.contracts.ui_test_catalog import (
     CONTRACT_ID,
     RECORD_ROOTS,
+    CatalogAcLink,
+    CatalogScenario,
     Document,
     FeatureFileCatalog,
     LinkedScenarios,
     UiTestCatalogResult,
 )
-from living_doc_utilities.contracts.ui_tests import Scenario
+from living_doc_utilities.contracts.ui_tests import AcLink, ScenarioCore
 from tests.contracts import factories
 
 
@@ -78,20 +80,59 @@ def test_scenarios_are_grouped_by_feature_file_and_then_by_link_kind():
     assert catalog.unlinked == []
 
 
-def test_scenario_reuses_the_ui_tests_scenario_model_directly():
-    """`LinkedScenarios.scenarios` is typed as a list of the shared `Scenario` model from `ui_tests`, not a copy."""
+def test_scenario_builds_on_the_ui_tests_scenario_core():
+    """`LinkedScenarios.scenarios` is typed as `CatalogScenario`, built on `ui_tests`' shared `ScenarioCore`, not a
+    copy of its fields."""
     annotation = LinkedScenarios.model_fields["scenarios"].annotation
     (item_type,) = annotation.__args__
 
-    assert item_type is Scenario
+    assert item_type is CatalogScenario
+    assert issubclass(CatalogScenario, ScenarioCore)
+    assert issubclass(CatalogAcLink, AcLink)
 
 
-def test_unlinked_scenarios_use_the_shared_scenario_model_too():
-    """`FeatureFileCatalog.unlinked` is typed as a list of the shared `Scenario` model from `ui_tests`, not a copy."""
+def test_unlinked_scenarios_use_the_catalog_scenario_too():
+    """`FeatureFileCatalog.unlinked` is typed as `CatalogScenario` too, built on `ui_tests`' shared `ScenarioCore`."""
     annotation = FeatureFileCatalog.model_fields["unlinked"].annotation
     (item_type,) = annotation.__args__
 
-    assert item_type is Scenario
+    assert item_type is CatalogScenario
+
+
+def test_a_feature_files_background_sits_on_the_file_once():
+    """A feature file's `Background:` lines sit on its `FeatureFileCatalog`, never on its scenarios; a scenario keeps
+    its rule's background."""
+    catalog = factories.feature_file_catalog(background=["Given a member in good standing is signed in"])
+
+    assert catalog.background == ["Given a member in good standing is signed in"]
+    assert "background" not in CatalogScenario.model_fields
+    assert {"line", "rule", "rule_background", "steps"} <= set(CatalogScenario.model_fields)
+    with pytest.raises(ValidationError):
+        factories.catalog_scenario(background=["Given a step"])
+
+
+@pytest.mark.parametrize("state", ["active", "deprecated", "planned", "in_review", None])
+def test_each_link_carries_its_criterion_s_state_or_none(state):
+    """A catalog link carries its criterion's state, or none for a criterion no document holds."""
+    link = factories.catalog_ac_link(state=state)
+
+    assert link.state == state
+
+
+def test_a_link_state_outside_the_lifecycle_is_rejected():
+    """A catalog link's state is one of the four lifecycle states."""
+    with pytest.raises(ValidationError):
+        factories.catalog_ac_link(state="done")
+
+
+def test_a_catalog_written_before_the_new_fields_still_validates():
+    """The contract id stays `ui-test-catalog-v1.0.0`, so a feature file and a link without the new fields validate."""
+    feature_file = FeatureFileCatalog.model_validate(
+        {"feature_file": "checkout.feature", "unlinked": [factories.catalog_scenario().model_dump(exclude={"line"})]}
+    )
+
+    assert feature_file.background == []
+    assert CatalogAcLink.model_validate({"id": "US-001-01"}).state is None
 
 
 def test_record_root_is_feature_files():

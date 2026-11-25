@@ -218,6 +218,16 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
   - Why: a tag block links only the very next scenario, never one further down.
 - A `Feature:` or `Background:` line also drops pending tags
 - An `@AC:` tag is `MALFORMED_AC`, and skipped, when its criterion id is invalid, it has a second parameter, a segment is empty or not `<param>:<value>`, the name is invalid, or the value contains `:`
+- A tag line above an `Examples:` block is no scenario's tag and no step
+- Each scenario keeps `line`, the 1-based line of its `Scenario:` or `Scenario Outline:` line
+- Its `steps` are the lines after that line, up to the next `Scenario`, `Rule:` or `Background:` line, as written
+  - Comment, blank and tag lines drop, unless a DocString holds them, and the indentation the rest share is removed.
+  - A DataTable, a DocString and an `Examples:` block with its table come through unchanged, in any Gherkin language: the steps are lines, never parsed keywords.
+  - Why: a generator prints them as one Gherkin block, so the parser and the contract stay small.
+- A DocString runs from a line opening with `"""` or ```` ``` ```` to that delimiter alone on a line; every line in it is content, never a tag, a comment or a keyword line
+- `rule` is the name of the `Rule:` the scenario sits under, or `None`; `rule_background` is that rule's own `Background:` lines
+- `background` is the file's `Background:` lines, repeated on every scenario of the file
+- Both backgrounds take the same form as `steps`
 - The collector fills each scenario's `scenario_id` and `source_ref`
 
 ## Finding the entity id

@@ -586,6 +586,36 @@ def test_a_scenario_files_sections_are_its_gherkin_keyword_lines():
     assert [(s.title, s.tags) for s in scenarios] == [("S", ["@AC:US-001-01"])]
 
 
+def test_a_rule_line_opens_a_section_of_a_scenario_file():
+    """`Rule:` opens a section, so a scenario can name the rule it sits under."""
+    text = "Feature: F\n\nRule: R\n\n  Background:\n    Given x\n\n  Scenario: S\n    When y\n"
+
+    _, frame = normalize_framed(text, SourceFormat.SCENARIO_FILE, "DocumentedUserStory")
+
+    assert [section.name for section in sections(frame)] == ["Feature", "Rule", "Background", "Scenario"]
+
+
+@pytest.mark.parametrize("delimiter", ['"""', "```"])
+def test_a_docstrings_lines_are_code_whatever_they_read_like(delimiter):
+    """Every line of a DocString, its delimiters included, is code: a comment, tag or keyword line inside it is content,
+    and `normalize` rewrites none of it."""
+    docstring = [
+        f"    {delimiter}markdown",
+        "    # AC:US-001-01 (v1.0.0 – active) - kept as written",
+        "",
+        "    @AC:US-001-01",
+        "    Scenario: not a scenario",
+        f"    {delimiter}",
+    ]
+    text = "\n".join(["Feature: F", "", "Scenario: S", "  Given a page", *docstring, "  Then it shows", ""])
+
+    normalized, frame = normalize_framed(text, SourceFormat.SCENARIO_FILE, "DocumentedUserStory")
+
+    assert [framed.role for framed in frame.lines[4:10]] == [Role.CODE] * 6
+    assert [framed.role for framed in frame.lines[10:11]] == [Role.TEXT]
+    assert normalized.text == text
+
+
 # --- structural problems -------------------------------------------------------------------------------
 
 

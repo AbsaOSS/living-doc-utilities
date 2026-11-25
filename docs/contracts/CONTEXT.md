@@ -79,7 +79,7 @@ What realises each fact of [artifact-rules.md](artifact-rules.md):
 - Both issue-tracker collectors, GitHub and Azure DevOps, write `doc-entities.json` → `contracts/doc_entities.py::DocEntitiesResult`
 - The file name is the contract, never the source system; the writer is named in `metadata.producer.name` (R6) → `contracts/envelope.py::Producer`
 - `generator-ready` carries the `doc-entities` entity model unchanged under `content.entities[]` → `contracts/generator_ready.py::Content`
-- `ui-test-catalog` carries the `ui-tests` scenario model unchanged → `contracts/ui_test_catalog.py::FeatureFileCatalog`
+- `ui-test-catalog` builds its scenario on the `ui-tests` one: a file's `background` sits once on its feature file, and each link adds its criterion's `state` → `contracts/ui_tests.py::ScenarioCore`, `contracts/ui_test_catalog.py::CatalogScenario`, `contracts/ui_test_catalog.py::CatalogAcLink`
 - Every artifact has a required top-level `schema_version` equal to its contract id → `contracts/doc_entities.py::DocEntitiesResult`
 - In the schema it is a `const`, never an `enum`; no deprecated alias is accepted → `tests/contracts/test_schema_export.py::test_schema_header_keys_match_r1_through_r4`
 - A consumer decides from the file alone, never from the tool that wrote it → `contracts/compat.py::check_input`
@@ -173,8 +173,14 @@ What realises each fact of [rendering.md](rendering.md):
 - `shown_paths(contract_id, view)` encodes which cells are shown, as field paths → `contracts/testing.py::shown_paths`
 - What was not loaded is the canon's rule; this row only maps it onto the warning's fields → `contracts/envelope.py::ContractWarning`
 - A warning's `ac_id` and `context` are never shown; `entity_id` only places it → `contracts/testing.py::shown_paths`
-- It covers the three contracts a generator renders; `ui-test-catalog` has no view-dependent field → `contracts/testing.py::shown_paths`
+- It covers the three contracts a generator renders; `ui-test-catalog` has no view-dependent field, and its view rules are in Test catalog → `contracts/testing.py::shown_paths`
 - The canonical AC header is rendered by the model, with the `v` added back → `contracts/common.py::AcceptanceCriterion.canonical_header`
+- A generator shows a scenario's `steps` verbatim, as one Gherkin block, under its `rule` name when it has one → `contracts/ui_tests.py::ScenarioCore`
+- It shows a feature file's `background` once, and a rule's `rule_background` once → `contracts/ui_test_catalog.py::FeatureFileCatalog`, `contracts/ui_tests.py::ScenarioCore`
+- Each link carries its criterion's `state`, or none when no document holds the criterion → `contracts/ui_test_catalog.py::CatalogAcLink`
+- The release view of `ui-test-catalog` drops each link to a `planned` or `in_review` criterion; the scenario stays where it is → toolkit
+- In the inner view only, a generator marks a scenario that links no criterion → generators
+- A feature file none of whose scenarios links a criterion is in no chapter of either view; the inner view lists it with its number of scenarios → generators
 - Coverage is computed per aspect → `contracts/coverage_matrix.py::AcCoverage._check_status_matches_aspects`
 - A `partially_covered` criterion shows covered/declared aspects, e.g. **1/3**, before its per-aspect breakdown → `contracts/coverage_matrix.py::AcCoverage.covered_aspects`
 - A row with a `keyword` lists that keyword's values as aspects; one without aspects fails validation → `contracts/coverage_matrix.py::AcCoverage._check_keyword_has_aspects`
@@ -185,7 +191,7 @@ What realises each fact of [rendering.md](rendering.md):
 - `in_review` criteria are not counted; a linked scenario is the warning `IN_REVIEW_AC_HAS_TESTS` → `contracts/codes.py::Code`
 - `planned` criteria, backlog or targeted, are not counted; a linked scenario is the warning `PLANNED_AC_HAS_TESTS` → `contracts/codes.py::Code`
 - The coverage matrix holds no row for an `in_review` or `planned` criterion → `contracts/coverage_matrix.py::CountedState`
-- A scenario linked to one keeps its `@AC:` link in `ui-test-catalog` → `contracts/ui_test_catalog.py::FeatureFileCatalog`
+- A scenario linked to one keeps its `@AC:` link in the inner view of `ui-test-catalog`; the release view drops the link → toolkit
 - A `@skip` scenario that links a counted criterion is the warning `SKIPPED_SCENARIO` → `contracts/codes.py::Code`
 - In `ui-test-catalog`, a `@skip` scenario keeps its `@AC:` links → `contracts/ui_test_catalog.py::FeatureFileCatalog`
 - Every entity and the whole matrix carry a required `summary` → `contracts/coverage_matrix.py::CoverageSummary`

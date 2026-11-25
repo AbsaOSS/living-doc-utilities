@@ -40,7 +40,7 @@ holds the records; every field path starts there.
 - Both issue-tracker collectors, GitHub and Azure DevOps, write `doc-entities.json`
 - The file name is the contract, never the source system; the writer is named in `metadata.producer.name` (R6)
 - `generator-ready` carries the `doc-entities` entity model unchanged under `content.entities[]`
-- `ui-test-catalog` carries the `ui-tests` scenario model unchanged
+- `ui-test-catalog` builds its scenario on the `ui-tests` one: a file's `background` sits once on its feature file, and each link adds its criterion's `state`
 
 ## R4: a file declares its contract
 

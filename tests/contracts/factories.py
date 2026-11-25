@@ -43,11 +43,13 @@ from living_doc_utilities.contracts.envelope import (
 from living_doc_utilities.contracts.generator_ready import Document as GeneratorReadyDocument
 from living_doc_utilities.contracts.generator_ready import SelectionSummary
 from living_doc_utilities.contracts.ui_test_catalog import (
-    Document as UiTestCatalogDocument,
-)
-from living_doc_utilities.contracts.ui_test_catalog import (
+    CatalogAcLink,
+    CatalogScenario,
     FeatureFileCatalog,
     LinkedScenarios,
+)
+from living_doc_utilities.contracts.ui_test_catalog import (
+    Document as UiTestCatalogDocument,
 )
 from living_doc_utilities.contracts.ui_tests import AcLink, Scenario
 
@@ -195,6 +197,24 @@ def scenario(scenario_id: str = "SCN-001", **overrides: Any) -> Scenario:
             "title": "A scenario",
             "source_ref": github_source_ref(native_id="checkout.feature"),
             "acceptance_criteria": [ac_link()],
+        },
+        **overrides,
+    )
+
+
+def catalog_ac_link(**overrides: Any) -> CatalogAcLink:
+    return _build(CatalogAcLink, {"id": "US-001-01", "aspect": None, "state": "active"}, **overrides)
+
+
+def catalog_scenario(scenario_id: str = "SCN-001", **overrides: Any) -> CatalogScenario:
+    return _build(
+        CatalogScenario,
+        {
+            "scenario_id": scenario_id,
+            "title": "A scenario",
+            "source_ref": github_source_ref(native_id="checkout.feature"),
+            "line": 1,
+            "acceptance_criteria": [catalog_ac_link()],
         },
         **overrides,
     )
@@ -353,7 +373,7 @@ def coverage_matrix_document(**overrides: Any) -> CoverageMatrixDocument:
 
 
 def linked_scenarios(entity_id: str = "US-001", **overrides: Any) -> LinkedScenarios:
-    return _build(LinkedScenarios, {"entity_id": entity_id, "scenarios": [scenario()]}, **overrides)
+    return _build(LinkedScenarios, {"entity_id": entity_id, "scenarios": [catalog_scenario()]}, **overrides)
 
 
 def feature_file_catalog(**overrides: Any) -> FeatureFileCatalog:

@@ -402,6 +402,33 @@ def test_full_samples_agree_on_every_criterion_and_scenario_link():
     assert dropped not in criteria and dropped not in {row.ac_id for row in rows}
 
 
+def test_the_catalog_sample_is_the_ui_tests_sample_with_each_link_s_criterion_state():
+    """Each catalog scenario is a ui-tests scenario without its file's background, which its feature file carries
+    once, and each of its links carries the state of the criterion the entity set holds under that id."""
+    criteria = {
+        ac.id: ac.state
+        for entity in testing.full_sample(generator_ready.CONTRACT_ID).content.entities
+        for ac in entity.acceptance_criteria
+    }
+    scenarios = {scenario.scenario_id: scenario for scenario in testing.full_sample(ui_tests.CONTRACT_ID).scenarios}
+    (feature_file,) = testing.full_sample(ui_test_catalog.CONTRACT_ID).feature_files
+    catalog_scenarios = [
+        *(scenario for group in feature_file.linked_to_user_story for scenario in group.scenarios),
+        *(scenario for group in feature_file.linked_to_functionality for scenario in group.scenarios),
+        *feature_file.unlinked,
+    ]
+
+    assert feature_file.background == scenarios["SCN-001"].background != []
+    for scenario in catalog_scenarios:
+        source = scenarios[scenario.scenario_id]
+        assert scenario.model_dump(exclude={"acceptance_criteria"}) == source.model_dump(
+            exclude={"acceptance_criteria", "background"}
+        )
+        assert [(link.id, link.aspect, link.state) for link in scenario.acceptance_criteria] == [
+            (link.id, link.aspect, criteria.get(link.id)) for link in source.acceptance_criteria
+        ]
+
+
 def test_each_coverage_row_names_its_criterion_s_keyword():
     """A coverage row's keyword is its criterion's one placeholder_values key, or None when the criterion has none."""
     generator_sample = testing.full_sample(generator_ready.CONTRACT_ID)

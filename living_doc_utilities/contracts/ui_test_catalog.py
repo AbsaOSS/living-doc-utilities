@@ -16,36 +16,49 @@
 
 """
 The ui-test-catalog-v1.0.0 contract: a transform's normalized scenario catalog for a
-generator, grouped by feature file and then by what each scenario links to. The ui-tests
-Scenario model is reused directly rather than redeclared here.
+generator, grouped by feature file and then by what each scenario links to. Its scenario and
+link build on the ui-tests models rather than redeclaring their fields.
 """
 
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from living_doc_utilities.contracts.common import ContractModel, ViewDocument
+from living_doc_utilities.contracts.common import ContractModel, LifecycleState, ViewDocument
 from living_doc_utilities.contracts.envelope import ContractWarning, Metadata, check_transform_source_inputs
-from living_doc_utilities.contracts.ui_tests import Scenario
+from living_doc_utilities.contracts.ui_tests import AcLink, ScenarioCore
 
 CONTRACT_ID: Literal["ui-test-catalog-v1.0.0"] = "ui-test-catalog-v1.0.0"
+
+
+class CatalogAcLink(AcLink):
+    """A scenario's `@AC:` link with its criterion's state: None when no document holds the criterion."""
+
+    state: Optional[LifecycleState] = None
+
+
+class CatalogScenario(ScenarioCore):
+    """One Gherkin scenario in the catalog; its file's `Background:` sits on its `FeatureFileCatalog`."""
+
+    acceptance_criteria: list[CatalogAcLink] = Field(default_factory=list)
 
 
 class LinkedScenarios(ContractModel):
     """The scenarios linked to one entity (a User Story or a Functionality)."""
 
     entity_id: str
-    scenarios: list[Scenario] = Field(default_factory=list)
+    scenarios: list[CatalogScenario] = Field(default_factory=list)
 
 
 class FeatureFileCatalog(ContractModel):
-    """One `.feature` file's scenarios, grouped into: linked to a User Story, linked to a
-    Functionality, or unlinked."""
+    """One `.feature` file's `Background:` lines, as written, and its scenarios, grouped into: linked to a
+    User Story, linked to a Functionality, or unlinked."""
 
     feature_file: str
+    background: list[str] = Field(default_factory=list)
     linked_to_user_story: list[LinkedScenarios] = Field(default_factory=list)
     linked_to_functionality: list[LinkedScenarios] = Field(default_factory=list)
-    unlinked: list[Scenario] = Field(default_factory=list)
+    unlinked: list[CatalogScenario] = Field(default_factory=list)
 
 
 Document = ViewDocument

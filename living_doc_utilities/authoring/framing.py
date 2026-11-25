@@ -569,14 +569,17 @@ def _place_page_object_line(walk: _HeaderWalk, framed: FramedLine) -> FramedLine
 # --- the scenario file: Gherkin's keyword lines ----------------------------------------------------------
 
 FEATURE = "Feature"
+GHERKIN_RULE = "Rule"
 BACKGROUND = "Background"
 SCENARIO = "Scenario"
 _GHERKIN_SECTION_RES = (
     (FEATURE, _FEATURE_LINE_RE),
+    (GHERKIN_RULE, re.compile(r"^Rule:\s*.*$")),
     (BACKGROUND, re.compile(r"^Background:\s*.*$")),
     (SCENARIO, re.compile(r"^Scenario(?:\s+Outline)?:\s*.*$")),
 )
-_RULE_LINE_RE = re.compile(r"^Rule:")
+# A DocString opens with one of these, a content type may follow, and only the same delimiter alone closes it.
+_DOCSTRING_DELIMITERS = ('"""', "```")
 
 
 def _gherkin_keyword(text: str) -> Optional[str]:
@@ -593,20 +596,30 @@ def feature_description(frame: Frame) -> list[FramedLine]:
     description: list[FramedLine] = []
     for framed in frame.lines[start + 1 :]:
         text = framed.raw.strip()
-        if text.startswith(("#", "@")) or _RULE_LINE_RE.match(text) or _gherkin_keyword(text) is not None:
+        if text.startswith(("#", "@")) or _gherkin_keyword(text) is not None:
             break
         description.append(framed)
     return description
 
 
 def frame_scenario_file(lines: list[FramedLine]) -> Frame:
-    """Places a `.feature` file's Gherkin body. `Feature:`, `Background:` and each `Scenario:` or `Scenario
-    Outline:` line opens a section named by its keyword; a tag line, a comment line and a blank line are
-    marked as such, and every other line is its section's text."""
+    """Places a `.feature` file's Gherkin body. `Feature:`, `Rule:`, `Background:` and each `Scenario:` or
+    `Scenario Outline:` line opens a section named by its keyword. Every line of a DocString, its delimiters
+    included, is code; outside one, a tag line, a comment line and a blank line are marked as such, and every
+    other line is its section's text."""
     placed: list[FramedLine] = []
     section: Optional[str] = None
+    docstring: Optional[str] = None
     for framed in lines:
         text = framed.line.text
+        if docstring is not None:
+            docstring = None if text == docstring else docstring
+            placed.append(_placed(framed, Role.CODE, section))
+            continue
+        docstring = next((delimiter for delimiter in _DOCSTRING_DELIMITERS if text.startswith(delimiter)), None)
+        if docstring is not None:
+            placed.append(_placed(framed, Role.CODE, section))
+            continue
         keyword = _gherkin_keyword(text)
         if keyword is not None:
             section, role = keyword, Role.HEADING

@@ -11,6 +11,7 @@ Read before: [Component checks](component-checks.md) · Next: [Errors and warnin
 
 - [Records and presentation](#records-and-presentation)
 - [Fields by view](#fields-by-view)
+- [Test catalog](#test-catalog)
 - [Coverage](#coverage)
 - [Coverage summary](#coverage-summary)
 - [Planned work summary](#planned-work-summary)
@@ -51,8 +52,21 @@ Read before: [Component checks](component-checks.md) · Next: [Errors and warnin
   - A warning's `ac_id` and `context` are never shown; `entity_id` only places it
 - A warning's line links to `source_url` plus `#L<line_no>`; without `source_url`, the line shows as text → generators
   - Why: the line can sit in another file than its entity's `source_ref.url`; only the collector knows which.
-- It covers the three contracts a generator renders; `ui-test-catalog` has no view-dependent field
+- It covers the three contracts a generator renders; `ui-test-catalog` has no view-dependent field, and its view rules are in [Test catalog](#test-catalog)
 - The canonical AC header is rendered by the model, with the `v` added back
+
+## Test catalog
+
+- A generator shows a scenario's `steps` verbatim, as one Gherkin block, under its `rule` name when it has one → generators
+  - Why: the steps are lines as written ([Parsers, Scenarios](../authoring/parsers.md#scenarios)), so every keyword language and every step argument passes through unchanged.
+- It shows a feature file's `background` once, and a rule's `rule_background` once, above the scenarios they run before → generators
+- Each link carries its criterion's `state`, or none when no document holds the criterion → transforms
+- The release view of `ui-test-catalog` drops each link to a `planned` or `in_review` criterion; the scenario stays where it is → transforms
+  - Why: the release view of every other document leaves such criteria out.
+  - This replaces, for the release view, the rule that such a scenario keeps its `@AC:` link ([Coverage](#coverage)).
+- In the inner view only, a generator marks a scenario that links no criterion → generators
+- A feature file none of whose scenarios links a criterion is in no chapter of either view; the inner view lists each such file with its number of scenarios → generators
+  - Why: a test never leaves the document silently.
 
 ## Coverage
 
@@ -81,7 +95,7 @@ Coverage is computed per aspect.
 - `planned` criteria, backlog or targeted, are not counted; a linked scenario is the warning `PLANNED_AC_HAS_TESTS`
   - Why: tests ahead of implementation are fine; counting unbuilt work would depress the coverage figure.
 - The coverage matrix holds no row for an `in_review` or `planned` criterion
-- A scenario linked to one keeps its `@AC:` link in `ui-test-catalog`
+- A scenario linked to one keeps its `@AC:` link in the inner view of `ui-test-catalog`; the release view drops the link ([Test catalog](#test-catalog))
 - Either warning names the scenario and the criterion → toolkit
 - A scenario tagged `@skip` is never listed in `scenario_ids`, of an `AcCoverage` or an `AspectCoverage` → toolkit
   - Why: a skipped test proves nothing; counting it would overstate the coverage figure.

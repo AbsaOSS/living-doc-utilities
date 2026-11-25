@@ -374,7 +374,7 @@
     },
     "Scenario": {
       "additionalProperties": false,
-      "description": "One Gherkin scenario.",
+      "description": "One Gherkin scenario, with its file's `Background:` lines, as written.",
       "properties": {
         "scenario_id": {
           "title": "Scenario Id",
@@ -392,6 +392,52 @@
             "type": "string"
           },
           "title": "Tags",
+          "type": "array"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule"
+        },
+        "rule_background": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rule Background",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "background": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Background",
           "type": "array"
         },
         "acceptance_criteria": {
@@ -582,6 +628,10 @@
             "enum": [
               "scenarios[].acceptance_criteria[].aspect",
               "scenarios[].acceptance_criteria[].id",
+              "scenarios[].background[]",
+              "scenarios[].line",
+              "scenarios[].rule",
+              "scenarios[].rule_background[]",
               "scenarios[].scenario_id",
               "scenarios[].source_ref.area_path",
               "scenarios[].source_ref.iteration_path",
@@ -590,6 +640,7 @@
               "scenarios[].source_ref.system",
               "scenarios[].source_ref.tracker_state",
               "scenarios[].source_ref.url",
+              "scenarios[].steps[]",
               "scenarios[].tags[]",
               "scenarios[].title"
             ]

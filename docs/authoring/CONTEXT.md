@@ -211,6 +211,13 @@ What realises each fact of [parsers.md](parsers.md):
 - Any other line between a tag block and the next scenario (`Rule:`, a step, `Examples:`) drops the pending tags → `authoring/scenario.py::parse_scenarios`
 - A `Feature:` or `Background:` line also drops pending tags → `authoring/scenario.py::parse_scenarios`
 - When an `@AC:` tag is `MALFORMED_AC` and skipped → `tests/authoring/test_scenario.py::test_malformed_ac_tag_params_produce_a_warning_and_no_link`
+- A tag line above an `Examples:` block is no scenario's tag and no step → `tests/authoring/test_scenario.py::test_an_examples_tag_line_stays_out_of_the_tags_and_the_steps`
+- Each scenario keeps `line`, the 1-based line of its `Scenario:` or `Scenario Outline:` line → `authoring/scenario.py::parse_scenarios`
+- Its `steps` are the lines after that line, up to the next `Scenario`, `Rule:` or `Background:` line, as written → `authoring/scenario.py::_block_lines`
+- A DocString runs from a line opening with `"""` or ```` ``` ```` to that delimiter alone; every line in it is content → `authoring/framing.py::frame_scenario_file`
+- `rule` is the name of the `Rule:` the scenario sits under, or `None`; `rule_background` is that rule's own `Background:` lines → `authoring/scenario.py::parse_scenarios`
+- `background` is the file's `Background:` lines, repeated on every scenario of the file → `authoring/scenario.py::parse_scenarios`
+- Both backgrounds take the same form as `steps` → `authoring/scenario.py::_block_lines`
 - The collector fills each scenario's `scenario_id` and `source_ref` → `authoring/scenario.py::ParsedScenario`
 - An entity id is `US-<nnn>`, `FEAT-<nnn>` or `FUNC-<nnn>`, the canon's three prefixes → `tests/authoring/test_identity.py::test_each_canon_prefix_is_an_entity_id`
 - `derive_entity_id(title)` takes the first such run as a whole word, so another tracker key before it is passed over (`BUG-7 fix for US-001` gives `US-001`) → `tests/authoring/test_identity.py::test_other_tracker_keys_are_not_entity_ids`
