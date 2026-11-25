@@ -224,7 +224,11 @@ Its lines are `* key: value`, under the same `LIVING DOC — <id> · <title>` ti
   - Comment, blank and tag lines drop, unless a DocString holds them, and the indentation the rest share is removed.
   - A DataTable, a DocString and an `Examples:` block with its table come through unchanged, in any Gherkin language: the steps are lines, never parsed keywords.
   - Why: a generator prints them as one Gherkin block, so the parser and the contract stay small.
+- A line outside a DocString loses its trailing whitespace; a DocString line keeps it
+  - Why: in a Markdown DocString, two trailing spaces are a line break.
 - A DocString runs from a line opening with `"""` or ```` ``` ```` to that delimiter alone on a line; every line in it is content, never a tag, a comment or a keyword line
+- A delimiter that never closes opens no DocString: the lines after it are read as without it
+  - Why: otherwise every scenario after it would be lost without a warning; Cucumber rejects such a file anyway.
 - `rule` is the name of the `Rule:` the scenario sits under, or `None`; `rule_background` is that rule's own `Background:` lines
 - `background` is the file's `Background:` lines, repeated on every scenario of the file
 - Both backgrounds take the same form as `steps`

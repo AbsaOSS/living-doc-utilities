@@ -63,10 +63,15 @@ Read before: [Component checks](component-checks.md) · Next: [Errors and warnin
 - Each link carries its criterion's `state`, or none when no document holds the criterion → transforms
 - The release view of `ui-test-catalog` drops each link to a `planned` or `in_review` criterion; the scenario stays where it is → transforms
   - Why: the release view of every other document leaves such criteria out.
-  - This replaces, for the release view, the rule that such a scenario keeps its `@AC:` link ([Coverage](#coverage)).
+  - This replaces, for the release view, the rule that such a scenario keeps its `@AC:` link ([Coverage](#coverage)), a `@skip` scenario's links included.
+  - A scenario whose every link is dropped stays in its group with no link.
+- A generator decides from the links the document holds, after that drop → generators
+  - Why: a generator reads only the catalog, so it never sees a dropped link.
 - In the inner view only, a generator marks a scenario that links no criterion → generators
-- A feature file none of whose scenarios links a criterion is in no chapter of either view; the inner view lists each such file with its number of scenarios → generators
-  - Why: a test never leaves the document silently.
+- A feature file none of whose scenarios links a criterion is in no chapter of either view → generators
+  - In the release view, that includes a file whose every link was dropped.
+- The inner view lists each such file with its number of scenarios → generators
+  - Why: in the inner view, a test never leaves the document silently.
 
 ## Coverage
 
@@ -104,7 +109,7 @@ Coverage is computed per aspect.
   - Why: `not_covered` alone hides that the test exists and is switched off.
   - Its message names the scenario's id and title, as a generator never shows `ac_id` or `context` → toolkit
 - A `@skip` scenario that links an `in_review` or `planned` criterion gets only that criterion's warning
-- In `ui-test-catalog`, a `@skip` scenario keeps its `@AC:` links
+- In `ui-test-catalog`, a `@skip` scenario keeps its `@AC:` links, apart from those the release view drops ([Test catalog](#test-catalog))
 - A generator shows it as skipped, and its criteria as linked but not counted → generators
 
 ## Coverage summary

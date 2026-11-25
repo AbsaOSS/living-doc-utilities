@@ -20,8 +20,8 @@ its rule and the backgrounds that run before it. The human-readable `# AC:` comm
 documentation only; only the machine-readable `@AC:` Cucumber tag links a scenario to an acceptance criterion.
 """
 
+import os
 import re
-import textwrap
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -114,10 +114,16 @@ def _trailing_tags(lines: list[FramedLine]) -> list[tuple[str, int]]:
 
 
 def _block_lines(lines: list[FramedLine]) -> list[str]:
-    """A block's lines as written: blank, comment and tag lines drop unless a DocString holds them, and the
-    indentation the rest share is removed."""
-    kept = [framed.raw.rstrip() for framed in lines if framed.role in (Role.TEXT, Role.CODE)]
-    return textwrap.dedent("\n".join(kept)).split("\n") if kept else []
+    """A block's lines as written: blank, comment and tag lines drop unless a DocString holds them, and every line
+    loses the indentation the lines with text share. A DocString line keeps its trailing whitespace; any other line
+    loses it."""
+    kept = [
+        framed.raw if framed.role is Role.CODE else framed.raw.rstrip()
+        for framed in lines
+        if framed.role in (Role.TEXT, Role.CODE)
+    ]
+    margin = os.path.commonprefix([line[: len(line) - len(line.lstrip())] for line in kept if line.strip()])
+    return [line[len(margin) :] if line.startswith(margin) else line.lstrip() for line in kept]
 
 
 def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenario], list[ContractWarning]]:

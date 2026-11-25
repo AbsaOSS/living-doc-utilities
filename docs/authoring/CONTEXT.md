@@ -214,7 +214,9 @@ What realises each fact of [parsers.md](parsers.md):
 - A tag line above an `Examples:` block is no scenario's tag and no step → `tests/authoring/test_scenario.py::test_an_examples_tag_line_stays_out_of_the_tags_and_the_steps`
 - Each scenario keeps `line`, the 1-based line of its `Scenario:` or `Scenario Outline:` line → `authoring/scenario.py::parse_scenarios`
 - Its `steps` are the lines after that line, up to the next `Scenario`, `Rule:` or `Background:` line, as written → `authoring/scenario.py::_block_lines`
+- A line outside a DocString loses its trailing whitespace; a DocString line keeps it → `tests/authoring/test_scenario.py::test_a_docstring_keeps_its_trailing_whitespace`
 - A DocString runs from a line opening with `"""` or ```` ``` ```` to that delimiter alone; every line in it is content → `authoring/framing.py::frame_scenario_file`
+- A delimiter that never closes opens no DocString: the lines after it are read as without it → `authoring/framing.py::_docstring_lines`
 - `rule` is the name of the `Rule:` the scenario sits under, or `None`; `rule_background` is that rule's own `Background:` lines → `authoring/scenario.py::parse_scenarios`
 - `background` is the file's `Background:` lines, repeated on every scenario of the file → `authoring/scenario.py::parse_scenarios`
 - Both backgrounds take the same form as `steps` → `authoring/scenario.py::_block_lines`

@@ -418,9 +418,10 @@ def test_the_catalog_sample_is_the_ui_tests_sample_with_each_link_s_criterion_st
         *feature_file.unlinked,
     ]
 
-    assert feature_file.background == scenarios["SCN-001"].background != []
+    assert feature_file.background != []
     for scenario in catalog_scenarios:
         source = scenarios[scenario.scenario_id]
+        assert source.background == feature_file.background, scenario.scenario_id
         assert scenario.model_dump(exclude={"acceptance_criteria"}) == source.model_dump(
             exclude={"acceptance_criteria", "background"}
         )

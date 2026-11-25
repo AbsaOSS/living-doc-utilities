@@ -345,6 +345,26 @@ def test_a_docstring_and_a_datatable_come_through_unchanged():
     ]
 
 
+def test_a_docstring_keeps_its_trailing_whitespace():
+    """A DocString line loses only the indentation the scenario's lines share, never its trailing whitespace: two
+    trailing spaces are a Markdown line break. A step line outside a DocString loses its trailing whitespace."""
+    body = 'Feature: F\n  Scenario: S\n    Given the text   \n      """markdown\n      first line  \n      """\n'
+
+    scenarios, _ = parse_scenarios(body, "DocumentedUserStory")
+
+    assert scenarios[0].steps == ["Given the text", '  """markdown', "  first line  ", '  """']
+
+
+def test_a_scenario_after_a_docstring_that_never_closes_is_still_read():
+    """An unclosed DocString delimiter is no DocString, so the scenarios after it are read with their tags."""
+    body = 'Feature: F\n  Scenario: A\n    Given x\n      """\n      text\n\n  @AC:US-001-01\n  Scenario: B\n    Given y\n'
+
+    scenarios, warnings = parse_scenarios(body, "DocumentedUserStory")
+
+    assert warnings == []
+    assert [(scenario.title, scenario.tags) for scenario in scenarios] == [("A", []), ("B", ["@AC:US-001-01"])]
+
+
 def test_a_docstring_line_reading_like_a_tag_or_a_scenario_is_content():
     """A `@AC:` tag or a `Scenario:` line inside a DocString neither links a scenario nor opens one."""
     body = (

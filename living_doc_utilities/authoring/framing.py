@@ -602,22 +602,33 @@ def feature_description(frame: Frame) -> list[FramedLine]:
     return description
 
 
+def _docstring_lines(lines: list[FramedLine]) -> set[int]:
+    """The indices of every DocString's lines, its delimiters included. A delimiter that never closes opens none,
+    so the lines after it keep their own roles and no scenario after it is lost."""
+    inside: set[int] = set()
+    start, delimiter = 0, None
+    for index, framed in enumerate(lines):
+        text = framed.line.text
+        if delimiter is None:
+            delimiter = next((opening for opening in _DOCSTRING_DELIMITERS if text.startswith(opening)), None)
+            start = index
+        elif text == delimiter:
+            inside.update(range(start, index + 1))
+            delimiter = None
+    return inside
+
+
 def frame_scenario_file(lines: list[FramedLine]) -> Frame:
     """Places a `.feature` file's Gherkin body. `Feature:`, `Rule:`, `Background:` and each `Scenario:` or
-    `Scenario Outline:` line opens a section named by its keyword. Every line of a DocString, its delimiters
-    included, is code; outside one, a tag line, a comment line and a blank line are marked as such, and every
-    other line is its section's text."""
+    `Scenario Outline:` line opens a section named by its keyword. Every line of a DocString that closes, its
+    delimiters included, is code; outside one, a tag line, a comment line and a blank line are marked as such, and
+    every other line is its section's text."""
     placed: list[FramedLine] = []
     section: Optional[str] = None
-    docstring: Optional[str] = None
-    for framed in lines:
+    docstring = _docstring_lines(lines)
+    for index, framed in enumerate(lines):
         text = framed.line.text
-        if docstring is not None:
-            docstring = None if text == docstring else docstring
-            placed.append(_placed(framed, Role.CODE, section))
-            continue
-        docstring = next((delimiter for delimiter in _DOCSTRING_DELIMITERS if text.startswith(delimiter)), None)
-        if docstring is not None:
+        if index in docstring:
             placed.append(_placed(framed, Role.CODE, section))
             continue
         keyword = _gherkin_keyword(text)

@@ -179,8 +179,10 @@ What realises each fact of [rendering.md](rendering.md):
 - It shows a feature file's `background` once, and a rule's `rule_background` once → `contracts/ui_test_catalog.py::FeatureFileCatalog`, `contracts/ui_tests.py::ScenarioCore`
 - Each link carries its criterion's `state`, or none when no document holds the criterion → `contracts/ui_test_catalog.py::CatalogAcLink`
 - The release view of `ui-test-catalog` drops each link to a `planned` or `in_review` criterion; the scenario stays where it is → toolkit
+- A generator decides from the links the document holds, after that drop → generators
 - In the inner view only, a generator marks a scenario that links no criterion → generators
-- A feature file none of whose scenarios links a criterion is in no chapter of either view; the inner view lists it with its number of scenarios → generators
+- A feature file none of whose scenarios links a criterion is in no chapter of either view → generators
+- The inner view lists each such file with its number of scenarios → generators
 - Coverage is computed per aspect → `contracts/coverage_matrix.py::AcCoverage._check_status_matches_aspects`
 - A `partially_covered` criterion shows covered/declared aspects, e.g. **1/3**, before its per-aspect breakdown → `contracts/coverage_matrix.py::AcCoverage.covered_aspects`
 - A row with a `keyword` lists that keyword's values as aspects; one without aspects fails validation → `contracts/coverage_matrix.py::AcCoverage._check_keyword_has_aspects`
@@ -193,7 +195,7 @@ What realises each fact of [rendering.md](rendering.md):
 - The coverage matrix holds no row for an `in_review` or `planned` criterion → `contracts/coverage_matrix.py::CountedState`
 - A scenario linked to one keeps its `@AC:` link in the inner view of `ui-test-catalog`; the release view drops the link → toolkit
 - A `@skip` scenario that links a counted criterion is the warning `SKIPPED_SCENARIO` → `contracts/codes.py::Code`
-- In `ui-test-catalog`, a `@skip` scenario keeps its `@AC:` links → `contracts/ui_test_catalog.py::FeatureFileCatalog`
+- In `ui-test-catalog`, a `@skip` scenario keeps its `@AC:` links, apart from those the release view drops → `contracts/ui_test_catalog.py::FeatureFileCatalog`
 - Every entity and the whole matrix carry a required `summary` → `contracts/coverage_matrix.py::CoverageSummary`
 - Each counted row weighs: `covered` 1, `not_covered` 0, `partially_covered` its covered aspects over its declared aspects → `contracts/coverage_matrix.py::AcCoverage.weight`
 - `coverage_pct` is the sum of the weights over `counted_acs`, times 100 → `contracts/coverage_matrix.py::CoverageSummary.from_rows`

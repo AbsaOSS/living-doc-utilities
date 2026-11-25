@@ -404,10 +404,14 @@ def _entities() -> list[Entity]:
     ]
 
 
+# The `Background:` of checkout.feature, which both sample scenarios come from.
+_CHECKOUT_BACKGROUND = ("Given the customer has items in the basket",)
+
+
 def _scenarios() -> list[Scenario]:
-    """Two scenarios jointly covering every leaf path ui-tests and ui-test-catalog declare
-    for their Scenario-shaped record roots: one tagged, GitHub-sourced, under a `Rule:` with its own
-    `Background:` in a file with one, with a DataTable step, and linked to each value of an `Aspect:` AC
+    """Two scenarios of one file with a `Background:`, jointly covering every leaf path ui-tests and
+    ui-test-catalog declare for their Scenario-shaped record roots: one tagged, GitHub-sourced, under a
+    `Rule:` with its own `Background:`, with a DataTable step, and linked to each value of an `Aspect:` AC
     and to one value of a keyword AC; one Azure-DevOps-sourced (covering source_ref.area_path/iteration_path)
     with a bare link."""
     return [
@@ -425,7 +429,7 @@ def _scenarios() -> list[Scenario]:
                 "  | field  | value     |",
                 "  | status | confirmed |",
             ],
-            background=["Given the customer has items in the basket"],
+            background=list(_CHECKOUT_BACKGROUND),
             acceptance_criteria=[
                 AcLink(id="US-001-01", aspect="desktop"),
                 AcLink(id="US-001-01", aspect="mobile"),
@@ -438,6 +442,7 @@ def _scenarios() -> list[Scenario]:
             source_ref=_azure_devops_source_ref("checkout.feature#12", "Scenario"),
             line=12,
             steps=["When the customer pays as a guest", "Then the order is confirmed"],
+            background=list(_CHECKOUT_BACKGROUND),
             acceptance_criteria=[AcLink(id="US-002-01")],
         ),
     ]
@@ -779,7 +784,7 @@ def _ui_test_catalog_sample() -> ui_test_catalog.UiTestCatalogResult:
     scenarios = [_catalog_scenario(scenario, states) for scenario in _scenarios()]
     feature_file = ui_test_catalog.FeatureFileCatalog(
         feature_file="checkout.feature",
-        background=_scenarios()[0].background,
+        background=list(_CHECKOUT_BACKGROUND),
         linked_to_user_story=[ui_test_catalog.LinkedScenarios(entity_id="US-001", scenarios=list(scenarios))],
         linked_to_functionality=[ui_test_catalog.LinkedScenarios(entity_id="FUNC-001", scenarios=list(scenarios))],
         unlinked=list(scenarios),

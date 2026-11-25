@@ -616,6 +616,16 @@ def test_a_docstrings_lines_are_code_whatever_they_read_like(delimiter):
     assert normalized.text == text
 
 
+def test_a_delimiter_that_never_closes_opens_no_docstring():
+    """A DocString delimiter with no closing one opens nothing: the lines after it are framed as without it, so a
+    later tag and scenario are still read."""
+    text = 'Feature: F\n\nScenario: A\n  Given x\n    """\n    text\n\n@AC:US-001-01\nScenario: B\n  Given y\n'
+
+    _, frame = normalize_framed(text, SourceFormat.SCENARIO_FILE, "DocumentedUserStory")
+
+    assert [framed.role for framed in frame.lines[4:9]] == [Role.TEXT, Role.TEXT, Role.BLANK, Role.TAG, Role.HEADING]
+
+
 # --- structural problems -------------------------------------------------------------------------------
 
 
