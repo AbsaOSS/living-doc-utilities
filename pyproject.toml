@@ -1,6 +1,6 @@
 [project]
 name = "living-doc-utilities"
-version = "0.9.0rc1"
+version = "0.9.0rc2"
 description = "Documentation contracts, authoring parsers and GitHub helpers shared across the living-doc ecosystem."
 authors = [{ name="Miroslav Pojer", email="miroslav.pojer@absa.africa" }]
 readme = "README.md"
@@ -10,6 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.11,<3",
     "jsonschema>=4.20,<5",
+    # The policy file (policy.py) and make docs (authoring/docs_export.py).
+    "PyYAML>=6.0,<7",
 ]
 
 [project.optional-dependencies]
@@ -70,13 +72,8 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-mock",
-    "PyYAML",
     "ruff",
 ]
-
-# The one accepted DEP004: `authoring/docs_export.py` is a repository script (`make docs`) and imports PyYAML only inside `_load_cases()`.
-[tool.deptry.per_rule_ignores]
-DEP004 = ["yaml"]
 
 [tool.coverage.run]
 omit = ["tests/*"]

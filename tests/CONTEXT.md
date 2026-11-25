@@ -4,7 +4,7 @@ Parent: ../CONTEXT.md
 
 ## Purpose
 
-The pytest suite, mirroring the package: `contracts/`, `authoring/` (with `golden/`), `github/`, `inputs/` and `docs/` (the documentation checks), plus `test_logging_config.py` and the shared `fixtures/`.
+The pytest suite, mirroring the package: `contracts/`, `authoring/` (with `golden/`), `check/`, `github/`, `inputs/` and `docs/` (the documentation checks), plus `test_logging_config.py`, `test_policy.py` and the shared `fixtures/`.
 
 ## Conventions
 

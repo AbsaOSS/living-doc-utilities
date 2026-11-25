@@ -38,6 +38,8 @@ The canonical forms come from `AbsaOSS/living-doc`'s [glossary](https://github.c
 - `contracts` never imports `authoring`; the dependency runs one way
 - Status and relations are settled once per run, over every parsed entity · [parsers](authoring/parsers.md#status-derivation)
 - One URL policy serves every consumer · [URLs and HTML](authoring/urls-and-html.md#url-policy)
+- The parsers never report a missing required key; one table of required keys serves the check that does · [check](check.md#required-keys)
+  - Why: a collector reads what is there, and a check before the merge says what is missing.
 
 ## Pages
 

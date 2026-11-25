@@ -40,6 +40,8 @@ class Emitter(str, Enum):
     TRANSFORM = "transform"
     COLLECTOR = "collector"
     GENERATOR = "generator"
+    # `check/`, the authored-input check a caller runs before a merge.
+    CHECK = "check"
 
 
 class Code(Enum):
@@ -108,6 +110,9 @@ class Code(Enum):
     # --- Generators ---
     TEMPLATE_KEY_MISSING = CodeKind.ERROR, Emitter.GENERATOR
     URL_FETCH_REFUSED = CodeKind.WARNING, Emitter.GENERATOR
+
+    # --- The authored-input check: the parsers stay lenient, so a missing required key is the check's own finding ---
+    MISSING_REQUIRED_KEY = CodeKind.WARNING, Emitter.CHECK
 
 
 # The registry other repos' doc checks and this package's own helpers read from, keyed by name.

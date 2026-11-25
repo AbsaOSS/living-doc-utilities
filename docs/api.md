@@ -52,9 +52,14 @@ table complete.
 | `authoring.identity` | `derive_entity_id()`, `extract_living_doc_title()` | none |
 | `authoring.status` | `derive_statuses()` | none |
 | `authoring.relations` | `check_relations()` | none |
+| `authoring.required_keys` | `REQUIRED_KEYS`, the one table of each header's required keys; `missing_required_keys()` | none |
 | `authoring.url_policy` | `safe_href()`, `sanitize_html_fragment()` | `html`, to call `sanitize_html_fragment()` |
 | `authoring.html_to_markdown` | `convert_html_to_markdown()` | `html`, to call it |
-| `authoring.docs_export` | regenerates this repository's worked-examples table; not for consumers | none; needs PyYAML, a dev tool |
+| `authoring.docs_export` | regenerates this repository's worked-examples table; not for consumers | none |
+| `check.engine` | the authored-input check: `check()`, `AuthoredFile`, `Finding` → [Check](check.md) | none |
+| `check.report` | the check's report: `format_line()`, `github_report()`, `job_summary()`, `fails()` | none |
+| `check.hints` | `FIX_HINTS`, one fix hint per code of the default fail list | none |
+| `policy` | the policy file's model: `Policy`, `load_policy()`, `DEFAULT_FAIL_CODES`, `POLICY_FILE` | none |
 | `github.utils` | `get_action_input()`, `set_action_output()` | none |
 | `github.rate_limiter` | `GithubRateLimiter` | `github` |
 | `github.decorators` | `safe_call_decorator()`, `debug_log_decorator()` | `github` |
@@ -68,7 +73,7 @@ Where each part is defined: [contracts](contracts.md) and [authoring](authoring.
 
 | Install | Adds | Needed for |
 |---|---|---|
-| `living-doc-utilities==0.9.0` | `pydantic`, `jsonschema` | every module marked "none" above |
+| `living-doc-utilities==0.9.0` | `pydantic`, `jsonschema`, `PyYAML` | every module marked "none" above |
 | `living-doc-utilities[github]==0.9.0` | `PyGithub`, `requests` | `github.rate_limiter`, `github.decorators` |
 | `living-doc-utilities[html]==0.9.0` | `nh3` | calling `convert_html_to_markdown()` or `sanitize_html_fragment()` |
 

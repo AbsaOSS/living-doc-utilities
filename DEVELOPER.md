@@ -69,7 +69,7 @@ table together; every other rule stays on for tests.
 | Declared in | For |
 |---|---|
 | `pyproject.toml` `dependencies` and extras | the package's install-time dependencies; which module needs which extra: [Extras](docs/api.md#extras) |
-| `requirements.txt` | the runtime of this repository's CI tooling (`make schemas`, `make docs`, `make no-vendored-schemas`), pinned; `PyYAML` only for `make docs` and the tests |
+| `requirements.txt` | the runtime of this repository's CI tooling (`make schemas`, `make docs`, `make no-vendored-schemas`), pinned |
 | `requirements-dev.txt` | it includes `requirements.txt` and adds the test, lint, type and packaging tools, plus the extras' libraries for the tests, pinned |
 
 To add a third-party import:
@@ -80,7 +80,6 @@ To add a third-party import:
 4. Run `make import-matrix`; it fails when a no-extra module reaches for PyGithub, `requests` or `nh3`.
 
 - deptry treats an extra as declared for the whole package, so only the import matrix catches a wrong extra.
-- The one accepted DEP004 is `yaml`, imported inside `_load_cases()` of a repository script → `authoring/docs_export.py::_load_cases`
 - A new development tool goes into both `requirements-dev.txt` (pinned) and `[dependency-groups] dev` → `pyproject.toml::dependency-groups`
   - Why: deptry reads the group's names to classify a development-only import.
 
