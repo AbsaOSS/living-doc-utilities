@@ -269,6 +269,15 @@ def test_a_changed_file_reusing_an_entity_id_gets_its_own_findings():
     assert all(path == "features/us-001-copy.feature" for path, _, _ in findings)
 
 
+def test_a_changed_file_reusing_an_entity_id_gets_its_own_relation_findings():
+    """A changed copy of FUNC-001 whose `parent:` names no Feature is reported; the original's parent resolves."""
+    corpus = _corpus(copy=func_file("features/func-001-copy.feature", _func(parent="FEAT-999")))
+
+    findings = _codes(check(corpus, {"features/func-001-copy.feature"}))
+
+    assert ("features/func-001-copy.feature", 2, "UNRESOLVED_RELATION") in findings
+
+
 def test_per_file_findings_of_an_unchanged_file_are_not_reported():
     """An unchanged file's own format problems are not the change's: only the changed files are reviewed."""
     corpus = _corpus(us2=us_file("features/us-002.feature", _us(entity="US-002", keys="# status: done\n")))

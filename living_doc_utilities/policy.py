@@ -21,6 +21,7 @@ codes that fail the authored-input check.
 
 import os
 from pathlib import Path
+from typing import Optional
 
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -29,6 +30,9 @@ from living_doc_utilities.contracts.codes import Code
 
 # The policy file's name, at the root of the repository it governs.
 POLICY_FILE = "living-doc-policy.yaml"
+
+# YAML's `<<` merge key, which may legitimately repeat in one mapping.
+_MERGE_TAG = "tag:yaml.org,2002:merge"
 
 # Every code the authoring parsers and checks raise, and the check's own: each one drops or misreads authored text.
 DEFAULT_FAIL_CODES: frozenset[str] = frozenset(
@@ -99,10 +103,38 @@ class Policy(BaseModel):
         return {} if section is None else section
 
 
+def _duplicate_key(root: Optional[yaml.Node]) -> Optional[yaml.ScalarNode]:
+    """A key written twice in one mapping of the document, of which YAML would silently keep only the last value.
+    A `<<` merge key may repeat; an alias is visited once, so a recursive document ends."""
+    pending, visited = [root], set()
+    while pending:
+        node = pending.pop()
+        if node is None or id(node) in visited:
+            continue
+        visited.add(id(node))
+        if isinstance(node, yaml.MappingNode):
+            seen: set[tuple[str, str]] = set()
+            for key, value in node.value:
+                if isinstance(key, yaml.ScalarNode) and key.tag != _MERGE_TAG:
+                    if (key.tag, key.value) in seen:
+                        return key
+                    seen.add((key.tag, key.value))
+                pending.append(value)
+        elif isinstance(node, yaml.SequenceNode):
+            pending.extend(node.value)
+    return None
+
+
 def load_policy(path: str | os.PathLike[str]) -> Policy:
     """Reads the policy file at `path`; an empty file is the default policy.
     @raises OSError: when the file can't be read.
-    @raises yaml.YAMLError: when it is not YAML.
+    @raises yaml.YAMLError: when it is not YAML, or writes a key twice in one mapping.
     @raises pydantic.ValidationError: when it doesn't match the model."""
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    text = Path(path).read_text(encoding="utf-8")
+    duplicate = _duplicate_key(yaml.compose(text, Loader=yaml.SafeLoader))
+    if duplicate is not None:
+        raise yaml.MarkedYAMLError(
+            problem=f"found duplicate key {duplicate.value!r}", problem_mark=duplicate.start_mark
+        )
+    data = yaml.safe_load(text)
     return Policy.model_validate({} if data is None else data)

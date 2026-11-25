@@ -135,8 +135,11 @@ def check(files: Sequence[AuthoredFile], changed: Collection[str]) -> list[Findi
     for file in parsed:
         for entity in file.entities:
             owners.setdefault(entity.entity_id, file)
-    entities, status_warnings = derive_statuses([entity for file in parsed for entity in file.entities])
+    entities = [entity for file in parsed for entity in file.entities]
+    status_warnings = derive_statuses(entities)[1]
     relation_warnings = [warning for warning in status_warnings if warning.code == _FEATURE_WITHOUT_FUNCTIONALITY]
+    # The parsed entities, not `derive_statuses`' result: it keeps one entity per id, so a second file's relations
+    # would never be checked.
     relation_warnings.extend(check_relations(entities))
     findings.extend(_finding(owners[str(warning.entity_id)], warning) for warning in relation_warnings)
 

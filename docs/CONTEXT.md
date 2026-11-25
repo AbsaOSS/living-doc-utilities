@@ -109,6 +109,7 @@ What realises each fact of [check.md](check.md):
 - The job summary lists every finding → `check/report.py::job_summary`
 - The policy file's name → `policy.py::POLICY_FILE`
 - Without a file, or with `check:` or `warn:` empty, every default code fails; `check.warn` relaxes codes of the default list only → `policy.py::CheckPolicy`
+- A key written twice in one mapping fails → `policy.py::_duplicate_key`
 - An unknown key under `check` fails; another top-level section is ignored → `policy.py::Policy`
 - The default fail list is every code the authoring layer raises, and `MISSING_REQUIRED_KEY` → `tests/test_policy.py::test_the_default_fail_list_is_every_code_the_authoring_layer_raises`
 - The check never raises `UNKNOWN_SECTION` or `HTML_CONTENT_DROPPED`: it runs no issue-body parser → `check/engine.py::_parse`

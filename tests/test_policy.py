@@ -98,6 +98,30 @@ def test_a_section_or_list_left_empty_is_the_default(tmp_path, text):
     assert load_policy(path).check.fail_codes == DEFAULT_FAIL_CODES
 
 
+@pytest.mark.parametrize(
+    "text, key",
+    [
+        ("check:\n  warn: [NOT_A_CODE]\n  warn: [MISSING_STATUS]\n", "warn"),
+        ("check:\n  warn: [MISSING_STATUS]\ncheck: {}\n", "check"),
+    ],
+)
+def test_a_key_written_twice_is_a_policy_error(tmp_path, text, key):
+    """A key written twice in one mapping fails, where YAML would silently keep only its last value."""
+    path = tmp_path / "living-doc-policy.yaml"
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(yaml.YAMLError, match=f"found duplicate key '{key}'"):
+        load_policy(path)
+
+
+def test_a_recursive_alias_is_read_once(tmp_path):
+    """A document whose alias refers back to its own anchor still loads: the duplicate-key walk visits it once."""
+    path = tmp_path / "living-doc-policy.yaml"
+    path.write_text("check:\n  warn: []\nloop: &self [*self]\n", encoding="utf-8")
+
+    assert load_policy(path).check.fail_codes == DEFAULT_FAIL_CODES
+
+
 def test_a_policy_file_that_is_not_a_mapping_is_a_policy_error(tmp_path):
     """A file whose top level is not a mapping fails validation."""
     path = tmp_path / "living-doc-policy.yaml"

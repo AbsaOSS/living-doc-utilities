@@ -61,6 +61,8 @@ check:
 
 - Without a file, with an empty one, or with `check:` or `warn:` left empty, every code of the default fail list fails
 - `check.warn` names the codes that only warn; a code outside the default fail list is an error
+- A key written twice in one mapping is an error
+  - Why: YAML would keep only its last value, and drop the first without a word.
 - An unknown key under `check` is an error; another top-level section is left to the gate that reads it
   - Why: the other gates add their own sections to the same file.
 - The default fail list: `AUTHORING_ERROR`, `AUTHORING_WARNING`, `FEATURE_WITHOUT_FUNCTIONALITY`, `HTML_CONTENT_DROPPED`, `IGNORED_AUTHORED_KEY`, `LEGACY_AC_STATE`, `MALFORMED_AC`, `MALFORMED_STATUS`, `MISINDENTED_LINE`, `MISSING_ENTITY_ID`, `MISSING_REQUIRED_KEY`, `MISSING_STATUS`, `RELATION_MISMATCH`, `RELATION_TYPE_MISMATCH`, `STATUS_AC_MISMATCH`, `UNKNOWN_SECTION`, `UNPARSED_AC_LINE`, `UNPARSED_BULLET_LINE`, `UNRESOLVED_RELATION` → [Errors and warnings](contracts/errors.md#codes)
