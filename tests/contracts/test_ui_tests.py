@@ -84,6 +84,57 @@ def test_scenario_forbids_unknown_field():
         factories.scenario(not_a_real_field="nope")
 
 
+def test_a_scenario_carries_its_line_steps_rule_and_backgrounds():
+    """A Scenario keeps its line, its steps, its rule with the rule's background, and its file's background."""
+    scenario = factories.scenario(
+        line=43,
+        rule="Fines are capped",
+        rule_background=["Given the fine cap is 5.00"],
+        background=["Given a member in good standing is signed in"],
+        steps=["Given a step", "Examples:", "  | amount |"],
+    )
+
+    assert scenario.model_dump(include={"line", "rule", "rule_background", "background", "steps"}) == {
+        "line": 43,
+        "rule": "Fines are capped",
+        "rule_background": ["Given the fine cap is 5.00"],
+        "background": ["Given a member in good standing is signed in"],
+        "steps": ["Given a step", "Examples:", "  | amount |"],
+    }
+
+
+def test_a_scenario_written_before_the_new_fields_still_validates():
+    """The contract id stays `ui-tests-v1.0.0`, so a scenario without the new fields still validates, with no line,
+    no rule and empty step and background lists."""
+    payload = {
+        "scenario_id": "SCN-001",
+        "title": "A scenario",
+        "source_ref": factories.github_source_ref().model_dump(),
+    }
+
+    scenario = Scenario.model_validate(payload)
+
+    assert (scenario.line, scenario.rule, scenario.rule_background, scenario.background, scenario.steps) == (
+        None,
+        None,
+        [],
+        [],
+        [],
+    )
+
+
+def test_a_scenario_line_is_one_based():
+    """A Scenario's line counts from 1."""
+    with pytest.raises(ValidationError):
+        factories.scenario(line=0)
+
+
+def test_a_ui_tests_link_carries_no_criterion_state():
+    """A collector does not know a criterion's state, so a ui-tests link has no `state`; the catalog's link has it."""
+    with pytest.raises(ValidationError):
+        AcLink(id="US-001-01", state="active")
+
+
 def test_scenario_source_ref_accepts_github_and_azure_devops():
     """A Scenario's source_ref accepts both a GitHub-shaped and an Azure DevOps-shaped SourceRef."""
     github_scenario = factories.scenario(source_ref=factories.github_source_ref())

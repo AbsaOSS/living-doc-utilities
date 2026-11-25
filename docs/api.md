@@ -27,10 +27,10 @@ table complete.
 | `contracts.envelope` | the metadata envelope: `Metadata`, `Producer`, `Run`, `Source`, `Stats`, `ContractWarning` | none |
 | `contracts.doc_entities` | the `doc-entities` result model, `Entity`, `PageRef` | none |
 | `contracts.doc_source` | the `doc-source` result model, `ROOT_TYPES` | none |
-| `contracts.ui_tests` | the `ui-tests` result model, `Scenario`, `AcLink` | none |
+| `contracts.ui_tests` | the `ui-tests` result model, `ScenarioCore`, `Scenario`, `AcLink` | none |
 | `contracts.generator_ready` | the `generator-ready` result model | none |
 | `contracts.coverage_matrix` | the `coverage-matrix` result model, `CoverageSummary.from_rows()` | none |
-| `contracts.ui_test_catalog` | the `ui-test-catalog` result model | none |
+| `contracts.ui_test_catalog` | the `ui-test-catalog` result model, `CatalogScenario`, `CatalogAcLink` | none |
 | `contracts.registry` | the one table of all six contracts: `CONTRACTS`, `record_roots()` | none |
 | `contracts.schema_export` | generates the schemas; `load_schema(contract_id)` reads a bundled one | none |
 | `contracts.codes` | `ALL_CODES`, `Code`, `ContractError` | none |

@@ -18,7 +18,7 @@
 
 from living_doc_utilities.authoring.feature_header import parse_feature_header
 from living_doc_utilities.authoring.scenario import parse_scenarios
-from tests.authoring.golden.helpers import load_expected, read_fixture
+from tests.authoring.golden.helpers import load_expected, read_fixture, to_scenario_dict
 
 _FUNC_001_RULES = ["minimum-length", "character-classes", "no-username"]
 
@@ -96,3 +96,12 @@ def test_func_001_scenarios_link_one_value_of_each_variant_spelling():
         ("FUNC-001-01", "no-username"),
         ("FUNC-001-03", "minimum-length"),
     ]
+
+
+def test_scenarios_carry_their_lines_steps_rules_and_backgrounds_into_ui_tests():
+    """A file's `Background:`, a DataTable, a DocString, and a `Rule:` with its own `Background:` over a Scenario
+    Outline with two `Examples:` blocks come out as the golden ui-tests scenarios, the parser's fields one for one."""
+    scenarios, warnings = parse_scenarios(read_fixture("gherkin", "scenario-bodies.feature"), "DocumentedFunctionality")
+
+    assert warnings == []
+    assert [to_scenario_dict(scenario) for scenario in scenarios] == load_expected("scenario-bodies.json")

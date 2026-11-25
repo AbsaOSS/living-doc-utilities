@@ -2,34 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://absaoss.github.io/living-doc-utilities/schemas/ui-test-catalog-v1.0.0-schema.json",
   "$defs": {
-    "AcLink": {
-      "additionalProperties": false,
-      "description": "One `@AC:<id>[/<param>:<value>]` scenario tag (living-doc's AC_TAG_RE): a scenario may\ncarry several, each pairing a specific acceptance criterion with the one declared value of\nit this scenario covers. The tag's one parameter is `aspect` or the criterion's keyword\nname; its value fills `aspect`, and the name is not stored. `aspect` is None for a bare\ntag, which covers the whole criterion, every declared value.",
-      "properties": {
-        "id": {
-          "pattern": "^(?:US|FUNC)-\\d+-\\d+$",
-          "title": "Id",
-          "type": "string"
-        },
-        "aspect": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Aspect"
-        }
-      },
-      "required": [
-        "id"
-      ],
-      "title": "AcLink",
-      "type": "object"
-    },
     "AuditStats": {
       "additionalProperties": false,
       "description": "The stats carried per input inside metadata.source_inputs[] (R7): an audit record of\nanother contract's paths, so field_occupancy is pattern-checked rather than enumerated.",
@@ -119,6 +91,129 @@
         }
       },
       "title": "Cardinality",
+      "type": "object"
+    },
+    "CatalogAcLink": {
+      "additionalProperties": false,
+      "description": "A scenario's `@AC:` link with its criterion's state: None when no document holds the criterion.",
+      "properties": {
+        "id": {
+          "pattern": "^(?:US|FUNC)-\\d+-\\d+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "planned",
+                "in_review",
+                "active",
+                "deprecated"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "CatalogAcLink",
+      "type": "object"
+    },
+    "CatalogScenario": {
+      "additionalProperties": false,
+      "description": "One Gherkin scenario in the catalog; its file's `Background:` sits on its `FeatureFileCatalog`.",
+      "properties": {
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule"
+        },
+        "rule_background": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rule Background",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "$ref": "#/$defs/CatalogAcLink"
+          },
+          "title": "Acceptance Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "title",
+        "source_ref"
+      ],
+      "title": "CatalogScenario",
       "type": "object"
     },
     "ContractWarning": {
@@ -218,11 +313,18 @@
     },
     "FeatureFileCatalog": {
       "additionalProperties": false,
-      "description": "One `.feature` file's scenarios, grouped into: linked to a User Story, linked to a\nFunctionality, or unlinked.",
+      "description": "One `.feature` file's `Background:` lines, as written, and its scenarios, grouped into: linked to a\nUser Story, linked to a Functionality, or unlinked.",
       "properties": {
         "feature_file": {
           "title": "Feature File",
           "type": "string"
+        },
+        "background": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Background",
+          "type": "array"
         },
         "linked_to_user_story": {
           "items": {
@@ -240,7 +342,7 @@
         },
         "unlinked": {
           "items": {
-            "$ref": "#/$defs/Scenario"
+            "$ref": "#/$defs/CatalogScenario"
           },
           "title": "Unlinked",
           "type": "array"
@@ -262,7 +364,7 @@
         },
         "scenarios": {
           "items": {
-            "$ref": "#/$defs/Scenario"
+            "$ref": "#/$defs/CatalogScenario"
           },
           "title": "Scenarios",
           "type": "array"
@@ -430,44 +532,6 @@
         }
       },
       "title": "Run",
-      "type": "object"
-    },
-    "Scenario": {
-      "additionalProperties": false,
-      "description": "One Gherkin scenario.",
-      "properties": {
-        "scenario_id": {
-          "title": "Scenario Id",
-          "type": "string"
-        },
-        "title": {
-          "title": "Title",
-          "type": "string"
-        },
-        "source_ref": {
-          "$ref": "#/$defs/SourceRef"
-        },
-        "tags": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Tags",
-          "type": "array"
-        },
-        "acceptance_criteria": {
-          "items": {
-            "$ref": "#/$defs/AcLink"
-          },
-          "title": "Acceptance Criteria",
-          "type": "array"
-        }
-      },
-      "required": [
-        "scenario_id",
-        "title",
-        "source_ref"
-      ],
-      "title": "Scenario",
       "type": "object"
     },
     "Source": {
@@ -640,10 +704,15 @@
           "type": "object",
           "propertyNames": {
             "enum": [
+              "feature_files[].background[]",
               "feature_files[].feature_file",
               "feature_files[].linked_to_functionality[].entity_id",
               "feature_files[].linked_to_functionality[].scenarios[].acceptance_criteria[].aspect",
               "feature_files[].linked_to_functionality[].scenarios[].acceptance_criteria[].id",
+              "feature_files[].linked_to_functionality[].scenarios[].acceptance_criteria[].state",
+              "feature_files[].linked_to_functionality[].scenarios[].line",
+              "feature_files[].linked_to_functionality[].scenarios[].rule",
+              "feature_files[].linked_to_functionality[].scenarios[].rule_background[]",
               "feature_files[].linked_to_functionality[].scenarios[].scenario_id",
               "feature_files[].linked_to_functionality[].scenarios[].source_ref.area_path",
               "feature_files[].linked_to_functionality[].scenarios[].source_ref.iteration_path",
@@ -652,11 +721,16 @@
               "feature_files[].linked_to_functionality[].scenarios[].source_ref.system",
               "feature_files[].linked_to_functionality[].scenarios[].source_ref.tracker_state",
               "feature_files[].linked_to_functionality[].scenarios[].source_ref.url",
+              "feature_files[].linked_to_functionality[].scenarios[].steps[]",
               "feature_files[].linked_to_functionality[].scenarios[].tags[]",
               "feature_files[].linked_to_functionality[].scenarios[].title",
               "feature_files[].linked_to_user_story[].entity_id",
               "feature_files[].linked_to_user_story[].scenarios[].acceptance_criteria[].aspect",
               "feature_files[].linked_to_user_story[].scenarios[].acceptance_criteria[].id",
+              "feature_files[].linked_to_user_story[].scenarios[].acceptance_criteria[].state",
+              "feature_files[].linked_to_user_story[].scenarios[].line",
+              "feature_files[].linked_to_user_story[].scenarios[].rule",
+              "feature_files[].linked_to_user_story[].scenarios[].rule_background[]",
               "feature_files[].linked_to_user_story[].scenarios[].scenario_id",
               "feature_files[].linked_to_user_story[].scenarios[].source_ref.area_path",
               "feature_files[].linked_to_user_story[].scenarios[].source_ref.iteration_path",
@@ -665,10 +739,15 @@
               "feature_files[].linked_to_user_story[].scenarios[].source_ref.system",
               "feature_files[].linked_to_user_story[].scenarios[].source_ref.tracker_state",
               "feature_files[].linked_to_user_story[].scenarios[].source_ref.url",
+              "feature_files[].linked_to_user_story[].scenarios[].steps[]",
               "feature_files[].linked_to_user_story[].scenarios[].tags[]",
               "feature_files[].linked_to_user_story[].scenarios[].title",
               "feature_files[].unlinked[].acceptance_criteria[].aspect",
               "feature_files[].unlinked[].acceptance_criteria[].id",
+              "feature_files[].unlinked[].acceptance_criteria[].state",
+              "feature_files[].unlinked[].line",
+              "feature_files[].unlinked[].rule",
+              "feature_files[].unlinked[].rule_background[]",
               "feature_files[].unlinked[].scenario_id",
               "feature_files[].unlinked[].source_ref.area_path",
               "feature_files[].unlinked[].source_ref.iteration_path",
@@ -677,6 +756,7 @@
               "feature_files[].unlinked[].source_ref.system",
               "feature_files[].unlinked[].source_ref.tracker_state",
               "feature_files[].unlinked[].source_ref.url",
+              "feature_files[].unlinked[].steps[]",
               "feature_files[].unlinked[].tags[]",
               "feature_files[].unlinked[].title"
             ]

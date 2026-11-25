@@ -14,14 +14,18 @@
 # limitations under the License.
 #
 
-"""Golden-fixture helpers: load expected JSON and turn a `ParsedEntity` into the golden `Entity` dict shape."""
+"""Golden-fixture helpers: load expected JSON and turn a `ParsedEntity` into the golden `Entity` dict shape, and a
+`ParsedScenario` into the golden ui-tests `Scenario` dict shape."""
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from living_doc_utilities.authoring.issue_body import ParsedEntity
+from living_doc_utilities.authoring.scenario import ParsedScenario
 from living_doc_utilities.contracts.common import SourceRef
 from living_doc_utilities.contracts.doc_entities import Entity
+from living_doc_utilities.contracts.ui_tests import Scenario
 
 GOLDEN_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "golden"
 
@@ -49,3 +53,10 @@ def to_entity_dict(parsed: ParsedEntity) -> dict:
     dumped = entity.model_dump(mode="json")
     del dumped["source_ref"]
     return dumped
+
+
+def to_scenario_dict(parsed: ParsedScenario) -> dict:
+    """Builds a full ui-tests `Scenario` from `parsed`, field for field (dummy `scenario_id` and `source_ref`), and
+    dumps it without those two, the same shape as a hand-written golden JSON file."""
+    scenario = Scenario(scenario_id="SCN-1", source_ref=_DUMMY_SOURCE_REF, **asdict(parsed))
+    return scenario.model_dump(mode="json", exclude={"scenario_id", "source_ref"})

@@ -62,7 +62,7 @@ every other line passes through byte for byte.
 |---|---|---|
 | `ISSUE_BODY` | a GitHub issue body's Markdown, split on `##` headings | `issue_body.parse_issue_body` |
 | `FEATURE_HEADER` | a `.feature` file's `# key: value` / `# key:` block, from its first `# ===` rule above `Feature:` to its last, when its title names an entity | `feature_header.parse_feature_header` |
-| `SCENARIO_FILE` | a `.feature` file's Gherkin body: only its `# AC:` comment lines; scenario, step and tag lines pass through | `scenario.parse_scenarios` |
+| `SCENARIO_FILE` | a `.feature` file's Gherkin body: only its `# AC:` comment lines outside a DocString; scenario, step, tag and DocString lines pass through | `scenario.parse_scenarios` |
 | `PAGE_OBJECT` | a PageObject file's leading `/* ... */` comment: its `* key: value` lines, when its title names an entity | `page_object.parse_page_object` |
 | `HTML_MARKDOWN` | the text `convert_html_to_markdown` makes from Azure DevOps HTML; the same rules as `ISSUE_BODY` | `html_to_markdown.convert_html_to_markdown`, then `issue_body.parse_issue_body` |
 

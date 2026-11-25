@@ -22,7 +22,7 @@ Not responsible for: reading authored text; `authoring/` does that and produces 
 - Serialise with pydantic's `model_dump()` and `model_validate()`. Never add a hand-rolled `to_dict()` or `from_dict()`: the pydantic models are the only shared data model.
 - Write a cross-field invariant as a `_`-prefixed `@model_validator(mode="after")` method, like `doc_entities.py::Entity._check_state_origin`.
 - A new contract declares a module-level `RECORD_ROOTS: dict[str, type[BaseModel]]`, like `doc_entities.py`, and gets a row in `registry.py::CONTRACTS` → [Contracts](../../docs/contracts/artifact-rules.md#contracts)
-- The transform-output models reuse `doc_entities.Entity`, `common.AcceptanceCriterion` and `ui_tests.Scenario` instead of redeclaring them.
+- The transform-output models reuse `doc_entities.Entity`, `common.AcceptanceCriterion`, `ui_tests.ScenarioCore` and `ui_tests.AcLink` instead of redeclaring them: the catalog's scenario and link subclass the last two.
 - Structural validation goes through `validation.py`, which picks the validator with `jsonschema.validators.validator_for`, never a hardcoded validator class.
 - Never import from `authoring/`.
 

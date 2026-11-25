@@ -1,0 +1,43 @@
+[
+  {
+    "title": "A fine shows on its loan",
+    "tags": ["@AC:FUNC-001-01"],
+    "line": 8,
+    "rule": null,
+    "rule_background": [],
+    "steps": [
+      "Given the loans",
+      "  | title      | fine |",
+      "  | The Hobbit | 0.40 |",
+      "When the member opens the My Loans page",
+      "Then the page shows",
+      "  \"\"\"markdown",
+      "  # Fines",
+      "",
+      "  The Hobbit: 0.40",
+      "  \"\"\""
+    ],
+    "background": ["Given a member in good standing is signed in"],
+    "acceptance_criteria": [{"id": "FUNC-001-01", "aspect": null}]
+  },
+  {
+    "title": "A <fine-state> fine is left out of the total",
+    "tags": ["@AC:FUNC-001-02"],
+    "line": 25,
+    "rule": "A settled fine is left out of the total",
+    "rule_background": ["Given the member owes 1.20 on \"Dune\""],
+    "steps": [
+      "Given the fine on \"Dune\" is <fine-state>",
+      "Then the total fines owed is 0.00",
+      "Examples: Settled by the member",
+      "  | fine-state |",
+      "  | paid       |",
+      "Examples: Settled by the library",
+      "  | fine-state  |",
+      "  | waived      |",
+      "  | written-off |"
+    ],
+    "background": ["Given a member in good standing is signed in"],
+    "acceptance_criteria": [{"id": "FUNC-001-02", "aspect": null}]
+  }
+]

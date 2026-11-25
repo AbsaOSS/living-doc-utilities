@@ -34,7 +34,14 @@ from living_doc_utilities.contracts import (
     ui_tests,
 )
 from living_doc_utilities.contracts.codes import Code
-from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType, EntityCore, SourceRef, Timestamps
+from living_doc_utilities.contracts.common import (
+    AcceptanceCriterion,
+    DocType,
+    EntityCore,
+    LifecycleState,
+    SourceRef,
+    Timestamps,
+)
 from living_doc_utilities.contracts.doc_entities import Entity, PageRef
 from living_doc_utilities.contracts.envelope import (
     AuditStats,
@@ -397,17 +404,32 @@ def _entities() -> list[Entity]:
     ]
 
 
+# The `Background:` of checkout.feature, which both sample scenarios come from.
+_CHECKOUT_BACKGROUND = ("Given the customer has items in the basket",)
+
+
 def _scenarios() -> list[Scenario]:
-    """Two scenarios jointly covering every leaf path ui-tests and ui-test-catalog declare
-    for their Scenario-shaped record roots: one tagged, GitHub-sourced and linked to each value
-    of an `Aspect:` AC and to one value of a keyword AC; one Azure-DevOps-sourced (covering
-    source_ref.area_path/iteration_path) with a bare link."""
+    """Two scenarios of one file with a `Background:`, jointly covering every leaf path ui-tests and
+    ui-test-catalog declare for their Scenario-shaped record roots: one tagged, GitHub-sourced, under a
+    `Rule:` with its own `Background:`, with a DataTable step, and linked to each value of an `Aspect:` AC
+    and to one value of a keyword AC; one Azure-DevOps-sourced (covering source_ref.area_path/iteration_path)
+    with a bare link."""
     return [
         Scenario(
             scenario_id="SCN-001",
             title="Customer completes checkout with a saved card",
             source_ref=_github_source_ref("checkout.feature", "Scenario"),
             tags=["smoke"],
+            line=14,
+            rule="A saved card pays in one step",
+            rule_background=["Given the customer has a saved card"],
+            steps=[
+                "When the customer pays with the saved card",
+                "Then the order shows",
+                "  | field  | value     |",
+                "  | status | confirmed |",
+            ],
+            background=list(_CHECKOUT_BACKGROUND),
             acceptance_criteria=[
                 AcLink(id="US-001-01", aspect="desktop"),
                 AcLink(id="US-001-01", aspect="mobile"),
@@ -418,9 +440,23 @@ def _scenarios() -> list[Scenario]:
             scenario_id="SCN-002",
             title="Customer completes checkout as a guest",
             source_ref=_azure_devops_source_ref("checkout.feature#12", "Scenario"),
+            line=12,
+            steps=["When the customer pays as a guest", "Then the order is confirmed"],
+            background=list(_CHECKOUT_BACKGROUND),
             acceptance_criteria=[AcLink(id="US-002-01")],
         ),
     ]
+
+
+def _catalog_scenario(scenario: Scenario, states: dict[str, LifecycleState]) -> ui_test_catalog.CatalogScenario:
+    """`scenario` as a transform catalogs it: without its file's background, each link with its criterion's state."""
+    return ui_test_catalog.CatalogScenario(
+        **scenario.model_dump(exclude={"background", "acceptance_criteria"}),
+        acceptance_criteria=[
+            ui_test_catalog.CatalogAcLink(**link.model_dump(), state=states.get(link.id))
+            for link in scenario.acceptance_criteria
+        ],
+    )
 
 
 # The Entity fields each type carries beyond EntityCore's, which every entity has. A field belongs to a type when an
@@ -744,9 +780,11 @@ def _coverage_matrix_sample() -> coverage_matrix.CoverageMatrixResult:
 
 
 def _ui_test_catalog_sample() -> ui_test_catalog.UiTestCatalogResult:
-    scenarios = _scenarios()
+    states = {ac.id: ac.state for entity in _entities() for ac in entity.acceptance_criteria}
+    scenarios = [_catalog_scenario(scenario, states) for scenario in _scenarios()]
     feature_file = ui_test_catalog.FeatureFileCatalog(
         feature_file="checkout.feature",
+        background=list(_CHECKOUT_BACKGROUND),
         linked_to_user_story=[ui_test_catalog.LinkedScenarios(entity_id="US-001", scenarios=list(scenarios))],
         linked_to_functionality=[ui_test_catalog.LinkedScenarios(entity_id="FUNC-001", scenarios=list(scenarios))],
         unlinked=list(scenarios),

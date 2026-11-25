@@ -30,7 +30,7 @@ from living_doc_utilities.contracts.common import AcceptanceCriterion, DocType
 from living_doc_utilities.contracts.coverage_matrix import AcCoverage
 from living_doc_utilities.contracts.envelope import Cardinality, ContractWarning, Stats
 from living_doc_utilities.contracts.schema_export import iter_model_fields
-from living_doc_utilities.contracts.ui_tests import Scenario
+from living_doc_utilities.contracts.ui_tests import ScenarioCore
 
 
 class _ContractResult(Protocol):
@@ -81,7 +81,7 @@ def _walk(instances: Sequence[Any], model: type[BaseModel], prefix: str, state: 
             state.entities_by_type[instance.type] += 1
     if issubclass(model, _ACCEPTANCE_CRITERION_TYPES):
         state.acceptance_criteria += len(instances)
-    if issubclass(model, Scenario):
+    if issubclass(model, ScenarioCore):
         state.scenarios += len(instances)
 
     for path, field_name, item_type, is_array in iter_model_fields(model, prefix):

@@ -40,13 +40,24 @@ class AcLink(ContractModel):
     aspect: Optional[str] = None
 
 
-class Scenario(ContractModel):
-    """One Gherkin scenario."""
+class ScenarioCore(ContractModel):
+    """The fields a Gherkin scenario carries in ui-tests and in ui-test-catalog alike. `line` is its `Scenario:`
+    line; `steps` and `rule_background` (its `Rule:`'s own `Background:`) are lines as written."""
 
     scenario_id: str
     title: str
     source_ref: SourceRef
     tags: list[str] = Field(default_factory=list)
+    line: Optional[int] = Field(default=None, ge=1)
+    rule: Optional[str] = None
+    rule_background: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+
+
+class Scenario(ScenarioCore):
+    """One Gherkin scenario, with its file's `Background:` lines, as written."""
+
+    background: list[str] = Field(default_factory=list)
     acceptance_criteria: list[AcLink] = Field(default_factory=list)
 
 

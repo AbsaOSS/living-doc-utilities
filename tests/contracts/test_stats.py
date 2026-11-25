@@ -316,12 +316,14 @@ def test_cardinality_scenarios_tallies_deeply_nested_scenarios_for_ui_test_catal
     """cardinality.scenarios tallies scenarios nested arbitrarily deep inside a ui-test-catalog feature file."""
     feature_file = factories.feature_file_catalog(
         linked_to_user_story=[
-            factories.linked_scenarios(entity_id="US-001", scenarios=[factories.scenario("SCN-001"), factories.scenario("SCN-002")])
+            factories.linked_scenarios(
+                entity_id="US-001", scenarios=[factories.catalog_scenario("SCN-001"), factories.catalog_scenario("SCN-002")]
+            )
         ],
         linked_to_functionality=[
-            factories.linked_scenarios(entity_id="FUNC-001", scenarios=[factories.scenario("SCN-003")])
+            factories.linked_scenarios(entity_id="FUNC-001", scenarios=[factories.catalog_scenario("SCN-003")])
         ],
-        unlinked=[factories.scenario("SCN-004")],
+        unlinked=[factories.catalog_scenario("SCN-004")],
     )
     result = UiTestCatalogResult(
         metadata=factories.transform_metadata(), document=factories.ui_test_catalog_document(), feature_files=[feature_file]

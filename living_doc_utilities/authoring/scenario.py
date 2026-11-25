@@ -15,17 +15,27 @@
 #
 
 """
-Gherkin scenario parsing: a scenario's title and its `@AC:<id>[/<param>:<value>]` tags. The
-human-readable `# AC:` comment above a scenario is documentation only; only the
-machine-readable `@AC:` Cucumber tag links a scenario to an acceptance criterion.
+Gherkin scenario parsing: a scenario's title, its `@AC:<id>[/<param>:<value>]` tags, its line, its steps,
+its rule and the backgrounds that run before it. The human-readable `# AC:` comment above a scenario is
+documentation only; only the machine-readable `@AC:` Cucumber tag links a scenario to an acceptance criterion.
 """
 
+import os
 import re
 from dataclasses import dataclass, field
+from typing import Optional
 
 from living_doc_utilities.authoring.ac_grammar import is_valid_ac_id, is_valid_variant_name
 from living_doc_utilities.authoring.accounting import located
-from living_doc_utilities.authoring.framing import SCENARIO, Role, opening_value
+from living_doc_utilities.authoring.framing import (
+    BACKGROUND,
+    GHERKIN_RULE,
+    SCENARIO,
+    FramedLine,
+    Role,
+    opening_value,
+    sections,
+)
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize_framed
 from living_doc_utilities.contracts.codes import Code
 from living_doc_utilities.contracts.common import DocType
@@ -38,11 +48,17 @@ _AC_TAG_PREFIX = "@AC:"
 
 @dataclass
 class ParsedScenario:
-    """One Gherkin scenario, without `scenario_id`/`source_ref` (collector-filled)."""
+    """One Gherkin scenario, without `scenario_id`/`source_ref` (collector-filled). `line` is its `Scenario:` line;
+    `steps`, `background` (its file's) and `rule_background` (its rule's) are lines as written."""
 
     title: str
     tags: list[str] = field(default_factory=list)
     acceptance_criteria: list[AcLink] = field(default_factory=list)
+    line: Optional[int] = None
+    rule: Optional[str] = None
+    rule_background: list[str] = field(default_factory=list)
+    background: list[str] = field(default_factory=list)
+    steps: list[str] = field(default_factory=list)
 
 
 def _parse_ac_tag(tag: str) -> AcLink | None:
@@ -85,31 +101,64 @@ def _tags_to_ac_links(tags: list[tuple[str, int]]) -> tuple[list[AcLink], list[C
     return links, warnings
 
 
+def _trailing_tags(lines: list[FramedLine]) -> list[tuple[str, int]]:
+    """The tags of the tag lines that close a block, as `(tag, input line number)` pairs: any other line in the
+    block (a step, `Examples:`, a DocString) drops the tags above it, so a tag block links only the next scenario."""
+    tags: list[tuple[str, int]] = []
+    for framed in lines:
+        if framed.role is Role.TAG:
+            tags.extend((tag, framed.number) for tag in _TAG_TOKEN_RE.findall(framed.line.text))
+        elif framed.role in (Role.TEXT, Role.CODE):
+            tags = []
+    return tags
+
+
+def _block_lines(lines: list[FramedLine]) -> list[str]:
+    """A block's lines as written: blank, comment and tag lines drop unless a DocString holds them, and every line
+    loses the indentation the lines with text share. A DocString line keeps its trailing whitespace; any other line
+    loses it."""
+    kept = [
+        framed.raw if framed.role is Role.CODE else framed.raw.rstrip()
+        for framed in lines
+        if framed.role in (Role.TEXT, Role.CODE)
+    ]
+    margin = os.path.commonprefix([line[: len(line) - len(line.lstrip())] for line in kept if line.strip()])
+    return [line[len(margin) :] if line.startswith(margin) else line.lstrip() for line in kept]
+
+
 def parse_scenarios(text: str, entity_type: DocType) -> tuple[list[ParsedScenario], list[ContractWarning]]:
     """Parses every `Scenario:`/`Scenario Outline:` in a `.feature` file's Gherkin body."""
     _, frame = normalize_framed(text, SourceFormat.SCENARIO_FILE, entity_type)
     warnings: list[ContractWarning] = []
     scenarios: list[ParsedScenario] = []
     pending_tags: list[tuple[str, int]] = []
+    background: list[str] = []
+    rule: Optional[str] = None
+    rule_background: list[str] = []
 
-    for framed in frame.lines:
-        if framed.role in (Role.BLANK, Role.COMMENT):
-            continue
-        if framed.role is Role.TAG:
-            pending_tags.extend((tag, framed.number) for tag in _TAG_TOKEN_RE.findall(framed.line.text))
-            continue
-        if framed.role is not Role.HEADING or framed.section != SCENARIO:
-            # `Feature:`, `Background:` or any other construct (Rule:, a step, Examples:, ...) drops pending tags.
-            pending_tags = []
-            continue
-
-        ac_links, ac_warnings = _tags_to_ac_links(pending_tags)
-        warnings.extend(ac_warnings)
-        scenarios.append(
-            ParsedScenario(
-                title=opening_value(framed).strip(), tags=[tag for tag, _ in pending_tags], acceptance_criteria=ac_links
+    for section in sections(frame):
+        if section.name == SCENARIO:
+            ac_links, ac_warnings = _tags_to_ac_links(pending_tags)
+            warnings.extend(ac_warnings)
+            scenarios.append(
+                ParsedScenario(
+                    title=opening_value(section.opener).strip(),
+                    tags=[tag for tag, _ in pending_tags],
+                    acceptance_criteria=ac_links,
+                    line=section.opener.number,
+                    rule=rule,
+                    rule_background=list(rule_background),
+                    steps=_block_lines(section.lines),
+                )
             )
-        )
-        pending_tags = []
+        elif section.name == GHERKIN_RULE:
+            rule, rule_background = opening_value(section.opener).strip(), []
+        elif section.name == BACKGROUND and rule is None:
+            background = _block_lines(section.lines)
+        elif section.name == BACKGROUND:
+            rule_background = _block_lines(section.lines)
+        pending_tags = _trailing_tags(section.lines)
 
+    for scenario in scenarios:
+        scenario.background = list(background)
     return scenarios, warnings
