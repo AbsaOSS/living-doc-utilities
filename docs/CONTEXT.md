@@ -4,7 +4,7 @@ Parent: ../CONTEXT.md
 
 ## Purpose
 
-The code maps of the three hub pages, `api.md`, `contracts.md` and `authoring.md`: for each fact a page states, where the code realises it. The pages carry no anchor; the maps of the pages below them sit in [contracts/CONTEXT.md](contracts/CONTEXT.md) and [authoring/CONTEXT.md](authoring/CONTEXT.md).
+The code maps of the three hub pages, `api.md`, `contracts.md` and `authoring.md`, and of the leaf page `check.md`: for each fact a page states, where the code realises it. The pages carry no anchor; the maps of the pages below them sit in [contracts/CONTEXT.md](contracts/CONTEXT.md) and [authoring/CONTEXT.md](authoring/CONTEXT.md).
 
 ## Code map
 
@@ -86,3 +86,33 @@ What realises each fact of [authoring.md](authoring.md):
 - `contracts` never imports `authoring`; the dependency runs one way → `tests/authoring/test_isolation.py::test_contracts_imports_nothing_from_authoring`
 - Status and relations are settled once per run, over every parsed entity → `authoring/status.py::derive_statuses`
 - One URL policy serves every consumer → `authoring/url_policy.py::safe_href`
+- The parsers never report a missing required key; one table serves the check that does → `authoring/required_keys.py::REQUIRED_KEYS`
+
+### Check
+
+What realises each fact of [check.md](check.md):
+
+- The caller gives every authored file with its path, entity type and text, and the changed paths → `check/engine.py::AuthoredFile`
+- The entity type picks the parser: a `.feature` header and scenarios, or a PageObject → `check/engine.py::_parse`
+- Only the changed files' own findings are reported → `tests/check/test_engine.py::test_per_file_findings_of_an_unchanged_file_are_not_reported`
+- Every relation finding of the corpus is reported, on the title line of the entity's file → `tests/check/test_engine.py::test_a_deleted_file_is_reported_on_the_unchanged_file_whose_relation_it_breaks`
+- A cross-reference page whose `parent-feat:` names no Feature gets `UNRESOLVED_RELATION`, as the collector reports it → `check/engine.py::_unattached_page`
+- `FEATURE_WITHOUT_FUNCTIONALITY` is a relation finding; `MISSING_STATUS` and `STATUS_AC_MISMATCH` are per file → `check/engine.py::check`
+- A finding with no line sits on the title line and shows its context → `check/engine.py::_finding`
+- A changed path that is not a file, or a path given twice, raises `ValueError` → `check/engine.py::check`
+- One line per finding, a line break escaped → `check/report.py::format_line`
+- Every code of the default fail list has a fix hint → `tests/check/test_hints.py::test_every_default_fail_code_has_a_fix_hint_and_nothing_else_does`
+- The findings fail when a code is in the fail list → `check/report.py::fails`
+- The GitHub Actions report: the shielded lines, the summary annotation, one annotation per finding → `check/report.py::github_report`
+- In Actions the caller prints the GitHub report as it is, and no finding line outside it → collectors
+- At most 10 annotations of a level per step; the summary takes one → `check/report.py::_ANNOTATIONS_PER_LEVEL`
+- The job summary lists every finding → `check/report.py::job_summary`
+- The policy file's name → `policy.py::POLICY_FILE`
+- Without a file, or with `check:` or `warn:` empty, every default code fails; `check.warn` relaxes codes of the default list only → `policy.py::CheckPolicy`
+- A key written twice in one mapping fails → `policy.py::_duplicate_key`
+- An unknown key under `check` fails; another top-level section is ignored → `policy.py::Policy`
+- The default fail list is every code the authoring layer raises, and `MISSING_REQUIRED_KEY` → `tests/test_policy.py::test_the_default_fail_list_is_every_code_the_authoring_layer_raises`
+- The check never raises `UNKNOWN_SECTION` or `HTML_CONTENT_DROPPED`: it runs no issue-body parser → `check/engine.py::_parse`
+- One table holds every header's required keys → `authoring/required_keys.py::REQUIRED_KEYS`
+- A missing key is `MISSING_REQUIRED_KEY` on the title line → `authoring/required_keys.py::missing_required_keys`
+- The example runs → `tests/docs/test_examples.py::test_python_example_runs`

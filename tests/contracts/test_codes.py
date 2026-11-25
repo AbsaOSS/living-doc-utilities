@@ -35,6 +35,7 @@ _KNOWN_CODES = [
     ("STALE_AC_REF", CodeKind.WARNING, Emitter.TRANSFORM),
     ("SKIPPED_SCENARIO", CodeKind.WARNING, Emitter.TRANSFORM),
     ("URL_FETCH_REFUSED", CodeKind.WARNING, Emitter.GENERATOR),
+    ("MISSING_REQUIRED_KEY", CodeKind.WARNING, Emitter.CHECK),
 ]
 
 # One row of the error page's code table: `| `CODE` | kind | emitter | ...`.
@@ -81,7 +82,7 @@ def test_compat_raised_codes_are_registered_as_errors_emitted_by_utilities(name)
 def test_every_code_member_is_a_distinct_object():
     """Every Code member is a distinct object, none collapsed into another by a shared value."""
     # Guards Enum aliasing: `codes.py::Code.__new__` assigns unique sequential values, so members can't collapse.
-    assert len(set(Code)) == len(list(Code)) == 41
+    assert len(set(Code)) == len(list(Code)) == 42
 
 
 def test_every_code_has_a_kind_and_an_emitter():
@@ -104,6 +105,7 @@ def test_emitter_is_a_str_enum_with_the_documented_values():
     assert Emitter.TRANSFORM == "transform"
     assert Emitter.COLLECTOR == "collector"
     assert Emitter.GENERATOR == "generator"
+    assert Emitter.CHECK == "check"
 
 
 def test_contract_error_carries_code_message_and_context():

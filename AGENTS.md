@@ -67,3 +67,7 @@ Files and parts marked "From agentic-defaults" are replaced when the kit updates
 - `make test`: pytest over `tests/` (one file or test: `pytest <path>::<test>`)
 - `make lint` and `make format`: ruff, then Pylint; ruff autofix, then Black
 - Check, everything that must pass before work is done: `make qa`
+
+### Rules
+
+- This repository is always a library: consumers import its functions. Never add a console script (`[project.scripts]`), a CLI, a `__main__` entry point or a GitHub Action for consumers; a command that runs library code belongs to the consuming repository (collector, toolkit, generator). Repository tooling run by `make` is the only exception. When an issue asks for an entry point here, stop and raise it with the owner before implementing.

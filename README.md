@@ -24,6 +24,7 @@ This page gives the overview, a usage tip, and the page to read next.
 
 - **Contracts** (`living_doc_utilities.contracts`): typed models of the six documentation contracts, their JSON Schemas, and the helpers every component shares → [Documentation contracts](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/contracts.md)
 - **Authoring** (`living_doc_utilities.authoring`): normalisation, the acceptance-criterion grammar, and the parsers for every authoring surface → [Authoring](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/authoring.md)
+- **Check** (`living_doc_utilities.check`, `living_doc_utilities.policy`): the authored-input check a caller runs before a merge, its report, and the policy file → [Check](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/check.md)
 - **GitHub** (`living_doc_utilities.github`): action input and output, a rate limiter, a call decorator that never swallows a failure → [GitHub helpers](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#github-helpers)
 - **Inputs** (`living_doc_utilities.inputs`): a base class for a GitHub Action's inputs → [Action inputs and logging](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#action-inputs-and-logging)
 - **Runtime helpers**: `setup_logging()` and shared constants → [Action inputs and logging](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md#action-inputs-and-logging)
@@ -34,7 +35,7 @@ This page gives the overview, a usage tip, and the page to read next.
 Python 3.10 or later. Pin the version exactly, and add an extra only for the module that needs it:
 
 ```shell
-pip install "living-doc-utilities==0.9.0"          # contracts, authoring, github.utils, inputs
+pip install "living-doc-utilities==0.9.0"          # contracts, authoring, check, github.utils, inputs
 pip install "living-doc-utilities[github]==0.9.0"  # adds the GitHub rate limiter and decorators
 pip install "living-doc-utilities[html]==0.9.0"    # adds the HTML sanitiser
 ```
@@ -58,6 +59,7 @@ Which module needs which extra: [Extras](https://github.com/AbsaOSS/living-doc-u
 | find a module and what it needs installed | [API](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/api.md) |
 | read or write a contract file | [Documentation contracts](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/contracts.md) |
 | parse authored documents | [Authoring](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/authoring.md) |
+| check authored files before a merge, or set the policy file | [Check](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/check.md) |
 | look up an error or warning code | [Errors and warnings](https://github.com/AbsaOSS/living-doc-utilities/blob/master/docs/contracts/errors.md) |
 | set up the repository, run the gates, release | [Developer guide](https://github.com/AbsaOSS/living-doc-utilities/blob/master/DEVELOPER.md) |
 | contribute a change | [Contributing](https://github.com/AbsaOSS/living-doc-utilities/blob/master/CONTRIBUTING.md) |

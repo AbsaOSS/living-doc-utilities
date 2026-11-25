@@ -10,7 +10,7 @@ Not responsible for: fetching documents from a tracker. A parser sees document t
 
 ## How it fits
 
-- Entry points: the `frame_*` functions in `framing.py`, `normalize.py::normalize`, `ac_grammar.py::parse_acceptance_criteria`, and the parsers in `issue_body.py`, `feature_header.py`, `page_object.py` and `scenario.py`.
+- Entry points: the `frame_*` functions in `framing.py`, `normalize.py::normalize`, `ac_grammar.py::parse_acceptance_criteria`, the parsers in `issue_body.py`, `feature_header.py`, `page_object.py` and `scenario.py`, and `required_keys.py::REQUIRED_KEYS`, which no parser reads: only `check/` and `living-doc`'s corpus checker do.
 - Depends on: `contracts/`; `nh3` (the `html` extra) only at call time.
 - Docs: [Authoring](../../docs/authoring.md); its pages' code map, fact by fact: [docs/authoring/CONTEXT.md](../../docs/authoring/CONTEXT.md)
 
@@ -27,4 +27,4 @@ Not responsible for: fetching documents from a tracker. A parser sees document t
 
 - Every module imports with no extra. `nh3` is imported only inside the `url_policy.py` functions that call it, so only calling `sanitize_html_fragment` or `convert_html_to_markdown` needs the `html` extra.
 - `normalisation_cases.yaml` is `normalize`'s only test data (`tests/authoring/test_normalize_cases.py`) and the source of the worked-examples table in `docs/authoring/normalisation.md`, which `docs_export.py` (`make docs`) regenerates.
-- `docs_export.py` imports `yaml` inside `_load_cases`, because PyYAML is a development dependency and the module must import without it.
+- A code a module here raises joins `policy.py::DEFAULT_FAIL_CODES` and `check/hints.py::FIX_HINTS`; a test keeps all three equal.

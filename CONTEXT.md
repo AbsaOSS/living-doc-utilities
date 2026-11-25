@@ -9,13 +9,15 @@ Not responsible for: collecting, transforming or rendering documentation; the co
 ## Tech stack
 
 - Python 3.10+ (the ecosystem floor), published to PyPI as `living-doc-utilities`.
-- Core dependencies `pydantic` and `jsonschema`; extras `github` (PyGithub, `requests`) and `html` (`nh3`) → [Extras](docs/api.md#extras).
+- Core dependencies `pydantic`, `jsonschema` and `PyYAML` (the policy file, `make docs`); extras `github` (PyGithub, `requests`) and `html` (`nh3`) → [Extras](docs/api.md#extras).
 - Tooling: pytest, ruff, Pylint, Black, mypy, deptry. Commands are in `AGENTS.md` "This project"; what each gate checks is in [Gates](DEVELOPER.md#gates).
 
 ## Structure
 
 - `living_doc_utilities/contracts/`: the contract models, their generated JSON Schemas, artifact I/O and the code registry → [CONTEXT.md](living_doc_utilities/contracts/CONTEXT.md)
 - `living_doc_utilities/authoring/`: the pure `text -> data` layer that reads authored documents into the contract models → [CONTEXT.md](living_doc_utilities/authoring/CONTEXT.md)
+- `living_doc_utilities/check/`: the authored-input check a caller runs before a merge, and its report → [CONTEXT.md](living_doc_utilities/check/CONTEXT.md)
+- `living_doc_utilities/policy.py`: the model of a project's `living-doc-policy.yaml`, shared by every living-doc gate, and the check's default fail list.
 - `living_doc_utilities/github/`: action input and output, the rate limiter and the call decorators → [CONTEXT.md](living_doc_utilities/github/CONTEXT.md)
 - `living_doc_utilities/inputs/`: `BaseActionInputs`, the input layer every consuming action subclasses.
 - `living_doc_utilities/logging_config.py`, `constants.py`: `setup_logging()` and the `GITHUB_TOKEN` input name.
@@ -26,7 +28,7 @@ Not responsible for: collecting, transforming or rendering documentation; the co
 
 ## How it fits together
 
-Dependencies run one way: the collector, toolkit and generator repositories import this library, and it imports none of them. Inside it, `authoring/` produces `contracts/` models, and `contracts/` never imports `authoring/`.
+Dependencies run one way: the collector, toolkit and generator repositories import this library, and it imports none of them. Inside it, `authoring/` produces `contracts/` models, and `contracts/` never imports `authoring/`. `check/` runs `authoring/` over a corpus; a consumer (`living-doc-collector-gh`'s `doc-check` mode) reads the files and prints its report.
 
 ## Contracts
 
@@ -43,7 +45,7 @@ Commands are in `AGENTS.md` "This project"; `make install` expects an active vir
 - Read the environment only in `logging_config.py::setup_logging`, `github/utils.py::get_action_input` and `github/utils.py::set_action_output`; `contracts/` and `authoring/` never read it.
 - No LLM call anywhere: the library is deterministic Python.
 - Never import from a collector, toolkit or generator package.
-- Import at module top. The only function-level imports are `nh3` in `authoring/url_policy.py` and `yaml` in `authoring/docs_export.py::_load_cases`, each with its inline `pylint: disable`. Add no other function-level import or inline lint disable.
+- Import at module top. The only function-level import is `nh3` in `authoring/url_policy.py`, with its inline `pylint: disable`. Add no other function-level import or inline lint disable.
 - Target Python 3.10: keep `X | Y` unions and `match` where they appear, and guard any 3.11+ standard-library use with `sys.version_info`.
 - Log with `logging` and lazy `%` formatting (`logger.info("msg %s", value)`); never `print`, never an f-string in a log call, and never a token or request headers.
 - Change an existing log text or error message only for a stated reason.
