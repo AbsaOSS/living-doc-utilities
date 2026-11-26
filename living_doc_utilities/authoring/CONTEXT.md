@@ -10,7 +10,7 @@ Not responsible for: fetching documents from a tracker. A parser sees document t
 
 ## How it fits
 
-- Entry points: the `frame_*` functions in `framing.py`, `normalize.py::normalize`, `ac_grammar.py::parse_acceptance_criteria`, the parsers in `issue_body.py`, `feature_header.py`, `page_object.py` and `scenario.py`, and `required_keys.py::REQUIRED_KEYS`, which no parser reads: only `check/` and `living-doc`'s corpus checker do.
+- Entry points: the `frame_*` functions in `framing.py`, `normalize.py::normalize`, `ac_grammar.py::parse_acceptance_criteria`, the parsers in `issue_body.py`, `feature_header.py`, `page_object.py` and `scenario.py`, and `required_keys.py::REQUIRED_KEYS` and `REQUIRED_TAGS`, which no parser reads: only `check/` and `living-doc`'s corpus checker do.
 - Depends on: `contracts/`; `nh3` (the `html` extra) only at call time.
 - Docs: [Authoring](../../docs/authoring.md); its pages' code map, fact by fact: [docs/authoring/CONTEXT.md](../../docs/authoring/CONTEXT.md)
 

@@ -16,7 +16,7 @@
 
 """Every code the check fails on by default has exactly one one-line fix hint."""
 
-from living_doc_utilities.check.hints import FIX_HINTS
+from living_doc_utilities.check.hints import FIX_HINTS, MISSING_TAG_HINT
 from living_doc_utilities.policy import DEFAULT_FAIL_CODES
 
 
@@ -29,3 +29,9 @@ def test_every_fix_hint_is_one_sentence_on_one_line():
     """Each hint is one non-empty line ending in a full stop, so it reads after a message on the same line."""
     for code, hint in FIX_HINTS.items():
         assert hint.strip() == hint and "\n" not in hint and hint.endswith("."), code
+
+
+def test_the_missing_tag_hint_is_one_sentence_on_one_line():
+    """The tag's own hint reads after a message on the same line, as every code's hint does."""
+    assert MISSING_TAG_HINT.strip() == MISSING_TAG_HINT and "\n" not in MISSING_TAG_HINT
+    assert MISSING_TAG_HINT.endswith(".")

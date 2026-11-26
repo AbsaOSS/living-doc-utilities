@@ -14,7 +14,10 @@
 # limitations under the License.
 #
 
-"""The one-line fix hint the check's report puts after each finding, one per code of the default fail list."""
+"""
+The one-line fix hint the check's report puts after each finding: one per code of the default fail list, and one for
+a missing feature-level tag.
+"""
 
 FIX_HINTS: dict[str, str] = {
     "AUTHORING_ERROR": "Keep the line inside the header, with its comment marker, under the key it belongs to.",
@@ -37,3 +40,6 @@ FIX_HINTS: dict[str, str] = {
     "UNPARSED_BULLET_LINE": "Start the field's text with a '- ' bullet.",
     "UNRESOLVED_RELATION": "Point the relation at an entity that exists, or restore the entity it names.",
 }
+
+# A missing feature-level tag is `MISSING_REQUIRED_KEY` too, but it is fixed above `Feature:`, outside the header.
+MISSING_TAG_HINT = "Add the tag above `Feature:`."

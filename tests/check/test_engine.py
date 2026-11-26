@@ -19,6 +19,8 @@
 import pytest
 
 from living_doc_utilities.check.engine import AuthoredFile, Finding, check
+from living_doc_utilities.check.report import format_line
+from tests.authoring.test_scenario import _FUNC_010
 
 _RULE = "# =============================================================================\n"
 _PO_RULE = " * =============================================================================\n"
@@ -29,7 +31,7 @@ def _us(entity="US-001", keys="# status: active\n# business_value:\n#   - Value.
     criteria = _AC.format(id=entity) if criteria is None else criteria
     return (
         f"{_RULE}# LIVING DOC — {entity} · Sample Story\n{_RULE}{keys}#\n# acceptance_criteria:\n#\n{criteria}{_RULE}"
-        f"\nFeature: Sample Story\n{body}"
+        f"@US_ID:{entity}\nFeature: Sample Story\n{body}"
     )
 
 
@@ -37,7 +39,7 @@ def _func(entity="FUNC-001", parent="FEAT-001", status="active"):
     keys = f"# status: {status}\n# parent: {parent}\n# func_type: component_action\n"
     return (
         f"{_RULE}# LIVING DOC — {entity} · Sample Functionality\n{_RULE}{keys}#\n# acceptance_criteria:\n#\n"
-        f"{_AC.format(id=entity)}{_RULE}\nFeature: Sample Functionality\n"
+        f"{_AC.format(id=entity)}{_RULE}@FUNC_ID:{entity}\nFeature: Sample Functionality\n"
     )
 
 
@@ -127,6 +129,34 @@ def test_the_issue_example_reports_the_malformed_criterion_and_its_dropped_lines
         ("func-008.feature", 18, "AUTHORING_WARNING"),
     ]
     assert findings[0].message.startswith("Acceptance criterion failed validation: state:")
+
+
+def _func_010(text):
+    """The findings for `text` as the testbed's changed FUNC-010 file, beside its Feature, FEAT-002."""
+    page = feat_file("MyLoansPage.ts", _feat("FEAT-002", functionalities="FUNC-010", user_stories="none"))
+    return check([page, func_file("func-010-total-fines-owed.feature", text)], {"func-010-total-fines-owed.feature"})
+
+
+@pytest.mark.parametrize(
+    "text, line",
+    [
+        (_FUNC_010.replace("@FUNC_ID:FUNC-010\n", ""), 22),
+        (_FUNC_010.replace("@FUNC_ID:FUNC-010", "@FUNC_ID:FUNC-01O"), 23),
+    ],
+)
+def test_the_issue_example_reports_the_missing_tag_on_the_feature_line(text, line):
+    """A deleted or mistyped `@FUNC_ID:` tag is `MISSING_REQUIRED_KEY` on the `Feature:` line, with the tag's hint."""
+    (finding,) = _func_010(text)
+
+    assert format_line(finding) == (
+        f"func-010-total-fines-owed.feature:{line}: MISSING_REQUIRED_KEY Required tag '@FUNC_ID:' is missing. "
+        "Fix: Add the tag above `Feature:`."
+    )
+
+
+def test_the_testbed_file_with_its_tag_has_no_finding():
+    """The testbed's FUNC-010 file as it is, tag and all, checks clean."""
+    assert _func_010(_FUNC_010) == []
 
 
 _BASE_KEYS = "# status: active\n# business_value:\n#   - Value.\n"

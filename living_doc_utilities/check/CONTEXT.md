@@ -24,3 +24,4 @@ Not responsible for: finding or reading the files, the exit code, printing, or r
 
 - Text in a finding is authored, so untrusted: `report.py` escapes it for each sink (one log line, workflow-command data and properties, Markdown cells), and the GitHub report prints the lines inside a `::stop-commands::` block with a fresh random token. Keep every new sink escaped.
 - GitHub shows at most 10 annotations per level per step and drops the rest silently: `report.py::_ANNOTATIONS_PER_LEVEL`.
+- A missing tag and a missing key share `MISSING_REQUIRED_KEY`; `report.py::_with_hint` gives the tag `hints.py::MISSING_TAG_HINT` by its message's opening, `Required tag `. Change that message in `required_keys.py::missing_required_tag` and the report together.

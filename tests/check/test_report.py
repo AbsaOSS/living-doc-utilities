@@ -20,7 +20,7 @@ import re
 
 from living_doc_utilities.check import report
 from living_doc_utilities.check.engine import Finding
-from living_doc_utilities.check.hints import FIX_HINTS
+from living_doc_utilities.check.hints import FIX_HINTS, MISSING_TAG_HINT
 from living_doc_utilities.policy import DEFAULT_FAIL_CODES
 
 _MALFORMED = Finding(
@@ -144,3 +144,12 @@ def test_a_job_summary_cell_shows_authored_text_literally():
     (row,) = [line for line in report.job_summary([finding], DEFAULT_FAIL_CODES).splitlines() if line[:3] == "| x"]
 
     assert "AC\\:\\<id\\> \\| \\[x\\]\\(y\\) \\*z\\* next\\." in row
+
+
+def test_a_missing_tag_gets_the_tag_hint_and_a_missing_key_the_key_hint():
+    """`MISSING_REQUIRED_KEY` covers a header key and a feature-level tag; each is fixed in its own place."""
+    tag = Finding("f.feature", 14, "MISSING_REQUIRED_KEY", "Required tag '@US_ID:' is missing.")
+    key = Finding("f.feature", 2, "MISSING_REQUIRED_KEY", "Required key 'status:' is missing.")
+
+    assert report.format_line(tag).endswith(f"is missing. Fix: {MISSING_TAG_HINT}")
+    assert report.format_line(key).endswith(f"is missing. Fix: {FIX_HINTS['MISSING_REQUIRED_KEY']}")

@@ -24,7 +24,8 @@ import secrets
 from typing import Collection, Iterable, Sequence
 
 from living_doc_utilities.check.engine import Finding
-from living_doc_utilities.check.hints import FIX_HINTS
+from living_doc_utilities.check.hints import FIX_HINTS, MISSING_TAG_HINT
+from living_doc_utilities.contracts.codes import Code
 
 _TITLE = "Living-doc check"
 
@@ -43,7 +44,9 @@ def _one_line(text: str) -> str:
 def _with_hint(finding: Finding) -> str:
     """The finding's message, closed as a sentence, then its fix hint."""
     message = finding.message if finding.message.endswith((".", "!", "?")) else f"{finding.message}."
-    hint = FIX_HINTS.get(finding.code)
+    # `required_keys.py::missing_required_tag` opens its message so; no authored text starts one.
+    missing_tag = finding.code == Code.MISSING_REQUIRED_KEY.name and finding.message.startswith("Required tag ")
+    hint = MISSING_TAG_HINT if missing_tag else FIX_HINTS.get(finding.code)
     return f"{message} Fix: {hint}" if hint else message
 
 

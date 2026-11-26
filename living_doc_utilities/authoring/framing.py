@@ -23,6 +23,7 @@ it, so no boundary is derived twice and no predicate reads a line's prose to fin
 import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from itertools import takewhile
 from typing import NamedTuple, Optional
 
 from living_doc_utilities.authoring.identity import _ENTITY_ID_RE, extract_living_doc_title
@@ -585,6 +586,26 @@ _DOCSTRING_DELIMITERS = ('"""', "```")
 def _gherkin_keyword(text: str) -> Optional[str]:
     """The section keyword `text` opens with, or None."""
     return next((name for name, keyword_re in _GHERKIN_SECTION_RES if keyword_re.match(text)), None)
+
+
+def feature_line(frame: Frame) -> Optional[FramedLine]:
+    """A `.feature` file's `Feature:` line, when it has one."""
+    index = _feature_line(frame.lines)
+    return None if index is None else frame.lines[index]
+
+
+def feature_tags(frame: Frame) -> list[str]:
+    """The tags above a `.feature` file's `Feature:` line: each whitespace-separated `@` token of a tag line, up to
+    the line's comment. A comment line is no tag line, so a commented-out tag is none."""
+    index = _feature_line(frame.lines)
+    above = [] if index is None else frame.lines[:index]
+    return [
+        token
+        for framed in above
+        if framed.raw.lstrip().startswith("@")
+        for token in takewhile(lambda token: not token.startswith("#"), framed.raw.split())
+        if token.startswith("@")
+    ]
 
 
 def feature_description(frame: Frame) -> list[FramedLine]:

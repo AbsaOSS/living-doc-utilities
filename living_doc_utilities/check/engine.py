@@ -28,7 +28,7 @@ from living_doc_utilities.authoring.issue_body import ParsedEntity
 from living_doc_utilities.authoring.normalize import SourceFormat, normalize_framed
 from living_doc_utilities.authoring.page_object import parse_page_object
 from living_doc_utilities.authoring.relations import check_relations
-from living_doc_utilities.authoring.required_keys import missing_required_keys
+from living_doc_utilities.authoring.required_keys import missing_required_keys, missing_required_tag
 from living_doc_utilities.authoring.scenario import parse_scenarios
 from living_doc_utilities.authoring.status import derive_statuses
 from living_doc_utilities.contracts.codes import Code
@@ -71,7 +71,8 @@ class _Parsed:
 
 
 def _parse(file: AuthoredFile) -> _Parsed:
-    """Reads one file with the parsers the collectors run for its entity type, then its missing required keys."""
+    """Reads one file with the parsers the collectors run for its entity type, then its missing required keys and,
+    for a `.feature` file, its missing tag."""
     parent_feat = None
     if file.entity_type == "DocumentedFeature":
         source_format = SourceFormat.PAGE_OBJECT
@@ -86,6 +87,8 @@ def _parse(file: AuthoredFile) -> _Parsed:
         entities = [] if parsed is None else [parsed]
     _, frame = normalize_framed(file.text, source_format, file.entity_type)
     warnings = warnings + missing_required_keys(frame, source_format, file.entity_type)
+    if source_format == SourceFormat.FEATURE_HEADER:
+        warnings = warnings + missing_required_tag(frame, file.entity_type)
     return _Parsed(file.path, entities, 1 if frame.title is None else frame.title.number, warnings, parent_feat)
 
 

@@ -86,7 +86,7 @@ What realises each fact of [authoring.md](authoring.md):
 - `contracts` never imports `authoring`; the dependency runs one way → `tests/authoring/test_isolation.py::test_contracts_imports_nothing_from_authoring`
 - Status and relations are settled once per run, over every parsed entity → `authoring/status.py::derive_statuses`
 - One URL policy serves every consumer → `authoring/url_policy.py::safe_href`
-- The parsers never report a missing required key; one table serves the check that does → `authoring/required_keys.py::REQUIRED_KEYS`
+- The parsers never report a missing required key or tag; the tables serve the check that does → `authoring/required_keys.py::REQUIRED_KEYS`, `authoring/required_keys.py::REQUIRED_TAGS`
 
 ### Check
 
@@ -102,6 +102,7 @@ What realises each fact of [check.md](check.md):
 - A changed path that is not a file, or a path given twice, raises `ValueError` → `check/engine.py::check`
 - One line per finding, a line break escaped → `check/report.py::format_line`
 - Every code of the default fail list has a fix hint → `tests/check/test_hints.py::test_every_default_fail_code_has_a_fix_hint_and_nothing_else_does`
+- A missing tag has its own hint → `check/hints.py::MISSING_TAG_HINT`, `check/report.py::_with_hint`
 - The findings fail when a code is in the fail list → `check/report.py::fails`
 - The GitHub Actions report: the shielded lines, the summary annotation, one annotation per finding → `check/report.py::github_report`
 - In Actions the caller prints the GitHub report as it is, and no finding line outside it → collectors
@@ -115,4 +116,9 @@ What realises each fact of [check.md](check.md):
 - The check never raises `UNKNOWN_SECTION` or `HTML_CONTENT_DROPPED`: it runs no issue-body parser → `check/engine.py::_parse`
 - One table holds every header's required keys → `authoring/required_keys.py::REQUIRED_KEYS`
 - A missing key is `MISSING_REQUIRED_KEY` on the title line → `authoring/required_keys.py::missing_required_keys`
+- A second table holds each `.feature` file's required tag → `authoring/required_keys.py::REQUIRED_TAGS`
+- A missing tag is `MISSING_REQUIRED_KEY` on the `Feature:` line, or the title line without one; checked for `.feature` files only → `authoring/required_keys.py::missing_required_tag`, `check/engine.py::_parse`
+- A tag whose value is no id of the entity type counts as missing → `tests/authoring/test_required_keys.py::test_a_tag_that_names_no_id_of_the_entity_type_counts_as_missing`
+- A tag below `Feature:` or inside a comment is no tag of the Feature → `authoring/framing.py::feature_tags`
+- A header that names no entity gets no tag finding → `tests/authoring/test_required_keys.py::test_a_header_without_an_entity_id_reports_no_missing_tag`
 - The example runs → `tests/docs/test_examples.py::test_python_example_runs`
