@@ -76,7 +76,7 @@ Kinds and emitters are the values of `CodeKind` and `Emitter`.
 | `AUTHORING_ERROR` | warning | collector | an authored line that breaks its header's format: no comment marker inside the header, a second line under a single-value key, an unclosed header, a key below it, an `AC:` header outside `acceptance_criteria:`, a header line between an early `*/` and the header's real end ([Parsers](../authoring/parsers.md#common-behaviour)) | line not read; parsing goes on |
 | `TEMPLATE_KEY_MISSING` | error | generator | a template misses a required key | run fails |
 | `URL_FETCH_REFUSED` | warning | generator | the renderer refused to fetch an image or URL outside the template's own directory | logged; not fatal |
-| `MISSING_REQUIRED_KEY` | warning | check | a header without a key its format requires ([Required keys](../check.md#required-keys)) | the [check](../check.md) reports it on the header's title line |
+| `MISSING_REQUIRED_KEY` | warning | check | a header without a key its format requires, or a `.feature` file without its `@US_ID` or `@FUNC_ID` tag ([Required keys](../check.md#required-keys)) | the [check](../check.md) reports a key on the header's title line, a tag on the `Feature:` line |
 
 - Generators read through `read_artifact`, so R5's three errors apply to them unchanged
 - `TEMPLATE_KEY_MISSING` is never rendered as an empty section → generators

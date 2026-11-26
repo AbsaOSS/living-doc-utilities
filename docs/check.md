@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This page defines the authored-input check: what it reports, its report, the policy file and the required keys. A
-caller, such as `living-doc-collector-gh`'s `doc-check` mode, runs it in a pull request.
+This page defines the authored-input check: what it reports, its report, the policy file and the required keys and
+tags. A caller, such as `living-doc-collector-gh`'s `doc-check` mode, runs it in a pull request.
 
 Read before: [Authoring](authoring.md) · Next: [Errors and warnings](contracts/errors.md)
 
@@ -38,6 +38,8 @@ It is a library: the caller reads the files, prints the report and sets the exit
 
 - One line per finding: `<path>:<line>: <CODE> <message> Fix: <hint>`; a line break in it is escaped
 - Every code of the default fail list has a one-line fix hint
+- A missing tag has its own hint: add the tag above `Feature:`
+  - Why: it shares `MISSING_REQUIRED_KEY` with a missing key, but it sits outside the header.
 - The findings fail when one of their codes is in the fail list
 - The GitHub Actions report, which the caller prints:
   1. the lines, between `::stop-commands::<token>` and `::<token>::`, so authored text runs no workflow command
@@ -85,6 +87,20 @@ key as `MISSING_REQUIRED_KEY`, on the header's title line.
 | Functionality issue body | `## Description`, `## Status`, `## Parent Feature`, `## Func Type`, `## Acceptance Criteria` |
 
 - The check reads `.feature` and PageObject headers only; the issue-body rows serve the readers of issue bodies
+
+A second table holds the tag each `.feature` file must carry on a tag line above `Feature:`. The check reports a
+missing tag as `MISSING_REQUIRED_KEY`, on the `Feature:` line.
+
+| File | Required tag |
+|---|---|
+| User Story `.feature` | `@US_ID:<id>`, a User Story id such as `US-001` |
+| Functionality `.feature` | `@FUNC_ID:<id>`, a Functionality id such as `FUNC-001` |
+
+- A tag whose value is no id of the file's entity type counts as missing
+- A tag below `Feature:`, or inside a comment, is no tag of the Feature
+- A file with no `Feature:` line gets the finding on the header's title line
+- A header that names no entity gets no tag finding, as it gets no key finding
+  - Why: the parser reports `MISSING_ENTITY_ID` for it already.
 
 ## Example
 

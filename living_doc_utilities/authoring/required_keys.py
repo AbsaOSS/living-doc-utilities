@@ -15,12 +15,15 @@
 #
 
 """
-The one table of the keys each authored header must carry, and the check that reports a missing one. The parsers
-stay lenient and never read this table; the authored-input check and `living-doc`'s corpus checker do.
+The tables of the keys each authored header must carry and of the tag each `.feature` file must carry, and the checks
+that report a missing one. The parsers stay lenient and never read them; the authored-input check and `living-doc`'s
+corpus checker do.
 """
 
+from typing import Optional
+
 from living_doc_utilities.authoring.accounting import located
-from living_doc_utilities.authoring.framing import Frame, sections
+from living_doc_utilities.authoring.framing import Frame, feature_line, feature_tags, sections
 from living_doc_utilities.authoring.identity import derive_entity_id, extract_living_doc_title
 from living_doc_utilities.authoring.normalize import SourceFormat
 from living_doc_utilities.contracts.codes import Code
@@ -58,6 +61,22 @@ REQUIRED_KEYS: dict[SourceFormat, dict[str, tuple[str, ...]]] = {
     },
 }
 
+# Entity type -> the feature-level tag its `.feature` file must carry above `Feature:`, as authored, and the id type
+# its value names.
+REQUIRED_TAGS: dict[str, tuple[str, str]] = {
+    "DocumentedUserStory": ("@US_ID:", "US"),
+    "DocumentedFunctionality": ("@FUNC_ID:", "FUNC"),
+}
+
+
+def _named_entity(frame: Frame) -> Optional[tuple[str, int]]:
+    """The entity id the header's title line names and that line's number, or None when it names none."""
+    if frame.title is None:
+        return None
+    title = extract_living_doc_title([frame.title.line.raw])
+    entity_id = None if title is None else derive_entity_id(title)[0]
+    return None if entity_id is None else (entity_id, frame.title.number)
+
 
 def missing_required_keys(frame: Frame, source_format: SourceFormat, entity_type: DocType) -> list[ContractWarning]:
     """`MISSING_REQUIRED_KEY` for each required key a `.feature` or PageObject header's `frame` lacks, in the table's
@@ -67,18 +86,15 @@ def missing_required_keys(frame: Frame, source_format: SourceFormat, entity_type
         raise ValueError(f"missing_required_keys reads a .feature or PageObject header, not {source_format.value}")
     if entity_type not in REQUIRED_KEYS[source_format]:
         raise ValueError(f"a {source_format.value} header never carries a {entity_type}")
-    if frame.title is None:
+    named = _named_entity(frame)
+    if named is None:
         return []
-    title = extract_living_doc_title([frame.title.line.raw])
-    entity_id = None if title is None else derive_entity_id(title)[0]
-    if entity_id is None:
-        return []
+    entity_id, number = named
 
     present = {section.name for section in sections(frame)}
     header: str = entity_type
     if source_format == SourceFormat.PAGE_OBJECT and "parent-feat" in present:
         header = CROSS_REFERENCE
-    number = frame.title.number
     return [
         located(
             Code.MISSING_REQUIRED_KEY,
@@ -89,4 +105,33 @@ def missing_required_keys(frame: Frame, source_format: SourceFormat, entity_type
         )
         for key in REQUIRED_KEYS[source_format][header]
         if key not in present
+    ]
+
+
+def missing_required_tag(frame: Frame, entity_type: DocType) -> list[ContractWarning]:
+    """`MISSING_REQUIRED_KEY` when no tag above a `.feature` file's `Feature:` line is its entity type's required tag
+    naming an id of that type, on the `Feature:` line (the title line without one). `frame` is the file's header frame.
+    `[]` when the header names no entity: the parser reports `MISSING_ENTITY_ID` then.
+    @raises ValueError: for an entity type a `.feature` file never carries."""
+    if entity_type not in REQUIRED_TAGS:
+        raise ValueError(f"a .feature file never carries a {entity_type}")
+    named = _named_entity(frame)
+    if named is None:
+        return []
+    entity_id, title_number = named
+
+    tag, id_type = REQUIRED_TAGS[entity_type]
+    values = [token[len(tag) :] for token in feature_tags(frame) if token.startswith(tag)]
+    if any(derive_entity_id(value)[0] == value and value.startswith(f"{id_type}-") for value in values):
+        return []
+    feature = feature_line(frame)
+    number = title_number if feature is None else feature.number
+    return [
+        located(
+            Code.MISSING_REQUIRED_KEY,
+            f"Required tag '{tag}' is missing.",
+            f"entity_id={entity_id!r} tag={tag!r} line_no={number}",
+            entity_id,
+            number,
+        )
     ]

@@ -52,13 +52,13 @@ table complete.
 | `authoring.identity` | `derive_entity_id()`, `extract_living_doc_title()` | none |
 | `authoring.status` | `derive_statuses()` | none |
 | `authoring.relations` | `check_relations()` | none |
-| `authoring.required_keys` | `REQUIRED_KEYS`, the one table of each header's required keys; `missing_required_keys()` | none |
+| `authoring.required_keys` | `REQUIRED_KEYS`, the one table of each header's required keys; `REQUIRED_TAGS`, the tag each `.feature` file requires; `missing_required_keys()`, `missing_required_tag()` | none |
 | `authoring.url_policy` | `safe_href()`, `sanitize_html_fragment()` | `html`, to call `sanitize_html_fragment()` |
 | `authoring.html_to_markdown` | `convert_html_to_markdown()` | `html`, to call it |
 | `authoring.docs_export` | regenerates this repository's worked-examples table; not for consumers | none |
 | `check.engine` | the authored-input check: `check()`, `AuthoredFile`, `Finding` → [Check](check.md) | none |
 | `check.report` | the check's report: `format_line()`, `github_report()`, `job_summary()`, `fails()` | none |
-| `check.hints` | `FIX_HINTS`, one fix hint per code of the default fail list | none |
+| `check.hints` | `FIX_HINTS`, one fix hint per code of the default fail list; `MISSING_TAG_HINT`, the hint for a missing tag | none |
 | `policy` | the policy file's model: `Policy`, `load_policy()`, `DEFAULT_FAIL_CODES`, `POLICY_FILE` | none |
 | `github.utils` | `get_action_input()`, `set_action_output()` | none |
 | `github.rate_limiter` | `GithubRateLimiter` | `github` |
